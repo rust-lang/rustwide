@@ -1,4 +1,5 @@
 use failure::Error;
+use log::LevelFilter;
 use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace, WorkspaceBuilder};
 use std::borrow::Cow;
 use std::path::Path;
@@ -10,7 +11,7 @@ static TOOLCHAIN: Toolchain = Toolchain::Dist {
 };
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Error>) {
-    rustwide::logging::init();
+    init_logs();
     let mut runner = Runner::new(crate_name).unwrap();
     f(&mut runner).unwrap();
 }
@@ -49,6 +50,15 @@ impl Runner {
         dir.purge()?;
         dir.build(self.toolchain, &self.krate, sandbox, f)
     }
+}
+
+fn init_logs() {
+    let env = env_logger::Builder::new()
+        .filter_module("rustwide", LevelFilter::Info)
+        .default_format_timestamp(false)
+        .is_test(true)
+        .build();
+    rustwide::logging::init_with(env);
 }
 
 macro_rules! test_prepare_error {
