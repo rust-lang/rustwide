@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@master
+
+      - name: Install Rust stable
+        run: |
+          rustup toolchain update stable
+          rustup toolchain default stable
+          rustup component add clippy rustfmt
+
+      - name: Run rustfmt
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all -- -Dwarnings
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@master
+
+      - name: Install Rust stable
+        run: |
+          rustup toolchain update stable
+          rustup toolchain default stable
+
+      - name: Build rustwide
+        run: cargo build --all
+
+      - name: Test rustwide
+        run: cargo test --all
