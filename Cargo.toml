@@ -5,6 +5,12 @@ authors = ["Pietro Albini <pietro@pietroalbini.org>"]
 edition = "2018"
 build = "build.rs"
 
+documentation = "https://docs.rs/rustwide"
+repository = "https://github.com/rust-lang/rustwide"
+description = "Execute your code on the Rust ecosystem."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
