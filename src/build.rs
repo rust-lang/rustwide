@@ -32,11 +32,20 @@ impl BuildDirectory {
     /// # Example
     ///
     /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&krate, &toolchain, sandbox, |build| {
+    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(
         &mut self,
@@ -105,11 +114,20 @@ impl Build<'_> {
     /// # Example
     ///
     /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&krate, &toolchain, sandbox, |build| {
-    ///     build.cmd("rustfmt").args(&["--check"]).args("src/main.rs").run()?;
+    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
+    ///     build.cmd("rustfmt").args(&["--check", "src/main.rs"]).run()?;
     ///     Ok(())
     /// })?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn cmd<R: Runnable>(&self, bin: R) -> Command {
         let container_dir = &*crate::cmd::container_dirs::TARGET_DIR;
@@ -133,11 +151,20 @@ impl Build<'_> {
     /// # Example
     ///
     /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&krate, &toolchain, sandbox, |build| {
+    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn cargo(&self) -> Command {
         self.cmd(self.toolchain.cargo())

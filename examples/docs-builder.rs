@@ -38,7 +38,7 @@ fn setup_logs() {
     let mut env = env_logger::Builder::new();
     env.filter_module("rustwide", log::LevelFilter::Info);
     if let Ok(content) = std::env::var("RUST_LOG") {
-        env.parse(&content);
+        env.parse_filters(&content);
     }
     rustwide::logging::init_with(env.build());
 }

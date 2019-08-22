@@ -79,10 +79,16 @@ impl Toolchain {
     /// # Example
     ///
     /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// let toolchain = Toolchain::Dist { name: "beta".into() };
-    /// Command::new(workspace, toolchain.cargo())
+    /// Command::new(&workspace, toolchain.cargo())
     ///     .args(&["check"])
     ///     .run()?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn cargo<'a>(&'a self) -> impl Runnable + 'a {
         struct CargoBin<'a>(&'a Toolchain);

@@ -213,15 +213,21 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// This example builds a crate and detects compiler errors (ICEs):
     ///
     /// ```no_run
+    /// # use rustwide::{cmd::Command, WorkspaceBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// let mut ice = false;
-    /// Command::new(workspace, "cargo")
+    /// Command::new(&workspace, "cargo")
     ///     .args(&["build", "--all"])
-    ///     .process_lines(|line| {
+    ///     .process_lines(&mut |line| {
     ///         if line.contains("internal compiler error") {
     ///             ice = true;
     ///         }
     ///     })
     ///     .run()?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str)) -> Self {
         self.process_lines = Some(f);

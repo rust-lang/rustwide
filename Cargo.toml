@@ -28,4 +28,4 @@ walkdir = "2.2"
 toml = "0.4.6"
 
 [dev-dependencies]
-env_logger = "0.6.0"
+env_logger = "0.6.1"
