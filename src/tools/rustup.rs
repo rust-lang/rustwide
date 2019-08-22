@@ -33,7 +33,7 @@ impl Tool for Rustup {
         Ok(crate::native::is_executable(path)?)
     }
 
-    fn install(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn install(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
         fs::create_dir_all(workspace.cargo_home())?;
         fs::create_dir_all(workspace.rustup_home())?;
 
@@ -75,7 +75,7 @@ impl Tool for Rustup {
         Ok(())
     }
 
-    fn update(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn update(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
         Command::new(workspace, &RUSTUP)
             .args(&["self", "update"])
             .run()

@@ -40,15 +40,18 @@ impl Tool for BinaryCrate {
         Ok(crate::native::is_executable(path)?)
     }
 
-    fn install(&self, workspace: &Workspace) -> Result<(), Error> {
-        Command::new(workspace, &Toolchain::MAIN.cargo())
+    fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error> {
+        let mut cmd = Command::new(workspace, &Toolchain::MAIN.cargo())
             .args(&["install", self.crate_name])
-            .timeout(None)
-            .run()?;
+            .timeout(None);
+        if fast_install {
+            cmd = cmd.args(&["--debug"]);
+        }
+        cmd.run()?;
         Ok(())
     }
 
-    fn update(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn update(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
         Command::new(workspace, &CARGO_INSTALL_UPDATE)
             .args(&[self.crate_name])
             .timeout(None)

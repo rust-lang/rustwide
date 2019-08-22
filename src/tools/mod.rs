@@ -32,18 +32,18 @@ static INSTALLABLE_TOOLS: &[&dyn Tool] = &[
 trait Tool: Send + Sync {
     fn name(&self) -> &'static str;
     fn is_installed(&self, workspace: &Workspace) -> Result<bool, Error>;
-    fn install(&self, workspace: &Workspace) -> Result<(), Error>;
-    fn update(&self, workspace: &Workspace) -> Result<(), Error>;
+    fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error>;
+    fn update(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error>;
 }
 
-pub(crate) fn install(workspace: &Workspace) -> Result<(), Error> {
+pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> Result<(), Error> {
     for tool in INSTALLABLE_TOOLS {
         if tool.is_installed(workspace)? {
             info!("tool {} is installed, trying to update it", tool.name());
-            tool.update(workspace)?;
+            tool.update(workspace, fast_install)?;
         } else {
             info!("tool {} is missing, installing it", tool.name());
-            tool.install(workspace)?;
+            tool.install(workspace, fast_install)?;
 
             if !tool.is_installed(workspace)? {
                 bail!("tool {} is still missing after install", tool.name());

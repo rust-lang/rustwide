@@ -26,7 +26,9 @@ pub(crate) struct Runner {
 impl Runner {
     fn new(crate_name: &str) -> Result<Self, Error> {
         let workspace_path = std::env::temp_dir().join(WORKSPACE_TEMP_DIR_NAME);
-        let workspace = WorkspaceBuilder::new(&workspace_path, USER_AGENT).init()?;
+        let workspace = WorkspaceBuilder::new(&workspace_path, USER_AGENT)
+            .fast_init(true)
+            .init()?;
         let krate = Crate::local(
             &Path::new("tests")
                 .join("buildtest")

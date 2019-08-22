@@ -23,6 +23,7 @@ pub struct WorkspaceBuilder {
     sandbox_image: Option<SandboxImage>,
     command_timeout: Option<Duration>,
     command_no_output_timeout: Option<Duration>,
+    fast_init: bool,
 }
 
 impl WorkspaceBuilder {
@@ -37,6 +38,7 @@ impl WorkspaceBuilder {
             sandbox_image: None,
             command_timeout: DEFAULT_COMMAND_TIMEOUT,
             command_no_output_timeout: DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT,
+            fast_init: false,
         }
     }
 
@@ -67,6 +69,18 @@ impl WorkspaceBuilder {
     /// disable the timeout set its value to `None`. By default it's disabled.
     pub fn command_no_output_timeout(mut self, timeout: Option<Duration>) -> Self {
         self.command_no_output_timeout = timeout;
+        self
+    }
+
+    /// Enable or disable fast workspace initialization (disabled by default).
+    ///
+    /// Fast workspace initialization will change the initialization process to prefer
+    /// initialization speed to runtime performance, for example by installing the tools rustwide
+    /// needs in debug mode instead of release mode. It's not recommended to enable fast workspace
+    /// initialization with production workloads, but it can help in CIs or other automated testing
+    /// scenarios.
+    pub fn fast_init(mut self, enable: bool) -> Self {
+        self.fast_init = enable;
         self
     }
 
@@ -102,7 +116,7 @@ impl WorkspaceBuilder {
                     command_no_output_timeout: self.command_no_output_timeout,
                 }),
             };
-            ws.init()?;
+            ws.init(self.fast_init)?;
             Ok(ws)
         })
     }
@@ -172,9 +186,9 @@ impl Workspace {
         self.inner.command_no_output_timeout
     }
 
-    fn init(&self) -> Result<(), Error> {
+    fn init(&self, fast_init: bool) -> Result<(), Error> {
         info!("installing tools required by rustwide");
-        crate::tools::install(self)?;
+        crate::tools::install(self, fast_init)?;
         info!("updating the local crates.io registry clone");
         self.update_cratesio_registry()?;
         Ok(())
