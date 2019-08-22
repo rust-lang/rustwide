@@ -1,5 +1,37 @@
+use failure::Error;
+use fs2::FileExt;
 use log::warn;
+use std::fs::OpenOptions;
 use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
+
+pub(crate) fn file_lock<T>(
+    path: &Path,
+    msg: &str,
+    f: impl FnOnce() -> Result<T, Error> + std::panic::UnwindSafe,
+) -> Result<T, Error> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)?;
+
+    let mut message_displayed = false;
+    while let Err(err) = file.try_lock_exclusive() {
+        if !message_displayed && err.kind() == fs2::lock_contended_error().kind() {
+            warn!("blocking on other processes finishing to {}", msg);
+            message_displayed = true;
+        }
+        file.lock_exclusive()?;
+    }
+
+    let res = std::panic::catch_unwind(f);
+    let _ = file.unlock();
+
+    match res {
+        Ok(res) => res,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+}
 
 /// If a prefix uses the extended-length syntax (`\\?\`), return the equivalent version without it.
 ///

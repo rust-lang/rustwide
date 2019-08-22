@@ -80,29 +80,31 @@ impl WorkspaceBuilder {
             )
         })?;
 
-        let sandbox_image = if let Some(img) = self.sandbox_image {
-            img
-        } else {
-            SandboxImage::remote(DEFAULT_SANDBOX_IMAGE)?
-        };
+        crate::utils::file_lock(&self.path.join("lock"), "initialize the workspace", || {
+            let sandbox_image = if let Some(img) = self.sandbox_image {
+                img
+            } else {
+                SandboxImage::remote(DEFAULT_SANDBOX_IMAGE)?
+            };
 
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(reqwest::header::USER_AGENT, self.user_agent.parse()?);
-        let http = reqwest::ClientBuilder::new()
-            .default_headers(headers)
-            .build()?;
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert(reqwest::header::USER_AGENT, self.user_agent.parse()?);
+            let http = reqwest::ClientBuilder::new()
+                .default_headers(headers)
+                .build()?;
 
-        let ws = Workspace {
-            inner: Arc::new(WorkspaceInner {
-                http,
-                path: self.path,
-                sandbox_image,
-                command_timeout: self.command_timeout,
-                command_no_output_timeout: self.command_no_output_timeout,
-            }),
-        };
-        ws.init()?;
-        Ok(ws)
+            let ws = Workspace {
+                inner: Arc::new(WorkspaceInner {
+                    http,
+                    path: self.path,
+                    sandbox_image,
+                    command_timeout: self.command_timeout,
+                    command_no_output_timeout: self.command_no_output_timeout,
+                }),
+            };
+            ws.init()?;
+            Ok(ws)
+        })
     }
 }
 
