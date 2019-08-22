@@ -118,7 +118,7 @@ impl<'a, B: Runnable> Runnable for &'a B {
 ///
 /// [std]: https://doc.rust-lang.org/std/process/struct.Command.html
 pub struct Command<'w, 'pl> {
-    workspace: &'w Workspace,
+    workspace: Option<&'w Workspace>,
     sandbox: Option<SandboxBuilder>,
     binary: Binary,
     args: Vec<OsString>,
@@ -133,7 +133,7 @@ pub struct Command<'w, 'pl> {
 impl<'w, 'pl> Command<'w, 'pl> {
     /// Create a new, unsandboxed command.
     pub fn new<R: Runnable>(workspace: &'w Workspace, binary: R) -> Self {
-        binary.prepare_command(Self::new_inner(binary.name(), workspace, None))
+        binary.prepare_command(Self::new_inner(binary.name(), Some(workspace), None))
     }
 
     /// Create a new, sandboxed command.
@@ -142,14 +142,30 @@ impl<'w, 'pl> Command<'w, 'pl> {
         sandbox: SandboxBuilder,
         binary: R,
     ) -> Self {
-        binary.prepare_command(Self::new_inner(binary.name(), workspace, Some(sandbox)))
+        binary.prepare_command(Self::new_inner(
+            binary.name(),
+            Some(workspace),
+            Some(sandbox),
+        ))
+    }
+
+    pub(crate) fn new_workspaceless<R: Runnable>(binary: R) -> Self {
+        binary.prepare_command(Self::new_inner(binary.name(), None, None))
     }
 
     fn new_inner(
         binary: Binary,
-        workspace: &'w Workspace,
+        workspace: Option<&'w Workspace>,
         sandbox: Option<SandboxBuilder>,
     ) -> Self {
+        let (timeout, no_output_timeout) = if let Some(workspace) = workspace {
+            (
+                workspace.default_command_timeout(),
+                workspace.default_command_no_output_timeout(),
+            )
+        } else {
+            (None, None)
+        };
         Command {
             workspace,
             sandbox,
@@ -158,8 +174,8 @@ impl<'w, 'pl> Command<'w, 'pl> {
             env: Vec::new(),
             process_lines: None,
             cd: None,
-            timeout: workspace.default_command_timeout(),
-            no_output_timeout: workspace.default_command_no_output_timeout(),
+            timeout,
+            no_output_timeout,
             log_output: true,
         }
     }
@@ -262,6 +278,9 @@ impl<'w, 'pl> Command<'w, 'pl> {
 
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, Error> {
         if let Some(mut builder) = self.sandbox {
+            let workspace = self
+                .workspace
+                .expect("sandboxed builds without a workspace are not supported");
             let binary = match self.binary {
                 Binary::Global(path) => path,
                 Binary::ManagedByRustwide(path) => {
@@ -300,19 +319,19 @@ impl<'w, 'pl> Command<'w, 'pl> {
 
             builder = builder
                 .mount(
-                    &self.workspace.cargo_home(),
+                    &workspace.cargo_home(),
                     &*container_dirs::CARGO_HOME,
                     MountKind::ReadOnly,
                 )
                 .mount(
-                    &self.workspace.rustup_home(),
+                    &workspace.rustup_home(),
                     &*container_dirs::RUSTUP_HOME,
                     MountKind::ReadOnly,
                 )
                 .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
                 .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap());
 
-            builder.run(self.workspace, self.timeout, self.no_output_timeout)?;
+            builder.run(workspace, self.timeout, self.no_output_timeout)?;
             Ok(ProcessOutput {
                 stdout: Vec::new(),
                 stderr: Vec::new(),
@@ -322,6 +341,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 Binary::Global(path) => (path, false),
                 Binary::ManagedByRustwide(path) => (
                     self.workspace
+                        .expect("calling rustwide bins without a workspace is not supported")
                         .cargo_home()
                         .join("bin")
                         .join(exe_suffix(path.as_os_str())),
@@ -333,14 +353,15 @@ impl<'w, 'pl> Command<'w, 'pl> {
             cmd.args(&self.args);
 
             if managed_by_rustwide {
-                let cargo_home = self
+                let workspace = self
                     .workspace
+                    .expect("calling rustwide bins without a workspace is not supported");
+                let cargo_home = workspace
                     .cargo_home()
                     .to_str()
                     .expect("bad cargo home")
                     .to_string();
-                let rustup_home = self
-                    .workspace
+                let rustup_home = workspace
                     .rustup_home()
                     .to_str()
                     .expect("bad rustup home")

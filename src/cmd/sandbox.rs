@@ -5,7 +5,6 @@ use log::{error, info};
 use serde::Deserialize;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::process::Command as StdCommand;
 use std::time::Duration;
 
 /// The Docker image used for sandboxing.
@@ -31,22 +30,19 @@ impl SandboxImage {
     pub fn remote(name: &str) -> Result<Self, Error> {
         let image = SandboxImage { name: name.into() };
         info!("pulling image {} from Docker Hub", name);
-        let status = StdCommand::new("docker").args(&["pull", &name]).status()?;
-        if !status.success() {
-            failure::bail!("failed to pull image {} from Docker Hub", name);
-        }
+        Command::new_workspaceless("docker")
+            .args(&["pull", &name])
+            .run()?;
         image.ensure_exists_locally()?;
         Ok(image)
     }
 
     fn ensure_exists_locally(&self) -> Result<(), Error> {
         info!("checking the image {} is available locally", self.name);
-        let out = StdCommand::new("docker")
+        Command::new_workspaceless("docker")
             .args(&["image", "inspect", &self.name])
-            .output()?;
-        if !out.status.success() {
-            failure::bail!("the docker image {} is not available locally", self.name);
-        }
+            .log_output(false)
+            .run()?;
         Ok(())
     }
 }
