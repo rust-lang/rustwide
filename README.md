@@ -1,6 +1,6 @@
-# rustwide
+# Rustwide
 
-rustwide is a library to execute your code against the Rust ecosystem, powering
+Rustwide is a library to execute your code on the Rust ecosystem, powering
 projects like [Crater] and [docs.rs]. It features:
 
 * Linux and Windows support.
@@ -9,10 +9,10 @@ projects like [Crater] and [docs.rs]. It features:
 * [Curated build environment][build-env] to build a large part of the
   ecosystem, built from the experience gathered running [Crater] and [docs.rs].
 
-rustwide was originally part of the [Crater] project, and it was extracted to
+Rustwide was originally part of the [Crater] project, and it was extracted to
 let the whole community benefit from it.
 
-rustwide is licensed under both the MIT and Apache 2.0 licenses, allowing you
+Rustwide is licensed under both the MIT and Apache 2.0 licenses, allowing you
 to choose which one to adhere to.
 
 [Crater]: https://github.com/rust-lang/crater
