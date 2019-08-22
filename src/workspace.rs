@@ -145,11 +145,11 @@ impl Workspace {
     }
 
     pub(crate) fn cargo_home(&self) -> PathBuf {
-        self.inner.path.join("local").join("cargo-home")
+        self.inner.path.join("cargo-home")
     }
 
     pub(crate) fn rustup_home(&self) -> PathBuf {
-        self.inner.path.join("local").join("rustup-home")
+        self.inner.path.join("rustup-home")
     }
 
     pub(crate) fn cache_dir(&self) -> PathBuf {
