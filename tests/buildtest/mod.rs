@@ -1,6 +1,6 @@
 use failure::Error;
 use log::LevelFilter;
-use rustwide::cmd::{CommandError, SandboxBuilder};
+use rustwide::cmd::SandboxBuilder;
 
 #[macro_use]
 mod runner;
@@ -25,6 +25,8 @@ fn test_hello_world() {
 #[test]
 #[cfg(not(windows))]
 fn test_sandbox_oom() {
+    use rustwide::cmd::CommandError;
+
     runner::run("out-of-memory", |run| {
         let res = run.build(
             SandboxBuilder::new()

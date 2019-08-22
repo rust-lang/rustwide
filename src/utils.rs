@@ -89,7 +89,7 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(windows)]
 mod windows_tests {
     use super::*;
-    use std::Path;
+    use std::path::Path;
 
     #[test]
     fn strip_verbatim() {
