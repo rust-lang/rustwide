@@ -1,7 +1,7 @@
 use crate::cmd::{Binary, Command, Runnable};
 use crate::tools::{RUSTUP, RUSTUP_TOOLCHAIN_INSTALL_MASTER};
 use crate::Workspace;
-use failure::{Error, ResultExt};
+use failure::{bail, Error, ResultExt};
 use log::info;
 use std::borrow::Cow;
 
@@ -53,21 +53,38 @@ impl Toolchain {
         Ok(())
     }
 
-    /// Download and install a rustup component in the toolchain.
+    /// Download and install a component for the toolchain.
     pub fn add_component(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+        self.add_rustup_thing(workspace, "component", name)
+    }
+
+    /// Download and install a target for the toolchain.
+    pub fn add_target(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+        self.add_rustup_thing(workspace, "target", name)
+    }
+
+    fn add_rustup_thing(
+        &self,
+        workspace: &Workspace,
+        thing: &str,
+        name: &str,
+    ) -> Result<(), Error> {
+        if let Self::CI { .. } = self {
+            bail!("installing {} on CI toolchains is not supported yet", thing);
+        }
         let toolchain_name = self.rustup_name();
         info!(
-            "installing component {} for toolchain {}",
-            name, toolchain_name
+            "installing {} {} for toolchain {}",
+            thing, name, toolchain_name
         );
 
         Command::new(workspace, &RUSTUP)
-            .args(&["component", "add", "--toolchain", &toolchain_name, name])
+            .args(&[thing, "add", "--toolchain", &toolchain_name, name])
             .run()
             .with_context(|_| {
                 format!(
-                    "unable to install component {} for toolchain {} via rustup",
-                    name, toolchain_name,
+                    "unable to install {} {} for toolchain {} via rustup",
+                    thing, name, toolchain_name,
                 )
             })?;
         Ok(())
