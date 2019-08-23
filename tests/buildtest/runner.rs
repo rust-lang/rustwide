@@ -4,7 +4,6 @@ use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace, Workspac
 use std::borrow::Cow;
 use std::path::Path;
 
-static WORKSPACE_TEMP_DIR_NAME: &str = "rustwide-buildtest-workspace";
 static USER_AGENT: &str = "rustwide-buildtest (https://github.com/rust-lang/rustwide)";
 static TOOLCHAIN: Toolchain = Toolchain::Dist {
     name: Cow::Borrowed("stable"),
@@ -25,7 +24,7 @@ pub(crate) struct Runner {
 
 impl Runner {
     fn new(crate_name: &str) -> Result<Self, Error> {
-        let workspace_path = std::env::temp_dir().join(WORKSPACE_TEMP_DIR_NAME);
+        let workspace_path = Path::new(".workspaces").join("buildtest");
         let workspace = WorkspaceBuilder::new(&workspace_path, USER_AGENT)
             .fast_init(true)
             .init()?;

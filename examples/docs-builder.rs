@@ -6,9 +6,9 @@ use std::path::Path;
 fn main() -> Result<(), Box<dyn Error>> {
     setup_logs();
 
-    // Create a new workspace in work/
+    // Create a new workspace in .workspaces/docs-builder
     let workspace =
-        WorkspaceBuilder::new(Path::new("/tmp/docs-builder"), "rustwide-examples").init()?;
+        WorkspaceBuilder::new(Path::new(".workspaces/docs-builder"), "rustwide-examples").init()?;
 
     // Run the builds on stable
     let toolchain = Toolchain::Dist {
