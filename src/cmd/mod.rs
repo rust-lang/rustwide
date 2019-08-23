@@ -26,12 +26,12 @@ pub(crate) mod container_dirs {
 
     #[cfg(windows)]
     lazy_static! {
-        pub(super) static ref ROOT_DIR: PathBuf = Path::new(r"C:\crater").into();
+        pub(super) static ref ROOT_DIR: PathBuf = Path::new(r"C:\rustwide").into();
     }
 
     #[cfg(not(windows))]
     lazy_static! {
-        pub(super) static ref ROOT_DIR: PathBuf = Path::new("/opt/crater").into();
+        pub(super) static ref ROOT_DIR: PathBuf = Path::new("/opt/rustwide").into();
     }
 
     lazy_static! {
