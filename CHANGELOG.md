@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `Toolchain::uninstall` to remove a previously installed toolchain.
+
 ### Changed
 
 - The base path of mounts inside the sandbox is now `/opt/rustwide` on Linux

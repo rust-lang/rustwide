@@ -90,6 +90,16 @@ impl Toolchain {
         Ok(())
     }
 
+    /// Remove the toolchain from the rustwide workspace, freeing up disk space.
+    pub fn uninstall(&self, workspace: &Workspace) -> Result<(), Error> {
+        let name = self.rustup_name();
+        Command::new(workspace, &RUSTUP)
+            .args(&["toolchain", "uninstall", &name])
+            .run()
+            .with_context(|_| format!("unable to uninstall toolchain {} via rustup", name))?;
+        Ok(())
+    }
+
     /// Return a runnable object configured to run `cargo` with this toolchain. This method is
     /// intended to be used with [`rustwide::cmd::Command`](cmd/struct.Command.html).
     ///
