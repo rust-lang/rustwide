@@ -37,6 +37,8 @@ pub enum Toolchain {
         /// compiler assertions enabled.
         alt: bool,
     },
+    #[doc(hidden)]
+    __NonExaustive,
 }
 
 impl Toolchain {
@@ -49,6 +51,7 @@ impl Toolchain {
         match self {
             Self::Dist { name } => init_toolchain_from_dist(workspace, name)?,
             Self::CI { sha, alt } => init_toolchain_from_ci(workspace, *alt, sha)?,
+            Self::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
         }
 
         Ok(())
@@ -139,6 +142,7 @@ impl Toolchain {
             Self::Dist { name } => name.to_string(),
             Self::CI { sha, alt: false } => sha.to_string(),
             Self::CI { sha, alt: true } => format!("{}-alt", sha),
+            Self::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
         }
     }
 }

@@ -71,6 +71,8 @@ pub enum Binary {
     /// tweak the environment to use the local rustup instead of the host system one, and will
     /// search the binary in the cargo home.
     ManagedByRustwide(PathBuf),
+    #[doc(hidden)]
+    __NonExaustive,
 }
 
 /// Trait representing a command that can be run by [`Command`](struct.Command.html).
@@ -286,6 +288,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 Binary::ManagedByRustwide(path) => {
                     container_dirs::CARGO_BIN_DIR.join(exe_suffix(path.as_os_str()))
                 }
+                Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
 
             let mut cmd = Vec::new();
@@ -347,6 +350,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                         .join(exe_suffix(path.as_os_str())),
                     true,
                 ),
+                Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
             let mut cmd = StdCommand::new(crate::utils::normalize_path(&binary));
 

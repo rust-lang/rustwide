@@ -54,6 +54,8 @@ pub enum MountKind {
     ReadWrite,
     /// Prevent the sandboxed code from changing the mounted data.
     ReadOnly,
+    #[doc(hidden)]
+    __NonExaustive,
 }
 
 #[derive(Clone)]
@@ -68,6 +70,7 @@ impl MountConfig {
         let perm = match self.perm {
             MountKind::ReadWrite => "rw",
             MountKind::ReadOnly => "ro",
+            MountKind::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
         };
         format!(
             "{}:{}:{},Z",

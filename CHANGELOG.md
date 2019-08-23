@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The base path of mounts inside the sandbox is now `/opt/rustwide` on Linux
   and `C:\rustwide` on Windows.
+- The `cmd::Binary` enum is not exaustive anymore
+- The `cmd::MountKind` enum is not exaustive anymore
+- The `cmd::Toolchain` enum is not exaustive anymore
 
 ## [0.1.0] - 2019-08-22
 
