@@ -154,6 +154,30 @@ impl Workspace {
         Ok(())
     }
 
+    /// Return a list of all the toolchains present in the workspace.
+    ///
+    /// # Example
+    ///
+    /// This code snippet removes all the installed toolchains except the main one:
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// let main_toolchain = Toolchain::Dist { name: "stable".into() };
+    /// for installed in &workspace.installed_toolchains()? {
+    ///     if *installed != main_toolchain {
+    ///         installed.uninstall(&workspace)?;
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn installed_toolchains(&self) -> Result<Vec<Toolchain>, Error> {
+        crate::toolchain::list_installed(&self.rustup_home())
+    }
+
     pub(crate) fn http_client(&self) -> &reqwest::Client {
         &self.inner.http
     }

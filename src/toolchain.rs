@@ -4,6 +4,7 @@ use crate::Workspace;
 use failure::{bail, Error, ResultExt};
 use log::info;
 use std::borrow::Cow;
+use std::path::Path;
 
 pub(crate) const MAIN_TOOLCHAIN_NAME: &str = "stable";
 
@@ -181,4 +182,101 @@ fn init_toolchain_from_ci(workspace: &Workspace, alt: bool, sha: &str) -> Result
         })?;
 
     Ok(())
+}
+
+pub(crate) fn list_installed(rustup_home: &Path) -> Result<Vec<Toolchain>, Error> {
+    let update_hashes = rustup_home.join("update-hashes");
+
+    let mut result = Vec::new();
+    for entry in std::fs::read_dir(&rustup_home.join("toolchains"))? {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .to_str()
+            .ok_or_else(|| failure::err_msg("non-utf8 toolchain name"))?
+            .to_string();
+        // A toolchain installed by rustup has a corresponding file in $RUSTUP_HOME/update-hashes
+        // A toolchain linked by rustup is just a symlink
+        if entry.file_type()?.is_symlink() || update_hashes.join(&name).exists() {
+            result.push(Toolchain::Dist {
+                name: Cow::Owned(name),
+            });
+        } else {
+            let (sha, alt) = if name.ends_with("-alt") {
+                ((&name[..name.len() - 4]).to_string(), true)
+            } else {
+                (name, false)
+            };
+            result.push(Toolchain::CI {
+                sha: Cow::Owned(sha),
+                alt,
+            });
+        }
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Toolchain;
+    use failure::Error;
+
+    #[test]
+    fn test_list_installed() -> Result<(), Error> {
+        const DIST_NAME: &str = "stable-x86_64-unknown-linux-gnu";
+        const LINK_NAME: &str = "stage1";
+        const CI_SHA: &str = "0000000000000000000000000000000000000000";
+
+        let rustup_home = tempfile::tempdir()?;
+
+        // Create a fake rustup-installed toolchain
+        std::fs::create_dir_all(rustup_home.path().join("toolchains").join(DIST_NAME))?;
+        std::fs::create_dir_all(rustup_home.path().join("update-hashes"))?;
+        std::fs::write(
+            rustup_home.path().join("update-hashes").join(DIST_NAME),
+            &[],
+        )?;
+
+        // Create a fake symlinked toolchain
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            "/dev/null",
+            rustup_home.path().join("toolchains").join(LINK_NAME),
+        )?;
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(
+            "NUL",
+            rustup_home.path().join("toolchains").join(LINK_NAME),
+        )?;
+
+        // Create a standard CI toolchain
+        std::fs::create_dir_all(rustup_home.path().join("toolchains").join(CI_SHA))?;
+
+        // Create an alt CI toolchain
+        std::fs::create_dir_all(
+            rustup_home
+                .path()
+                .join("toolchains")
+                .join(format!("{}-alt", CI_SHA)),
+        )?;
+
+        let res = super::list_installed(rustup_home.path())?;
+        assert_eq!(4, res.len());
+        assert!(res.contains(&Toolchain::Dist {
+            name: DIST_NAME.into()
+        }));
+        assert!(res.contains(&Toolchain::Dist {
+            name: LINK_NAME.into()
+        }));
+        assert!(res.contains(&Toolchain::CI {
+            sha: CI_SHA.into(),
+            alt: false
+        }));
+        assert!(res.contains(&Toolchain::CI {
+            sha: CI_SHA.into(),
+            alt: true
+        }));
+
+        Ok(())
+    }
 }

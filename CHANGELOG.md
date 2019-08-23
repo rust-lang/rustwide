@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New method `Toolchain::uninstall` to remove a previously installed toolchain.
+- New method `Workspace::installed_toolchains` to get a list of all the
+  toolchains in the workspace.
 
 ### Changed
 
