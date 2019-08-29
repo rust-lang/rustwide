@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The base path of mounts inside the sandbox is now `/opt/rustwide` on Linux
   and `C:\rustwide` on Windows.
 
+### Fixed
+
+- Issue with cloning repos on Windows caused by the credential manager.
+
 ## [0.1.0] - 2019-08-22
 
 ### Added
