@@ -70,7 +70,13 @@ impl CrateTrait for GitRepo {
         } else {
             info!("cloning repository {}", self.url);
             Command::new(workspace, "git")
-                .args(&["clone", "--bare", &self.url])
+                .args(&[
+                    "clone",
+                    "--bare",
+                    // avoid issues with git credentials helper on Windows by
+                    // providing fake credentials that GitHub will ignore.
+                    &self.url.replace("https://", "https://ghost:ghost@"),
+                ])
                 .args(&[&path])
                 .run()
                 .with_context(|_| format!("failed to clone {}", self.url))?;
