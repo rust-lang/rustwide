@@ -33,6 +33,7 @@ percent-encoding = "2.1.0"
 walkdir = "2.2"
 toml = "0.4.6"
 fs2 = "0.4.3"
+remove_dir_all = "0.5.2"
 
 [dev-dependencies]
 env_logger = "0.6.1"

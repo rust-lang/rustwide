@@ -5,6 +5,7 @@ mod local;
 use crate::Workspace;
 use failure::Error;
 use log::info;
+use remove_dir_all::remove_dir_all;
 use std::path::Path;
 
 trait CrateTrait: std::fmt::Display {
@@ -62,7 +63,7 @@ impl Crate {
                 "crate source directory {} already exists, cleaning it up",
                 dest.display()
             );
-            std::fs::remove_dir_all(dest)?;
+            remove_dir_all(dest)?;
         }
         self.as_trait().copy_source_to(workspace, dest)
     }

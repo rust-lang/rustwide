@@ -2,6 +2,7 @@ use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
 use crate::prepare::Prepare;
 use crate::{Crate, Toolchain, Workspace};
 use failure::Error;
+use remove_dir_all::remove_dir_all;
 use std::path::PathBuf;
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.
@@ -56,7 +57,7 @@ impl BuildDirectory {
     ) -> Result<R, Error> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
-            std::fs::remove_dir_all(&source_dir)?;
+            remove_dir_all(&source_dir)?;
         }
 
         let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir);
@@ -69,7 +70,7 @@ impl BuildDirectory {
             sandbox: sandbox.clone(),
         })?;
 
-        std::fs::remove_dir_all(&source_dir)?;
+        remove_dir_all(&source_dir)?;
         Ok(res)
     }
 
@@ -77,7 +78,7 @@ impl BuildDirectory {
     pub fn purge(&mut self) -> Result<(), Error> {
         let build_dir = self.build_dir();
         if build_dir.exists() {
-            std::fs::remove_dir_all(build_dir)?;
+            remove_dir_all(build_dir)?;
         }
         Ok(())
     }
