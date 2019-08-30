@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Issue with cloning repos on Windows caused by the credential manager.
+- Fix failing cleanups on Windows by using the `remove_dir_all` crate.
 
 ## [0.1.0] - 2019-08-22
 
