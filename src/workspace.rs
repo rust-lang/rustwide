@@ -3,6 +3,7 @@ use crate::cmd::{Command, SandboxImage};
 use crate::Toolchain;
 use failure::{Error, ResultExt};
 use log::info;
+use remove_dir_all::remove_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -150,7 +151,7 @@ impl Workspace {
 
     /// Remove all the contents of all the build directories, freeing disk space.
     pub fn purge_all_build_dirs(&self) -> Result<(), Error> {
-        std::fs::remove_dir_all(self.builds_dir())?;
+        remove_dir_all(self.builds_dir())?;
         Ok(())
     }
 
