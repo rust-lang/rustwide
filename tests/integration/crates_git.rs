@@ -1,17 +1,51 @@
 use failure::Error;
-use rustwide::cmd::{Command, CommandError};
-use rustwide::{Crate, PrepareError, Workspace};
+use rustwide::cmd::{Command, CommandError, SandboxBuilder};
+use rustwide::{Crate, PrepareError, Toolchain, Workspace};
 
 #[test]
 fn test_fetch() -> Result<(), Error> {
     let workspace = crate::utils::init_workspace()?;
+    let toolchain = Toolchain::Dist {
+        name: "stable".into(),
+    };
+    toolchain.install(&workspace)?;
 
-    let repo = Repo::new(&workspace)?;
+    let mut repo = Repo::new(&workspace)?;
     let krate = Crate::git(&repo.serve()?);
     krate.fetch(&workspace)?;
 
-    assert!(repo.last_commit_sha.is_some());
-    assert_eq!(repo.last_commit_sha, krate.git_commit(&workspace));
+    // Return the commit that was used during a build.
+    let cloned_commit = || -> Result<String, Error> {
+        let mut dir = workspace.build_dir("integration-crates_git-test_fetch");
+        dir.purge()?;
+        Ok(
+            dir.build(&toolchain, &krate, SandboxBuilder::new(), |build| {
+                Ok(Command::new(&workspace, "git")
+                    .args(&["rev-parse", "HEAD"])
+                    .cd(build.host_source_dir())
+                    .run_capture()?
+                    .stdout_lines()[0]
+                    .to_string())
+            })?,
+        )
+    };
+
+    // Check if the initial commit was fetched
+    let initial_commit = repo.last_commit_sha.clone().unwrap();
+    assert_eq!(initial_commit, krate.git_commit(&workspace).unwrap());
+    assert_eq!(initial_commit, cloned_commit()?);
+
+    // Make a new commit
+    repo.commit(&workspace)?;
+    let new_commit = repo.last_commit_sha.clone().unwrap();
+    assert_ne!(initial_commit, new_commit);
+    assert_eq!(initial_commit, krate.git_commit(&workspace).unwrap());
+    assert_eq!(initial_commit, cloned_commit()?);
+
+    // Then ensure the new commit was fetched
+    krate.fetch(&workspace)?;
+    assert_eq!(new_commit, krate.git_commit(&workspace).unwrap());
+    assert_eq!(new_commit, cloned_commit()?);
 
     Ok(())
 }
@@ -75,6 +109,7 @@ impl Repo {
             .args(&["-c", "user.name=test"])
             .args(&["-c", "user.email=test@example.com"])
             .args(&["commit", "-m", "auto commit"])
+            .args(&["--allow-empty"])
             .cd(self.source.path())
             .run()?;
         Command::new(workspace, "git")

@@ -94,7 +94,8 @@ impl CrateTrait for GitRepo {
             info!("updating cached repository {}", self.url);
             Command::new(workspace, "git")
                 .args(&self.suppress_password_prompt_args(workspace))
-                .args(&["fetch", "--all"])
+                .args(&["-c", "remote.origin.fetch=refs/heads/*:refs/heads/*"])
+                .args(&["fetch", "origin", "--force", "--prune"])
                 .cd(&path)
                 .process_lines(&mut detect_private_repositories)
                 .run()
