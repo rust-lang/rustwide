@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.2.0] - 2019-09-06
+
 ### Added
 
 - New method `Toolchain::uninstall` to remove a previously installed toolchain.
@@ -33,4 +35,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.1.0]: https://github.com/rust-lang/rustwide/releases/tag/0.2.0
 [0.1.0]: https://github.com/rust-lang/rustwide/releases/tag/0.1.0
