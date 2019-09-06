@@ -37,3 +37,4 @@ remove_dir_all = "0.5.2"
 
 [dev-dependencies]
 env_logger = "0.6.1"
+tiny_http = "0.6.2"

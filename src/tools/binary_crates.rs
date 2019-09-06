@@ -1,12 +1,19 @@
 use crate::cmd::{Binary, Command, Runnable};
-use crate::tools::{binary_path, Tool, CARGO_INSTALL_UPDATE};
+use crate::tools::{Tool, CARGO_INSTALL_UPDATE};
 use crate::{Toolchain, Workspace};
 use failure::Error;
+use std::path::PathBuf;
 
 pub(crate) struct BinaryCrate {
     pub(super) crate_name: &'static str,
     pub(super) binary: &'static str,
     pub(super) cargo_subcommand: Option<&'static str>,
+}
+
+impl BinaryCrate {
+    pub(crate) fn binary_path(&self, workspace: &Workspace) -> PathBuf {
+        Tool::binary_path(self, workspace)
+    }
 }
 
 impl Runnable for BinaryCrate {
@@ -32,7 +39,7 @@ impl Tool for BinaryCrate {
     }
 
     fn is_installed(&self, workspace: &Workspace) -> Result<bool, Error> {
-        let path = binary_path(workspace, self.binary);
+        let path = self.binary_path(workspace);
         if !path.is_file() {
             return Ok(false);
         }

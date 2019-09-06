@@ -19,7 +19,7 @@ const ENCODE_SET: AsciiSet = CONTROLS
     .add(b' ');
 
 pub(super) struct GitRepo {
-    pub url: String,
+    url: String,
 }
 
 impl GitRepo {
@@ -55,6 +55,23 @@ impl GitRepo {
             .join("git-repos")
             .join(percent_encode(self.url.as_bytes(), &ENCODE_SET).to_string())
     }
+
+    fn suppress_password_prompt_args(&self, workspace: &Workspace) -> Vec<String> {
+        // The first `-c credential.helper=` clears the list of existing helpers
+        vec![
+            "-c".into(),
+            "credential.helper=".into(),
+            "-c".into(),
+            format!(
+                "credential.helper={}",
+                crate::tools::GIT_CREDENTIAL_NULL
+                    .binary_path(workspace)
+                    .to_str()
+                    .unwrap()
+                    .replace('\\', "/")
+            ),
+        ]
+    }
 }
 
 impl CrateTrait for GitRepo {
@@ -63,6 +80,7 @@ impl CrateTrait for GitRepo {
         if path.join("HEAD").is_file() {
             info!("updating cached repository {}", self.url);
             Command::new(workspace, "git")
+                .args(&self.suppress_password_prompt_args(workspace))
                 .args(&["fetch", "--all"])
                 .cd(&path)
                 .run()
@@ -70,13 +88,8 @@ impl CrateTrait for GitRepo {
         } else {
             info!("cloning repository {}", self.url);
             Command::new(workspace, "git")
-                .args(&[
-                    "clone",
-                    "--bare",
-                    // avoid issues with git credentials helper on Windows by
-                    // providing fake credentials that GitHub will ignore.
-                    &self.url.replace("https://", "https://ghost:ghost@"),
-                ])
+                .args(&self.suppress_password_prompt_args(workspace))
+                .args(&["clone", "--bare", &self.url])
                 .args(&[&path])
                 .run()
                 .with_context(|_| format!("failed to clone {}", self.url))?;

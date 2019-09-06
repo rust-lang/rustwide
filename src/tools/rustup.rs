@@ -1,12 +1,11 @@
 use crate::cmd::{Binary, Command, Runnable};
 use crate::toolchain::MAIN_TOOLCHAIN_NAME;
-use crate::tools::{binary_path, Tool, RUSTUP};
+use crate::tools::{Tool, RUSTUP};
 use crate::workspace::Workspace;
 use failure::{Error, ResultExt};
 use std::env::consts::EXE_SUFFIX;
 use std::fs::{self, File};
 use std::io;
-
 use tempfile::tempdir;
 
 static RUSTUP_BASE_URL: &str = "https://static.rust-lang.org/rustup/dist";
@@ -25,7 +24,7 @@ impl Tool for Rustup {
     }
 
     fn is_installed(&self, workspace: &Workspace) -> Result<bool, Error> {
-        let path = binary_path(workspace, "rustup");
+        let path = self.binary_path(workspace);
         if !path.is_file() {
             return Ok(false);
         }

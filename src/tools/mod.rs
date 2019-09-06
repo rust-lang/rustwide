@@ -23,10 +23,17 @@ pub(crate) static RUSTUP_TOOLCHAIN_INSTALL_MASTER: BinaryCrate = BinaryCrate {
     cargo_subcommand: None,
 };
 
+pub(crate) static GIT_CREDENTIAL_NULL: BinaryCrate = BinaryCrate {
+    crate_name: "git-credential-null",
+    binary: "git-credential-null",
+    cargo_subcommand: None,
+};
+
 static INSTALLABLE_TOOLS: &[&dyn Tool] = &[
     &RUSTUP,
     &CARGO_INSTALL_UPDATE,
     &RUSTUP_TOOLCHAIN_INSTALL_MASTER,
+    &GIT_CREDENTIAL_NULL,
 ];
 
 trait Tool: Send + Sync {
@@ -34,6 +41,14 @@ trait Tool: Send + Sync {
     fn is_installed(&self, workspace: &Workspace) -> Result<bool, Error>;
     fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error>;
     fn update(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error>;
+
+    fn binary_path(&self, workspace: &Workspace) -> PathBuf {
+        crate::utils::normalize_path(&workspace.cargo_home().join("bin").join(format!(
+            "{}{}",
+            self.name(),
+            EXE_SUFFIX
+        )))
+    }
 }
 
 pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> Result<(), Error> {
@@ -52,11 +67,4 @@ pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> Result<(), E
     }
 
     Ok(())
-}
-
-fn binary_path(workspace: &Workspace, name: &str) -> PathBuf {
-    workspace
-        .cargo_home()
-        .join("bin")
-        .join(format!("{}{}", name, EXE_SUFFIX))
 }
