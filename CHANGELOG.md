@@ -23,8 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Issue with cloning repos on Windows caused by the credential manager.
-- Fix failing cleanups on Windows by using the `remove_dir_all` crate.
+- Cloning git repositories on windows hanged due to the credential manager.
+- Cleanups were failing on Windows due to permission errors.
 - Cached git repositories weren't updated after the initial clone.
 
 ## [0.1.0] - 2019-08-22
