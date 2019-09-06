@@ -9,8 +9,8 @@ mod runner;
 fn test_hello_world() {
     runner::run("hello-world", |run| {
         run.build(SandboxBuilder::new().enable_networking(false), |build| {
-            let mut storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-            rustwide::logging::capture(&mut storage, || -> Result<_, Error> {
+            let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+            rustwide::logging::capture(&storage, || -> Result<_, Error> {
                 build.cargo().args(&["run"]).run()?;
                 Ok(())
             })?;
