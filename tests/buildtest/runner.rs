@@ -1,16 +1,13 @@
 use failure::Error;
-use log::LevelFilter;
-use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace, WorkspaceBuilder};
+use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace};
 use std::borrow::Cow;
 use std::path::Path;
 
-static USER_AGENT: &str = "rustwide-buildtest (https://github.com/rust-lang/rustwide)";
 static TOOLCHAIN: Toolchain = Toolchain::Dist {
     name: Cow::Borrowed("stable"),
 };
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Error>) {
-    init_logs();
     let mut runner = Runner::new(crate_name).unwrap();
     f(&mut runner).unwrap();
 }
@@ -24,10 +21,7 @@ pub(crate) struct Runner {
 
 impl Runner {
     fn new(crate_name: &str) -> Result<Self, Error> {
-        let workspace_path = Path::new(".workspaces").join("buildtest");
-        let workspace = WorkspaceBuilder::new(&workspace_path, USER_AGENT)
-            .fast_init(true)
-            .init()?;
+        let workspace = crate::utils::init_workspace()?;
         let krate = Crate::local(
             &Path::new("tests")
                 .join("buildtest")
@@ -51,15 +45,6 @@ impl Runner {
         dir.purge()?;
         dir.build(self.toolchain, &self.krate, sandbox, f)
     }
-}
-
-fn init_logs() {
-    let env = env_logger::Builder::new()
-        .filter_module("rustwide", LevelFilter::Info)
-        .default_format_timestamp(false)
-        .is_test(true)
-        .build();
-    rustwide::logging::init_with(env);
 }
 
 macro_rules! test_prepare_error {
