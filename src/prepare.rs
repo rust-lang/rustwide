@@ -306,6 +306,9 @@ impl<'a> TomlTweaker<'a> {
 /// Error happened while preparing a crate for a build.
 #[derive(Debug, Fail)]
 pub enum PrepareError {
+    /// The git repository isn't publicly available.
+    #[fail(display = "can't fetch private git repositories")]
+    PrivateGitRepository,
     /// The crate doesn't have a `Cargo.toml` in its source code.
     #[fail(display = "missing Cargo.toml")]
     MissingCargoToml,

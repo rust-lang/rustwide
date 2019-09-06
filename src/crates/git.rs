@@ -1,5 +1,6 @@
 use super::CrateTrait;
 use crate::cmd::Command;
+use crate::prepare::PrepareError;
 use crate::Workspace;
 use failure::{Error, ResultExt};
 use log::{info, warn};
@@ -76,25 +77,44 @@ impl GitRepo {
 
 impl CrateTrait for GitRepo {
     fn fetch(&self, workspace: &Workspace) -> Result<(), Error> {
+        // The credential helper that suppresses the password prompt shows this message when a
+        // repository requires authentication:
+        //
+        //    fata: credential helper '{path}' told us to quit
+        //
+        let mut private_repository = false;
+        let mut detect_private_repositories = |line: &str| {
+            if line.starts_with("fatal: credential helper") && line.ends_with("told us to quit") {
+                private_repository = true;
+            }
+        };
+
         let path = self.cached_path(workspace);
-        if path.join("HEAD").is_file() {
+        let res = if path.join("HEAD").is_file() {
             info!("updating cached repository {}", self.url);
             Command::new(workspace, "git")
                 .args(&self.suppress_password_prompt_args(workspace))
                 .args(&["fetch", "--all"])
                 .cd(&path)
+                .process_lines(&mut detect_private_repositories)
                 .run()
-                .with_context(|_| format!("failed to update {}", self.url))?;
+                .with_context(|_| format!("failed to update {}", self.url))
         } else {
             info!("cloning repository {}", self.url);
             Command::new(workspace, "git")
                 .args(&self.suppress_password_prompt_args(workspace))
                 .args(&["clone", "--bare", &self.url])
                 .args(&[&path])
+                .process_lines(&mut detect_private_repositories)
                 .run()
-                .with_context(|_| format!("failed to clone {}", self.url))?;
+                .with_context(|_| format!("failed to clone {}", self.url))
+        };
+
+        if private_repository && res.is_err() {
+            Err(PrepareError::PrivateGitRepository.into())
+        } else {
+            Ok(res?)
         }
-        Ok(())
     }
 
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {

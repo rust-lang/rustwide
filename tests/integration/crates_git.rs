@@ -1,6 +1,6 @@
 use failure::Error;
 use rustwide::cmd::{Command, CommandError};
-use rustwide::{Crate, Workspace};
+use rustwide::{Crate, PrepareError, Workspace};
 
 #[test]
 fn test_fetch() -> Result<(), Error> {
@@ -26,6 +26,10 @@ fn test_fetch_with_authentication() -> Result<(), Error> {
     let err = krate.fetch(&workspace).unwrap_err();
     if let Some(&CommandError::Timeout(_)) = err.downcast_ref() {
         panic!("an authentication prompt was shown during the fetch");
+    } else if let Some(&PrepareError::PrivateGitRepository) = err.downcast_ref() {
+        // Expected error
+    } else {
+        panic!("unexpected error: {}", err);
     }
 
     Ok(())
