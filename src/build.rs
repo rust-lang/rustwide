@@ -15,12 +15,66 @@ pub struct BuildDirectory {
     name: String,
 }
 
+pub struct Builder<'a> {
+    build_dir: &'a mut BuildDirectory,
+    toolchain: Option<&'a Toolchain>,
+    krate: Option<&'a Crate>,
+    sandbox: Option<SandboxBuilder>,
+}
+
+impl<'a> Builder<'a> {
+    pub fn new(build_dir: &'a mut BuildDirectory) -> Self {
+        Builder {
+            build_dir,
+            toolchain: None,
+            krate: None,
+            sandbox: None
+        }
+    }
+
+    pub fn toolchain(mut self, toolchain: &'a Toolchain) -> Self {
+        self.toolchain.replace(toolchain);
+        self
+    }
+
+    pub fn krate(mut self, krate: &'a Crate) -> Self {
+        self.krate.replace(krate);
+        self
+    }
+
+    pub fn sandbox(mut self, sandbox: SandboxBuilder) -> Self {
+        self.sandbox.replace(sandbox);
+        self
+    }
+
+    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
+        let tc = match self.toolchain {
+            Some(t) => t,
+            None => return Err(failure::err_msg("No tc")),
+        };
+        let kr = match self.krate {
+            Some(k) => k,
+            None => return Err(failure::err_msg("No crate")),
+        };
+        let sn = match self.sandbox {
+            Some(s) => s,
+            None => return Err(failure::err_msg("No sandbox")),
+        };
+
+        self.build_dir.build(tc, kr, sn, f)
+    }
+}
+
 impl BuildDirectory {
     pub(crate) fn new(workspace: Workspace, name: &str) -> Self {
         Self {
             workspace,
             name: name.into(),
         }
+    }
+
+    pub fn builder(&mut self) -> Builder {
+        Builder::new(self)
     }
 
     /// Run a sandboxed build of the provided crate with the provided toolchain. The closure will
