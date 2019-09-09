@@ -174,6 +174,7 @@ impl<'a> TomlTweaker<'a> {
         self.remove_workspaces();
         self.remove_unwanted_cargo_features();
         self.remove_dependencies();
+        self.apply_patches();
 
         info!("finished tweaking {}", self.krate);
     }
@@ -270,6 +271,23 @@ impl<'a> TomlTweaker<'a> {
             for (_, target) in targets.iter_mut() {
                 if let Value::Table(ref mut target_table) = *target {
                     Self::remove_dependencies_from_table(target_table, &krate);
+                }
+            }
+        }
+    }
+
+    fn apply_patches(&mut self) {
+        if let Some(krate_patches) = self.krate.patches() {
+            if !self.table.contains_key("patch.crates-io") {
+                self.table.insert("patch.crates-io".into(), Value::Table(Table::new()));
+            }
+
+            if let Some(&mut Value::Table(ref mut patches)) = self.table.get_mut("patch.crates-io") {
+                for patch in krate_patches.iter().cloned() {
+                    let mut patch_table = Table::new();
+                    patch_table.insert("git".into(), Value::String(patch.uri));
+                    patch_table.insert("branch".into(), Value::String(patch.branch));
+                    patches.insert(patch.name, Value::Table(patch_table));
                 }
             }
         }

@@ -20,10 +20,11 @@ enum CrateType {
     Local(local::Local),
 }
 
+#[derive(Clone)]
 pub struct CratePatch {
-    name: String,
-    uri: String,
-    branch: String
+    pub name: String,
+    pub uri: String,
+    pub branch: String
 }
 
 /// A Rust crate that can be used with rustwide.
@@ -72,6 +73,10 @@ impl Crate {
     pub(crate) fn add_patch(&mut self, patch: CratePatch) {
         let patches: &mut Vec<CratePatch> = self.1.get_or_insert(Vec::new());
         patches.push(patch);
+    }
+
+    pub(crate) fn patches(&self) -> &Option<Vec<CratePatch>> {
+        &self.1
     }
 
     pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
