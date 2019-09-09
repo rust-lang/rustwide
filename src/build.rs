@@ -1,9 +1,10 @@
 use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
 use crate::prepare::Prepare;
-use crate::{Crate, Toolchain, Workspace};
+use crate::{Crate, Toolchain, Workspace, crates::CratePatch};
 use failure::Error;
 use remove_dir_all::remove_dir_all;
 use std::path::PathBuf;
+use std::vec::Vec;
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.
 ///
@@ -18,17 +19,19 @@ pub struct BuildDirectory {
 pub struct Builder<'a> {
     build_dir: &'a mut BuildDirectory,
     toolchain: Option<&'a Toolchain>,
-    krate: Option<&'a Crate>,
+    krate: Option<Crate>,
     sandbox: Option<SandboxBuilder>,
+    patches: Vec<CratePatch>,
 }
 
 impl<'a> Builder<'a> {
-    pub fn new(build_dir: &'a mut BuildDirectory) -> Self {
+    pub(crate) fn new(build_dir: &'a mut BuildDirectory) -> Self {
         Builder {
             build_dir,
             toolchain: None,
             krate: None,
-            sandbox: None
+            sandbox: None,
+            patches: Vec::new()
         }
     }
 
@@ -37,7 +40,7 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn krate(mut self, krate: &'a Crate) -> Self {
+    pub fn krate(mut self, krate: Crate) -> Self {
         self.krate.replace(krate);
         self
     }
@@ -47,21 +50,32 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
+    pub fn patch(mut self, patch: CratePatch) -> Self {
+        self.patches.push(patch);
+        self
+    }
+
+    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(mut self, f: F) -> Result<R, Error> {
         let tc = match self.toolchain {
             Some(t) => t,
             None => return Err(failure::err_msg("No tc")),
         };
+
         let kr = match self.krate {
-            Some(k) => k,
-            None => return Err(failure::err_msg("No crate")),
+            Some(mut k) => {
+                self.patches.drain(..).for_each(|p| k.add_patch(p));
+                k
+            },
+            None => return Err(failure::err_msg("no krate")),
         };
+
         let sn = match self.sandbox {
             Some(s) => s,
             None => return Err(failure::err_msg("No sandbox")),
         };
 
-        self.build_dir.build(tc, kr, sn, f)
+
+        self.build_dir.build(tc, &kr, sn, f)
     }
 }
 
