@@ -122,19 +122,34 @@ impl Toolchain {
     /// # }
     /// ```
     pub fn cargo<'a>(&'a self) -> impl Runnable + 'a {
-        struct CargoBin<'a>(&'a Toolchain);
-
-        impl Runnable for CargoBin<'_> {
-            fn name(&self) -> Binary {
-                Binary::ManagedByRustwide("cargo".into())
-            }
-
-            fn prepare_command<'w, 'pl>(&self, cmd: Command<'w, 'pl>) -> Command<'w, 'pl> {
-                cmd.args(&[format!("+{}", self.0.rustup_name())])
-            }
+        RustupProxy {
+            toolchain: self,
+            name: "cargo",
         }
+    }
 
-        CargoBin(self)
+    /// Return a runnable object configured to run `rustc` with this toolchain. This method is
+    /// intended to be used with [`rustwide::cmd::Command`](cmd/struct.Command.html).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// let toolchain = Toolchain::Dist { name: "beta".into() };
+    /// Command::new(&workspace, toolchain.rustc())
+    ///     .args(&["hello.rs"])
+    ///     .run()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn rustc<'a>(&'a self) -> impl Runnable + 'a {
+        RustupProxy {
+            toolchain: self,
+            name: "rustc",
+        }
     }
 
     fn rustup_name(&self) -> String {
@@ -186,6 +201,21 @@ fn init_toolchain_from_ci(workspace: &Workspace, alt: bool, sha: &str) -> Result
         })?;
 
     Ok(())
+}
+
+struct RustupProxy<'a> {
+    toolchain: &'a Toolchain,
+    name: &'static str,
+}
+
+impl Runnable for RustupProxy<'_> {
+    fn name(&self) -> Binary {
+        Binary::ManagedByRustwide(self.name.into())
+    }
+
+    fn prepare_command<'w, 'pl>(&self, cmd: Command<'w, 'pl>) -> Command<'w, 'pl> {
+        cmd.args(&[format!("+{}", self.toolchain.rustup_name())])
+    }
 }
 
 pub(crate) fn list_installed(rustup_home: &Path) -> Result<Vec<Toolchain>, Error> {
