@@ -1,5 +1,5 @@
 use crate::cmd::Command;
-use crate::{Crate, Toolchain, Workspace};
+use crate::{Crate, crates::CratePatch, Toolchain, Workspace};
 use failure::{Error, Fail, ResultExt};
 use log::info;
 use std::path::Path;
@@ -14,6 +14,7 @@ pub(crate) struct Prepare<'a> {
     krate: &'a Crate,
     source_dir: &'a Path,
     lockfile_captured: bool,
+    patches: Vec<CratePatch>
 }
 
 impl<'a> Prepare<'a> {
@@ -22,6 +23,7 @@ impl<'a> Prepare<'a> {
         toolchain: &'a Toolchain,
         krate: &'a Crate,
         source_dir: &'a Path,
+        patches: Vec<CratePatch>
     ) -> Self {
         Self {
             workspace,
@@ -29,6 +31,7 @@ impl<'a> Prepare<'a> {
             krate,
             source_dir,
             lockfile_captured: false,
+            patches,
         }
     }
 
@@ -67,7 +70,7 @@ impl<'a> Prepare<'a> {
 
     fn tweak_toml(&self) -> Result<(), Error> {
         let path = self.source_dir.join("Cargo.toml");
-        let mut tweaker = TomlTweaker::new(&self.krate, &path)?;
+        let mut tweaker = TomlTweaker::new(&self.krate, &path, &self.patches)?;
         tweaker.tweak();
         tweaker.save(&path)?;
         Ok(())
@@ -143,10 +146,11 @@ pub struct TomlTweaker<'a> {
     krate: &'a Crate,
     table: Table,
     dir: Option<&'a Path>,
+    patches: &'a Vec<CratePatch>,
 }
 
 impl<'a> TomlTweaker<'a> {
-    pub fn new(krate: &'a Crate, cargo_toml: &'a Path) -> Result<Self, Error> {
+    pub fn new(krate: &'a Crate, cargo_toml: &'a Path, patches: &'a Vec<CratePatch>) -> Result<Self, Error> {
         let toml_content = ::std::fs::read_to_string(cargo_toml)
             .with_context(|_| PrepareError::MissingCargoToml)?;
         let table: Table =
@@ -154,15 +158,16 @@ impl<'a> TomlTweaker<'a> {
 
         let dir = cargo_toml.parent();
 
-        Ok(TomlTweaker { krate, table, dir })
+        Ok(TomlTweaker { krate, table, dir, patches })
     }
 
     #[cfg(test)]
-    fn new_with_table(krate: &'a Crate, table: Table) -> Self {
+    fn new_with_table(krate: &'a Crate, table: Table, patches: &'a Vec<CratePatch>) -> Self {
         TomlTweaker {
             krate,
             table,
             dir: None,
+            patches,
         }
     }
 
@@ -277,13 +282,13 @@ impl<'a> TomlTweaker<'a> {
     }
 
     fn apply_patches(&mut self) {
-        if let Some(krate_patches) = self.krate.patches() {
+        if self.patches.len() > 0 {
             if !self.table.contains_key("patch.crates-io") {
                 self.table.insert("patch.crates-io".into(), Value::Table(Table::new()));
             }
 
             if let Some(&mut Value::Table(ref mut patches)) = self.table.get_mut("patch.crates-io") {
-                for patch in krate_patches.iter().cloned() {
+                for patch in self.patches.iter().cloned() {
                     let mut patch_table = Table::new();
                     patch_table.insert("git".into(), Value::String(patch.uri));
                     patch_table.insert("branch".into(), Value::String(patch.branch));

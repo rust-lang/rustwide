@@ -28,25 +28,25 @@ pub struct CratePatch {
 }
 
 /// A Rust crate that can be used with rustwide.
-pub struct Crate(CrateType, Option<Vec<CratePatch>>);
+pub struct Crate(CrateType);
 
 impl Crate {
     /// Load a crate from the [crates.io registry](https://crates.io).
     pub fn crates_io(name: &str, version: &str) -> Self {
         Crate(CrateType::CratesIO(cratesio::CratesIOCrate::new(
             name, version,
-        )), None)
+        )))
     }
 
     /// Load a crate from a git repository. The full URL needed to clone the repo has to be
     /// provided.
     pub fn git(url: &str) -> Self {
-        Crate(CrateType::Git(git::GitRepo::new(url)), None)
+        Crate(CrateType::Git(git::GitRepo::new(url)))
     }
 
     /// Load a crate from a directory in the local filesystem.
     pub fn local(path: &Path) -> Self {
-        Crate(CrateType::Local(local::Local::new(path)), None)
+        Crate(CrateType::Local(local::Local::new(path)))
     }
 
     /// Fetch the crate's source code and cache it in the workspace. This method will reach out to
@@ -68,15 +68,6 @@ impl Crate {
         } else {
             None
         }
-    }
-
-    pub(crate) fn add_patch(&mut self, patch: CratePatch) {
-        let patches: &mut Vec<CratePatch> = self.1.get_or_insert(Vec::new());
-        patches.push(patch);
-    }
-
-    pub(crate) fn patches(&self) -> &Option<Vec<CratePatch>> {
-        &self.1
     }
 
     pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {

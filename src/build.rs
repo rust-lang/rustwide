@@ -18,64 +18,21 @@ pub struct BuildDirectory {
 
 pub struct Builder<'a> {
     build_dir: &'a mut BuildDirectory,
-    toolchain: Option<&'a Toolchain>,
-    krate: Option<Crate>,
-    sandbox: Option<SandboxBuilder>,
+    toolchain: &'a Toolchain,
+    krate: &'a Crate,
+    sandbox: SandboxBuilder,
     patches: Vec<CratePatch>,
 }
 
 impl<'a> Builder<'a> {
-    pub(crate) fn new(build_dir: &'a mut BuildDirectory) -> Self {
-        Builder {
-            build_dir,
-            toolchain: None,
-            krate: None,
-            sandbox: None,
-            patches: Vec::new()
-        }
-    }
-
-    pub fn toolchain(mut self, toolchain: &'a Toolchain) -> Self {
-        self.toolchain.replace(toolchain);
-        self
-    }
-
-    pub fn krate(mut self, krate: Crate) -> Self {
-        self.krate.replace(krate);
-        self
-    }
-
-    pub fn sandbox(mut self, sandbox: SandboxBuilder) -> Self {
-        self.sandbox.replace(sandbox);
-        self
-    }
 
     pub fn patch(mut self, patch: CratePatch) -> Self {
         self.patches.push(patch);
         self
     }
 
-    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(mut self, f: F) -> Result<R, Error> {
-        let tc = match self.toolchain {
-            Some(t) => t,
-            None => return Err(failure::err_msg("No tc")),
-        };
-
-        let kr = match self.krate {
-            Some(mut k) => {
-                self.patches.drain(..).for_each(|p| k.add_patch(p));
-                k
-            },
-            None => return Err(failure::err_msg("no krate")),
-        };
-
-        let sn = match self.sandbox {
-            Some(s) => s,
-            None => return Err(failure::err_msg("No sandbox")),
-        };
-
-
-        self.build_dir.build(tc, &kr, sn, f)
+    pub fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
+        self.build_dir.run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
 }
 
@@ -87,8 +44,14 @@ impl BuildDirectory {
         }
     }
 
-    pub fn builder(&mut self) -> Builder {
-        Builder::new(self)
+    pub fn build<'a>(&'a mut self,
+        toolchain: &'a Toolchain,
+        krate: &'a Crate,
+        sandbox: SandboxBuilder,
+    ) -> Builder {
+        Builder {
+            build_dir: self, toolchain, krate, sandbox, patches: Vec::new()
+        }
     }
 
     /// Run a sandboxed build of the provided crate with the provided toolchain. The closure will
@@ -116,11 +79,12 @@ impl BuildDirectory {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(
+    pub(crate) fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(
         &mut self,
         toolchain: &Toolchain,
         krate: &Crate,
         sandbox: SandboxBuilder,
+        patches: Vec<CratePatch>,
         f: F,
     ) -> Result<R, Error> {
         let source_dir = self.source_dir();
@@ -128,7 +92,7 @@ impl BuildDirectory {
             remove_dir_all(&source_dir)?;
         }
 
-        let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir);
+        let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
         prepare.prepare()?;
 
         std::fs::create_dir_all(self.target_dir())?;
