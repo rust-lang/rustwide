@@ -13,7 +13,7 @@ jobs:
 
       - name: Install Rust stable
         run: |
-          rustup toolchain update stable
+          rustup toolchain update --no-self-update stable
           rustup default stable
           rustup component add clippy rustfmt
 
