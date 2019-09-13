@@ -21,6 +21,11 @@ impl CrateTrait for Local {
         Ok(())
     }
 
+    fn purge_from_cache(&self, _workspace: &Workspace) -> Result<(), Error> {
+        // There is no cache to purge for a local crate.
+        Ok(())
+    }
+
     fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> Result<(), Error> {
         info!(
             "copying local crate from {} to {}",

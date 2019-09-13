@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New method `WorkspaceBuilder::fetch_registry_index_during_builds` to enable
   or disable fetching the registry's index during each build. The method is
   only available when the `unstable` rustwide feature is enabled.
+- New method `Crate::purge_from_cache` to remove the cached copy of a crate.
 
 ### Changed
 

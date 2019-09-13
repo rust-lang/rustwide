@@ -10,6 +10,7 @@ use std::path::Path;
 
 trait CrateTrait: std::fmt::Display {
     fn fetch(&self, workspace: &Workspace) -> Result<(), Error>;
+    fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error>;
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error>;
 }
 
@@ -45,6 +46,11 @@ impl Crate {
     /// the network for some crate types.
     pub fn fetch(&self, workspace: &Workspace) -> Result<(), Error> {
         self.as_trait().fetch(workspace)
+    }
+
+    /// Remove the cached copy of this crate. The method will do nothing if the crate isn't cached.
+    pub fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
+        self.as_trait().purge_from_cache(workspace)
     }
 
     /// Get this crate's git commit. This method is best-effort, and currently works just for git

@@ -59,6 +59,14 @@ impl CrateTrait for CratesIOCrate {
         Ok(())
     }
 
+    fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
+        let path = self.cache_path(workspace);
+        if path.exists() {
+            std::fs::remove_file(&path)?;
+        }
+        Ok(())
+    }
+
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
         let cached = self.cache_path(workspace);
         let mut file = File::open(cached)?;

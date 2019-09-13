@@ -118,6 +118,14 @@ impl CrateTrait for GitRepo {
         }
     }
 
+    fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
+        let path = self.cached_path(workspace);
+        if path.exists() {
+            remove_dir_all::remove_dir_all(&path)?;
+        }
+        Ok(())
+    }
+
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
         Command::new(workspace, "git")
             .args(&["clone"])
