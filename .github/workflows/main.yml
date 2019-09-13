@@ -21,7 +21,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Run clippy
-        run: cargo clippy --all -- -Dwarnings
+        run: cargo clippy --all --all-features -- -Dwarnings
 
   test:
     name: Test
@@ -29,6 +29,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        cargo_flags:
+          - ""
+          - "--all-features"
         include:
           # Integration tests are disabled on Windows as they take *way* too
           # long to pull the Docker image
@@ -40,11 +43,11 @@ jobs:
 
       - name: Install Rust stable
         run: |
-          rustup toolchain update stable
+          rustup toolchain update --no-self-update stable
           rustup default stable
 
       - name: Build rustwide
-        run: cargo build --all
+        run: cargo build --all ${{ matrix.cargo_flags }}
 
       - name: Test rustwide
-        run: cargo test --all -- ${{ matrix.test_flags }}
+        run: cargo test --all ${{ matrix.cargo_flags }} -- ${{ matrix.test_flags }}
