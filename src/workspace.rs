@@ -24,6 +24,7 @@ pub struct WorkspaceBuilder {
     sandbox_image: Option<SandboxImage>,
     command_timeout: Option<Duration>,
     command_no_output_timeout: Option<Duration>,
+    fetch_registry_index_during_builds: bool,
     fast_init: bool,
 }
 
@@ -39,6 +40,7 @@ impl WorkspaceBuilder {
             sandbox_image: None,
             command_timeout: DEFAULT_COMMAND_TIMEOUT,
             command_no_output_timeout: DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT,
+            fetch_registry_index_during_builds: false,
             fast_init: false,
         }
     }
@@ -85,6 +87,22 @@ impl WorkspaceBuilder {
         self
     }
 
+    /// Enable or disable fetching the registry's index during each build (enabled by default).
+    ///
+    /// When this option is disabled the index will only be fetched when the workspace is
+    /// initialized, and no following build do that again. It's useful to disable it when you need
+    /// to build a lot of crates in a batch, but having the option disabled might cause trouble if
+    /// you need to build recently published crates, as they might be missing from the cached
+    /// index.
+    ///
+    /// **To call this method the `unstable` rustwide feature flag needs to be enabled**, as it
+    /// relies on unstable Cargo features.
+    #[cfg(feature = "unstable")]
+    pub fn fetch_registry_index_during_builds(mut self, enable: bool) -> Self {
+        self.fetch_registry_index_during_builds = enable;
+        self
+    }
+
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
     pub fn init(self) -> Result<Workspace, Error> {
@@ -115,6 +133,7 @@ impl WorkspaceBuilder {
                     sandbox_image,
                     command_timeout: self.command_timeout,
                     command_no_output_timeout: self.command_no_output_timeout,
+                    fetch_registry_index_during_builds: self.fetch_registry_index_during_builds,
                 }),
             };
             ws.init(self.fast_init)?;
@@ -129,6 +148,7 @@ struct WorkspaceInner {
     sandbox_image: SandboxImage,
     command_timeout: Option<Duration>,
     command_no_output_timeout: Option<Duration>,
+    fetch_registry_index_during_builds: bool,
 }
 
 /// Directory on the filesystem containing rustwide's state and caches.
@@ -211,11 +231,17 @@ impl Workspace {
         self.inner.command_no_output_timeout
     }
 
+    pub(crate) fn fetch_registry_index_during_builds(&self) -> bool {
+        self.inner.fetch_registry_index_during_builds
+    }
+
     fn init(&self, fast_init: bool) -> Result<(), Error> {
         info!("installing tools required by rustwide");
         crate::tools::install(self, fast_init)?;
-        info!("updating the local crates.io registry clone");
-        self.update_cratesio_registry()?;
+        if !self.fetch_registry_index_during_builds() {
+            info!("updating the local crates.io registry clone");
+            self.update_cratesio_registry()?;
+        }
         Ok(())
     }
 

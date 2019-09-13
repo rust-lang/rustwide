@@ -4,6 +4,13 @@
 //! Rustwide is a library to execute your code on the Rust ecosystem, powering projects like
 //! [Crater][crater] and [docs.rs][docsrs].
 //!
+//! Rustwide uses feature flags to enable or disable parts of its code at compile time. The
+//! available flags are:
+//!
+//! * **unstable**: allow Rustwide to use unstable Rust and Cargo features. While this feature also
+//!   works on Rust stable it might cause Rustwide to break, and **no stability guarantee is
+//!   present when using it!**
+//!
 //! [crater]: https://github.com/rust-lang/crater
 //! [docsrs]: https://github.com/rust-lang/docs.rs
 

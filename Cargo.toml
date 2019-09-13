@@ -13,6 +13,12 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata.docs.rs]
+features = ["unstable"]
+
+[features]
+unstable = []
+
 [dependencies]
 failure = "0.1.3"
 futures = "0.1.13"

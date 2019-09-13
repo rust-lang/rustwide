@@ -83,14 +83,17 @@ impl<'a> Prepare<'a> {
         }
 
         let mut yanked_deps = false;
-        let res = Command::new(self.workspace, self.toolchain.cargo())
-            .args(&[
-                "generate-lockfile",
-                "--manifest-path",
-                "Cargo.toml",
-                "-Zno-index-update",
-            ])
-            .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly")
+        let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
+            "generate-lockfile",
+            "--manifest-path",
+            "Cargo.toml",
+        ]);
+        if !self.workspace.fetch_registry_index_during_builds() {
+            cmd = cmd
+                .args(&["-Zno-index-update"])
+                .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly");
+        }
+        let res = cmd
             .cd(self.source_dir)
             .process_lines(&mut |line| {
                 if line.contains("failed to select a version for the requirement") {

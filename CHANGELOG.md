@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New method `Toolchain::rustc` to execute a toolchain's `rustc`.
+- New method `WorkspaceBuilder::fetch_registry_index_during_builds` to enable
+  or disable fetching the registry's index during each build. The method is
+  only available when the `unstable` rustwide feature is enabled.
+
+### Changed
+
+- **BREAKING:** The registry index will now be fetched during each build
+  instead of being cached during the workspace's initialization. It's possible
+  to use the `WorkspaceBuilder::fetch_registry_index_during_builds` method to
+  revert to the old behavior.
 
 ## [0.2.0] - 2019-09-06
 
