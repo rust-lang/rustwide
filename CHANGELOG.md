@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cargo-install-upgrade` crate. This will speed up the workspace
   initialization.
 
+### Fixed
+
+- Calling `Workspace::purge_all_build_dirs` returned an error when no
+  directories were present instead of doing nothing.
+
 ## [0.2.0] - 2019-09-06
 
 ### Added
