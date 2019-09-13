@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of being cached during the workspace's initialization. It's possible
   to use the `WorkspaceBuilder::fetch_registry_index_during_builds` method to
   revert to the old behavior.
+- When the `unstable` feature flag is enabled rustwide will use Cargo's
+  `-Zinstall-upgrade` to update its tools instead of the
+  `cargo-install-upgrade` crate. This will speed up the workspace
+  initialization.
 
 ## [0.2.0] - 2019-09-06
 
