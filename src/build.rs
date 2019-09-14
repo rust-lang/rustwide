@@ -10,7 +10,7 @@ use std::vec::Vec;
 pub struct CratePatch {
     pub name: String,
     pub uri: String,
-    pub branch: String
+    pub branch: String,
 }
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.
@@ -33,7 +33,6 @@ pub struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-
     /// Add a patch to this build.
     /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
     /// # Example
@@ -56,7 +55,7 @@ impl<'a> Builder<'a> {
     /// # Ok(())
     /// # }
     pub fn patch_with_git(mut self, name: String, uri: String, branch: String) -> Self {
-        self.patches.push(CratePatch { name, uri, branch});
+        self.patches.push(CratePatch { name, uri, branch });
         self
     }
 
@@ -84,7 +83,8 @@ impl<'a> Builder<'a> {
     /// # Ok(())
     /// # }
     pub fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
-        self.build_dir.run(self.toolchain, self.krate, self.sandbox, self.patches, f)
+        self.build_dir
+            .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
 }
 
@@ -117,13 +117,18 @@ impl BuildDirectory {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build<'a>(&'a mut self,
+    pub fn build<'a>(
+        &'a mut self,
         toolchain: &'a Toolchain,
         krate: &'a Crate,
         sandbox: SandboxBuilder,
     ) -> Builder {
         Builder {
-            build_dir: self, toolchain, krate, sandbox, patches: Vec::new()
+            build_dir: self,
+            toolchain,
+            krate,
+            sandbox,
+            patches: Vec::new(),
         }
     }
 
