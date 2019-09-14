@@ -19,7 +19,7 @@ fn test_fetch() -> Result<(), Error> {
         let mut dir = workspace.build_dir("integration-crates_git-test_fetch");
         dir.purge()?;
         Ok(
-            dir.build(&toolchain, &krate, SandboxBuilder::new(), |build| {
+            dir.build(&toolchain, &krate, SandboxBuilder::new()).run(|build| {
                 Ok(Command::new(&workspace, "git")
                     .args(&["rev-parse", "HEAD"])
                     .cd(build.host_source_dir())

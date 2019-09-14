@@ -1,5 +1,5 @@
 use crate::cmd::Command;
-use crate::{Crate, crates::CratePatch, Toolchain, Workspace};
+use crate::{Crate, Toolchain, CratePatch, Workspace};
 use failure::{Error, Fail, ResultExt};
 use log::info;
 use std::path::Path;
@@ -146,11 +146,11 @@ pub struct TomlTweaker<'a> {
     krate: &'a Crate,
     table: Table,
     dir: Option<&'a Path>,
-    patches: &'a Vec<CratePatch>,
+    patches: Vec<CratePatch>,
 }
 
 impl<'a> TomlTweaker<'a> {
-    pub fn new(krate: &'a Crate, cargo_toml: &'a Path, patches: &'a Vec<CratePatch>) -> Result<Self, Error> {
+    pub fn new(krate: &'a Crate, cargo_toml: &'a Path, patches: &[CratePatch]) -> Result<Self, Error> {
         let toml_content = ::std::fs::read_to_string(cargo_toml)
             .with_context(|_| PrepareError::MissingCargoToml)?;
         let table: Table =
@@ -158,16 +158,16 @@ impl<'a> TomlTweaker<'a> {
 
         let dir = cargo_toml.parent();
 
-        Ok(TomlTweaker { krate, table, dir, patches })
+        Ok(TomlTweaker { krate, table, dir, patches: patches.to_vec() })
     }
 
     #[cfg(test)]
-    fn new_with_table(krate: &'a Crate, table: Table, patches: &'a Vec<CratePatch>) -> Self {
+    fn new_with_table(krate: &'a Crate, table: Table, patches: &[CratePatch]) -> Self {
         TomlTweaker {
             krate,
             table,
             dir: None,
-            patches,
+            patches: patches.to_vec(),
         }
     }
 
@@ -282,18 +282,30 @@ impl<'a> TomlTweaker<'a> {
     }
 
     fn apply_patches(&mut self) {
-        if self.patches.len() > 0 {
-            if !self.table.contains_key("patch.crates-io") {
-                self.table.insert("patch.crates-io".into(), Value::Table(Table::new()));
-            }
+        if !self.patches.is_empty() {
+            let mut patch_table = self.table.get_mut("patch");
+            let patch_table = match patch_table {
+                Some(ref mut pt) => pt,
+                None => {
+                    self.table.insert("patch".to_string(), Value::Table(Table::new()));
+                    self.table.get_mut("patch").unwrap()
+                },
+            };
 
-            if let Some(&mut Value::Table(ref mut patches)) = self.table.get_mut("patch.crates-io") {
-                for patch in self.patches.iter().cloned() {
-                    let mut patch_table = Table::new();
-                    patch_table.insert("git".into(), Value::String(patch.uri));
-                    patch_table.insert("branch".into(), Value::String(patch.branch));
-                    patches.insert(patch.name, Value::Table(patch_table));
+            let mut cratesio_table = patch_table.get_mut("crates-io");
+            let cratesio_table = match cratesio_table {
+                Some(ref mut cio) => cio,
+                None => {
+                    patch_table.as_table_mut().unwrap().insert("crates-io".to_string(), Value::Table(Table::new()));
+                    patch_table.get_mut("crates-io").unwrap()
                 }
+            };
+
+            for patch in self.patches.iter().cloned() {
+                let mut table = Table::new();
+                table.insert("git".into(), Value::String(patch.uri));
+                table.insert("branch".into(), Value::String(patch.branch));
+                cratesio_table.as_table_mut().unwrap().insert(patch.name, Value::Table(table));
             }
         }
     }
@@ -353,7 +365,7 @@ pub enum PrepareError {
 #[cfg(test)]
 mod tests {
     use super::TomlTweaker;
-    use crate::crates::Crate;
+    use crate::{CratePatch, crates::Crate};
     use toml::{self, Value};
 
     #[test]
@@ -378,7 +390,8 @@ mod tests {
         let result = toml.clone();
 
         let krate = Crate::local("/dev/null".as_ref());
-        let mut tweaker = TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone());
+        let patches: Vec<CratePatch> = Vec::new();
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
         tweaker.tweak();
 
         assert_eq!(Value::Table(tweaker.table), result);
@@ -427,7 +440,61 @@ mod tests {
         };
 
         let krate = Crate::local("/dev/null".as_ref());
-        let mut tweaker = TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone());
+        let patches: Vec<CratePatch> = Vec::new();
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        tweaker.tweak();
+
+        assert_eq!(Value::Table(tweaker.table), result);
+    }
+
+    #[test]
+    fn test_tweak_table_patches() {
+        let toml = toml! {
+            cargo-features = ["foobar"]
+
+            [package]
+            name = "foo"
+            version = "1.0"
+
+            [dependencies]
+            bar = "1.0"
+
+            [dev-dependencies]
+            baz = "1.0"
+
+            [target."cfg(unix)".dependencies]
+            quux = "1.0"
+        };
+
+        let result = toml! {
+            cargo-features = ["foobar"]
+
+            [package]
+            name = "foo"
+            version = "1.0"
+
+            [dependencies]
+            bar = "1.0"
+
+            [dev-dependencies]
+            baz = "1.0"
+
+            [target."cfg(unix)".dependencies]
+            quux = "1.0"
+
+            [patch.crates-io]
+            quux = { git = "https://git.example.com/quux", branch = "dev" }
+        };
+
+        let krate = Crate::local("/dev/null".as_ref());
+        let patches = vec![
+            CratePatch {
+                name: "quux".into(),
+                uri: "https://git.example.com/quux".into(),
+                branch: "dev".into(),
+            }
+        ];
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
         tweaker.tweak();
 
         assert_eq!(Value::Table(tweaker.table), result);

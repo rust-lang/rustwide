@@ -20,13 +20,6 @@ enum CrateType {
     Local(local::Local),
 }
 
-#[derive(Clone)]
-pub struct CratePatch {
-    pub name: String,
-    pub uri: String,
-    pub branch: String
-}
-
 /// A Rust crate that can be used with rustwide.
 pub struct Crate(CrateType);
 
