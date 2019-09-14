@@ -1,5 +1,5 @@
 use crate::cmd::Command;
-use crate::{Crate, Toolchain, CratePatch, Workspace};
+use crate::{Crate, Toolchain, Workspace, build::CratePatch};
 use failure::{Error, Fail, ResultExt};
 use log::info;
 use std::path::Path;
@@ -365,7 +365,8 @@ pub enum PrepareError {
 #[cfg(test)]
 mod tests {
     use super::TomlTweaker;
-    use crate::{CratePatch, crates::Crate};
+    use crate::crates::Crate;
+    use crate::build::CratePatch;
     use toml::{self, Value};
 
     #[test]

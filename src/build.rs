@@ -6,14 +6,10 @@ use remove_dir_all::remove_dir_all;
 use std::path::PathBuf;
 use std::vec::Vec;
 
-/// Holds info for a patch to be added to a crate's Cargo.toml
 #[derive(Clone)]
 pub struct CratePatch {
-    /// Crate name to patch
     pub name: String,
-    /// URL of the git repo
     pub uri: String,
-    /// Branch of the git repo
     pub branch: String
 }
 
@@ -43,25 +39,24 @@ impl<'a> Builder<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, CratePatch, cmd::SandboxBuilder};
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::Dist { name: "".into() };
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
-    /// let crate_patch = CratePatch { name: "bar".into(), uri: "https://github.com/foo/bar".into(), branch: "baz".into() };
     /// let mut build_dir = workspace.build_dir("foo");
     /// build_dir.build(&toolchain, &krate, sandbox)
-    ///     .patch(crate_patch)
+    ///     .patch_with_git("bar".into(), "https://github.com/foo/bar".into(), "baz".into())
     ///     .run(|build| {
     ///         build.cargo().args(&["test", "--all"]).run()?;
     ///         Ok(())
     /// })?;
     /// # Ok(())
     /// # }
-    pub fn patch(mut self, patch: CratePatch) -> Self {
-        self.patches.push(patch);
+    pub fn patch_with_git(mut self, name: String, uri: String, branch: String) -> Self {
+        self.patches.push(CratePatch { name, uri, branch});
         self
     }
 
