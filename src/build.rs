@@ -24,7 +24,7 @@ pub struct BuildDirectory {
 }
 
 /// Builder for configuring builds in a [`BuildDirectory`](struct.BuildDirectory.html).
-pub struct Builder<'a> {
+pub struct BuildBuilder<'a> {
     build_dir: &'a mut BuildDirectory,
     toolchain: &'a Toolchain,
     krate: &'a Crate,
@@ -32,7 +32,7 @@ pub struct Builder<'a> {
     patches: Vec<CratePatch>,
 }
 
-impl<'a> Builder<'a> {
+impl<'a> BuildBuilder<'a> {
     /// Add a patch to this build.
     /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
     /// # Example
@@ -54,8 +54,8 @@ impl<'a> Builder<'a> {
     /// })?;
     /// # Ok(())
     /// # }
-    pub fn patch_with_git(mut self, name: String, uri: String, branch: String) -> Self {
-        self.patches.push(CratePatch { name, uri, branch });
+    pub fn patch_with_git(mut self, name: &str, uri: &str, branch: &str) -> Self {
+        self.patches.push(CratePatch { name: name.into(), uri: uri.into(), branch: branch.into() });
         self
     }
 
@@ -122,8 +122,8 @@ impl BuildDirectory {
         toolchain: &'a Toolchain,
         krate: &'a Crate,
         sandbox: SandboxBuilder,
-    ) -> Builder {
-        Builder {
+    ) -> BuildBuilder {
+        BuildBuilder {
             build_dir: self,
             toolchain,
             krate,
