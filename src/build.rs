@@ -47,15 +47,19 @@ impl<'a> BuildBuilder<'a> {
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
     /// build_dir.build(&toolchain, &krate, sandbox)
-    ///     .patch_with_git("bar".into(), "https://github.com/foo/bar".into(), "baz".into())
+    ///     .patch_with_git("bar", "https://github.com/foo/bar", "baz")
     ///     .run(|build| {
     ///         build.cargo().args(&["test", "--all"]).run()?;
     ///         Ok(())
-    /// })?;
+    ///     })?;
     /// # Ok(())
     /// # }
     pub fn patch_with_git(mut self, name: &str, uri: &str, branch: &str) -> Self {
-        self.patches.push(CratePatch { name: name.into(), uri: uri.into(), branch: branch.into() });
+        self.patches.push(CratePatch {
+            name: name.into(),
+            uri: uri.into(),
+            branch: branch.into(),
+        });
         self
     }
 
