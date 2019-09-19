@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New method `BuildBuilder::run` to run a build.
 - New method `Command::log_command` to disable logging the command name and
   args before executing it.
+- New method `WorkspaceBuilder::running_inside_docker` to adapt Rustwide itself
+  to run inside a Docker container.
 
 ### Changed
 

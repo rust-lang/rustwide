@@ -29,7 +29,11 @@ impl Runner {
                 .join(crate_name),
         );
         Ok(Runner {
-            crate_name: crate_name.to_string(),
+            crate_name: if std::env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {
+                format!("{}-inside-docker", crate_name.to_string())
+            } else {
+                crate_name.to_string()
+            },
             workspace,
             toolchain: &TOOLCHAIN,
             krate,

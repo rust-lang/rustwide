@@ -4,6 +4,7 @@ use rustwide::cmd::SandboxBuilder;
 
 #[macro_use]
 mod runner;
+mod inside_docker;
 
 #[test]
 fn test_hello_world() {
