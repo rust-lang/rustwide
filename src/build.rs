@@ -4,6 +4,14 @@ use crate::{Crate, Toolchain, Workspace};
 use failure::Error;
 use remove_dir_all::remove_dir_all;
 use std::path::PathBuf;
+use std::vec::Vec;
+
+#[derive(Clone)]
+pub(crate) struct CratePatch {
+    pub(crate) name: String,
+    pub(crate) uri: String,
+    pub(crate) branch: String,
+}
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.
 ///
@@ -15,12 +23,44 @@ pub struct BuildDirectory {
     name: String,
 }
 
-impl BuildDirectory {
-    pub(crate) fn new(workspace: Workspace, name: &str) -> Self {
-        Self {
-            workspace,
+/// Builder for configuring builds in a [`BuildDirectory`](struct.BuildDirectory.html).
+pub struct BuildBuilder<'a> {
+    build_dir: &'a mut BuildDirectory,
+    toolchain: &'a Toolchain,
+    krate: &'a Crate,
+    sandbox: SandboxBuilder,
+    patches: Vec<CratePatch>,
+}
+
+impl<'a> BuildBuilder<'a> {
+    /// Add a patch to this build.
+    /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
+    /// let mut build_dir = workspace.build_dir("foo");
+    /// build_dir.build(&toolchain, &krate, sandbox)
+    ///     .patch_with_git("bar", "https://github.com/foo/bar", "baz")
+    ///     .run(|build| {
+    ///         build.cargo().args(&["test", "--all"]).run()?;
+    ///         Ok(())
+    ///     })?;
+    /// # Ok(())
+    /// # }
+    pub fn patch_with_git(mut self, name: &str, uri: &str, branch: &str) -> Self {
+        self.patches.push(CratePatch {
             name: name.into(),
-        }
+            uri: uri.into(),
+            branch: branch.into(),
+        });
+        self
     }
 
     /// Run a sandboxed build of the provided crate with the provided toolchain. The closure will
@@ -29,6 +69,39 @@ impl BuildDirectory {
     ///
     /// All the state will be kept on disk as long as the closure doesn't exit: after that things
     /// might be removed.
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
+    /// let mut build_dir = workspace.build_dir("foo");
+    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+    ///     build.cargo().args(&["test", "--all"]).run()?;
+    ///     Ok(())
+    /// })?;
+    /// # Ok(())
+    /// # }
+    pub fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
+        self.build_dir
+            .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
+    }
+}
+
+impl BuildDirectory {
+    pub(crate) fn new(workspace: Workspace, name: &str) -> Self {
+        Self {
+            workspace,
+            name: name.into(),
+        }
+    }
+
+    /// Create a build in this build directory.  Returns a builder that can be used
+    /// to configure the build and run it.
     ///
     /// # Example
     ///
@@ -41,18 +114,34 @@ impl BuildDirectory {
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
+    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build<R, F: FnOnce(&Build) -> Result<R, Error>>(
+    pub fn build<'a>(
+        &'a mut self,
+        toolchain: &'a Toolchain,
+        krate: &'a Crate,
+        sandbox: SandboxBuilder,
+    ) -> BuildBuilder {
+        BuildBuilder {
+            build_dir: self,
+            toolchain,
+            krate,
+            sandbox,
+            patches: Vec::new(),
+        }
+    }
+
+    pub(crate) fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(
         &mut self,
         toolchain: &Toolchain,
         krate: &Crate,
         sandbox: SandboxBuilder,
+        patches: Vec<CratePatch>,
         f: F,
     ) -> Result<R, Error> {
         let source_dir = self.source_dir();
@@ -60,7 +149,7 @@ impl BuildDirectory {
             remove_dir_all(&source_dir)?;
         }
 
-        let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir);
+        let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
         prepare.prepare()?;
 
         std::fs::create_dir_all(self.target_dir())?;
@@ -123,7 +212,7 @@ impl Build<'_> {
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
+    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
     ///     build.cmd("rustfmt").args(&["--check", "src/main.rs"]).run()?;
     ///     Ok(())
     /// })?;
@@ -160,7 +249,7 @@ impl Build<'_> {
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&toolchain, &krate, sandbox, |build| {
+    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;

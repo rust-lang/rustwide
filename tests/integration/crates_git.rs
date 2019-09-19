@@ -18,16 +18,16 @@ fn test_fetch() -> Result<(), Error> {
     let cloned_commit = || -> Result<String, Error> {
         let mut dir = workspace.build_dir("integration-crates_git-test_fetch");
         dir.purge()?;
-        Ok(
-            dir.build(&toolchain, &krate, SandboxBuilder::new(), |build| {
+        Ok(dir
+            .build(&toolchain, &krate, SandboxBuilder::new())
+            .run(|build| {
                 Ok(Command::new(&workspace, "git")
                     .args(&["rev-parse", "HEAD"])
                     .cd(build.host_source_dir())
                     .run_capture()?
                     .stdout_lines()[0]
                     .to_string())
-            })?,
-        )
+            })?)
     };
 
     // Check if the initial commit was fetched

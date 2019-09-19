@@ -43,7 +43,7 @@ impl Runner {
     ) -> Result<T, Error> {
         let mut dir = self.workspace.build_dir(&self.crate_name);
         dir.purge()?;
-        dir.build(self.toolchain, &self.krate, sandbox, f)
+        dir.build(self.toolchain, &self.krate, sandbox).run(f)
     }
 }
 

@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .enable_networking(false);
 
     let mut build_dir = workspace.build_dir("docs");
-    build_dir.build(&toolchain, &krate, sandbox, |build| {
+    build_dir.build(&toolchain, &krate, sandbox).run(|build| {
         build.cargo().args(&["doc", "--no-deps"]).run()?;
         Ok(())
     })?;
