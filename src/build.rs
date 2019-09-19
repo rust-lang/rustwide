@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use std::vec::Vec;
 
 #[derive(Clone)]
-pub struct CratePatch {
-    pub name: String,
-    pub uri: String,
-    pub branch: String,
+pub(crate) struct CratePatch {
+    pub(crate) name: String,
+    pub(crate) uri: String,
+    pub(crate) branch: String,
 }
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.

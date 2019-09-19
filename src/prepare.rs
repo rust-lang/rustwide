@@ -142,7 +142,7 @@ impl<'a> Prepare<'a> {
     }
 }
 
-pub struct TomlTweaker<'a> {
+struct TomlTweaker<'a> {
     krate: &'a Crate,
     table: Table,
     dir: Option<&'a Path>,
