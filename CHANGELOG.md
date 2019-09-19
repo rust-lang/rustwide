@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or disable fetching the registry's index during each build. The method is
   only available when the `unstable` rustwide feature is enabled.
 - New method `Crate::purge_from_cache` to remove the cached copy of a crate.
+- New method `BuildBuilder::patch_with_git` to replace crates.
+- New method `BuildBuilder::run` to run a build.
 
 ### Changed
 
@@ -19,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of being cached during the workspace's initialization. It's possible
   to use the `WorkspaceBuilder::fetch_registry_index_during_builds` method to
   revert to the old behavior.
+- **BREAKING:** The `BuildDirectory::build` method now returns an instance of
+  `BuildBuilder`. You'll need to then call `BuildBuilder::run` to restore the
+  old behavior.
 - When the `unstable` feature flag is enabled rustwide will use Cargo's
   `-Zinstall-upgrade` to update its tools instead of the
   `cargo-install-upgrade` crate. This will speed up the workspace
