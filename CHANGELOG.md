@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New method `Crate::purge_from_cache` to remove the cached copy of a crate.
 - New method `BuildBuilder::patch_with_git` to replace crates.
 - New method `BuildBuilder::run` to run a build.
+- New method `Command::log_command` to disable logging the command name and
+  args before executing it.
+- New method `WorkspaceBuilder::running_inside_docker` to adapt Rustwide itself
+  to run inside a Docker container.
 
 ### Changed
 

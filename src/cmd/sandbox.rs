@@ -66,33 +66,51 @@ struct MountConfig {
 }
 
 impl MountConfig {
-    fn to_volume_arg(&self) -> String {
+    fn host_path(&self, workspace: &Workspace) -> Result<PathBuf, Error> {
+        if let Some(container) = workspace.current_container() {
+            // If we're inside a Docker container we'll need to remap the mount sources to point to
+            // the directories in the host system instead of the containers. To do that we try to
+            // see if the mount source is inside an existing mount point, and "rebase" the path.
+            let inside_container_path = crate::utils::normalize_path(&self.host_path);
+            for mount in container.mounts() {
+                let dest = crate::utils::normalize_path(Path::new(mount.destination()));
+                if let Ok(shared) = inside_container_path.strip_prefix(&dest) {
+                    return Ok(Path::new(mount.source()).join(shared));
+                }
+            }
+            failure::bail!("the workspace is not mounted from outside the container");
+        } else {
+            Ok(crate::utils::normalize_path(&self.host_path))
+        }
+    }
+
+    fn to_volume_arg(&self, workspace: &Workspace) -> Result<String, Error> {
         let perm = match self.perm {
             MountKind::ReadWrite => "rw",
             MountKind::ReadOnly => "ro",
             MountKind::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
         };
-        format!(
+        Ok(format!(
             "{}:{}:{},Z",
-            absolute(&self.host_path).to_string_lossy(),
+            self.host_path(workspace)?.to_string_lossy(),
             self.sandbox_path.to_string_lossy(),
             perm
-        )
+        ))
     }
 
-    fn to_mount_arg(&self) -> String {
+    fn to_mount_arg(&self, workspace: &Workspace) -> Result<String, Error> {
         let mut opts_with_leading_comma = vec![];
 
         if self.perm == MountKind::ReadOnly {
             opts_with_leading_comma.push(",readonly");
         }
 
-        format!(
+        Ok(format!(
             "type=bind,src={},dst={}{}",
-            absolute(&self.host_path).to_string_lossy(),
+            self.host_path(workspace)?.to_string_lossy(),
             self.sandbox_path.to_string_lossy(),
             opts_with_leading_comma.join(""),
-        )
+        ))
     }
 }
 
@@ -175,10 +193,10 @@ impl SandboxBuilder {
             // Linux we need the Z flag, which doesn't work with `--mount`, for SELinux relabeling.
             if cfg!(windows) {
                 args.push("--mount".into());
-                args.push(mount.to_mount_arg())
+                args.push(mount.to_mount_arg(workspace)?)
             } else {
                 args.push("-v".into());
-                args.push(mount.to_volume_arg())
+                args.push(mount.to_volume_arg(workspace)?)
             }
         }
 
@@ -242,15 +260,6 @@ impl SandboxBuilder {
 
         container.run(timeout, no_output_timeout)?;
         Ok(())
-    }
-}
-
-fn absolute(path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_owned()
-    } else {
-        let cd = std::env::current_dir().expect("unable to get current dir");
-        cd.join(path)
     }
 }
 

@@ -21,6 +21,7 @@ extern crate toml;
 mod build;
 pub mod cmd;
 mod crates;
+mod inside_docker;
 pub mod logging;
 mod native;
 mod prepare;

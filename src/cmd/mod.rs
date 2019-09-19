@@ -129,6 +129,7 @@ pub struct Command<'w, 'pl> {
     cd: Option<PathBuf>,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
+    log_command: bool,
     log_output: bool,
 }
 
@@ -179,6 +180,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
             timeout,
             no_output_timeout,
             log_output: true,
+            log_command: true,
         }
     }
 
@@ -258,6 +260,15 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// [log]: (https://crates.io/crates/log)
     pub fn log_output(mut self, log_output: bool) -> Self {
         self.log_output = log_output;
+        self
+    }
+
+    /// Enable or disable logging the command name and args to the [`log` crate][log] before the
+    /// exectuion. By default logging is enabled.
+    ///
+    /// [log]: (https://crates.io/crates/log)
+    pub fn log_command(mut self, log_command: bool) -> Self {
+        self.log_command = log_command;
         self
     }
 
@@ -389,7 +400,9 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 cmd.current_dir(cd);
             }
 
-            info!("running `{}`", cmdstr);
+            if self.log_command {
+                info!("running `{}`", cmdstr);
+            }
             let out = log_command(
                 cmd,
                 self.process_lines,

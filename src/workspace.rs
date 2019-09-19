@@ -1,5 +1,6 @@
 use crate::build::BuildDirectory;
 use crate::cmd::{Command, SandboxImage};
+use crate::inside_docker::CurrentContainer;
 use crate::Toolchain;
 use failure::{Error, ResultExt};
 use log::info;
@@ -25,6 +26,7 @@ pub struct WorkspaceBuilder {
     command_timeout: Option<Duration>,
     command_no_output_timeout: Option<Duration>,
     fetch_registry_index_during_builds: bool,
+    running_inside_docker: bool,
     fast_init: bool,
 }
 
@@ -41,6 +43,7 @@ impl WorkspaceBuilder {
             command_timeout: DEFAULT_COMMAND_TIMEOUT,
             command_no_output_timeout: DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT,
             fetch_registry_index_during_builds: false,
+            running_inside_docker: false,
             fast_init: false,
         }
     }
@@ -103,6 +106,25 @@ impl WorkspaceBuilder {
         self
     }
 
+    /// Enable or disable support for running Rustwide itself inside Docker (disabled by default).
+    ///
+    /// When support is enabled Rustwide will try to detect whether it's actually running inside a
+    /// Docker container during initialization, and in that case it will adapt itself. This is
+    /// needed because starting a sibling container from another one requires mount sources to be
+    /// remapped to the real directory on the host.
+    ///
+    /// Other than enabling support for it, to run Rustwide inside Docker your container needs to
+    /// meet these requirements:
+    ///
+    /// * The Docker socker (`/var/run/docker.sock`) needs to be mounted inside the container.
+    /// * The workspace directory must be either mounted from the host system or in a child
+    ///   directory of a mount from the host system. Workspaces created inside the container are
+    ///   not supported.
+    pub fn running_inside_docker(mut self, inside: bool) -> Self {
+        self.running_inside_docker = inside;
+        self
+    }
+
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
     pub fn init(self) -> Result<Workspace, Error> {
@@ -126,7 +148,7 @@ impl WorkspaceBuilder {
                 .default_headers(headers)
                 .build()?;
 
-            let ws = Workspace {
+            let mut ws = Workspace {
                 inner: Arc::new(WorkspaceInner {
                     http,
                     path: self.path,
@@ -134,8 +156,15 @@ impl WorkspaceBuilder {
                     command_timeout: self.command_timeout,
                     command_no_output_timeout: self.command_no_output_timeout,
                     fetch_registry_index_during_builds: self.fetch_registry_index_during_builds,
+                    current_container: None,
                 }),
             };
+
+            if self.running_inside_docker {
+                let container = CurrentContainer::detect(&ws)?;
+                Arc::get_mut(&mut ws.inner).unwrap().current_container = container;
+            }
+
             ws.init(self.fast_init)?;
             Ok(ws)
         })
@@ -149,6 +178,7 @@ struct WorkspaceInner {
     command_timeout: Option<Duration>,
     command_no_output_timeout: Option<Duration>,
     fetch_registry_index_during_builds: bool,
+    current_container: Option<CurrentContainer>,
 }
 
 /// Directory on the filesystem containing rustwide's state and caches.
@@ -236,6 +266,10 @@ impl Workspace {
 
     pub(crate) fn fetch_registry_index_during_builds(&self) -> bool {
         self.inner.fetch_registry_index_during_builds
+    }
+
+    pub(crate) fn current_container(&self) -> Option<&CurrentContainer> {
+        self.inner.current_container.as_ref()
     }
 
     fn init(&self, fast_init: bool) -> Result<(), Error> {
