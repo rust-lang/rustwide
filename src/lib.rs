@@ -29,7 +29,7 @@ mod tools;
 mod utils;
 mod workspace;
 
-pub use crate::build::{Build, BuildDirectory};
+pub use crate::build::{Build, BuildDirectory, BuildBuilder};
 pub use crate::crates::Crate;
 pub use crate::prepare::PrepareError;
 pub use crate::toolchain::Toolchain;
