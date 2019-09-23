@@ -41,7 +41,7 @@ toml = "0.4.6"
 fs2 = "0.4.3"
 remove_dir_all = "0.5.2"
 base64 = "0.10.1"
-getrandom = "0.1.12"
+getrandom = { version = "0.1.12", features = ["std"] }
 
 [dev-dependencies]
 env_logger = "0.6.1"
