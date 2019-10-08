@@ -42,7 +42,7 @@ impl WorkspaceBuilder {
             sandbox_image: None,
             command_timeout: DEFAULT_COMMAND_TIMEOUT,
             command_no_output_timeout: DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT,
-            fetch_registry_index_during_builds: false,
+            fetch_registry_index_during_builds: true,
             running_inside_docker: false,
             fast_init: false,
         }

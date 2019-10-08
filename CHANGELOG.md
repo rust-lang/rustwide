@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- The default value for `WorkspaceBuilder::fetch_registry_index_during_builds`
+  was mistakenly set to `false` instead of `true` by default.
+
 ## [0.3.1] - 2019-09-23
 
 ### Fixed
