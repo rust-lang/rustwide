@@ -419,7 +419,11 @@ impl<'w, 'pl> Command<'w, 'pl> {
             if out.status.success() {
                 Ok(out.into())
             } else {
-                failure::bail!("command `{}` failed", cmdstr);
+                failure::bail!(
+                    "command `{}` failed with error output '{}'",
+                    cmdstr,
+                    out.stderr.join("\n")
+                );
             }
         }
     }
