@@ -418,12 +418,16 @@ impl<'w, 'pl> Command<'w, 'pl> {
 
             if out.status.success() {
                 Ok(out.into())
-            } else {
+            } else if !self.log_output {
+                // show a more verbose error message so developers know what went wrong
                 failure::bail!(
                     "command `{}` failed with error output '{}'",
                     cmdstr,
                     out.stderr.join("\n")
                 );
+            } else {
+                // we already printed the output, no need to print it again
+                failure::bail!("command `{}` failed", cmdstr);
             }
         }
     }
