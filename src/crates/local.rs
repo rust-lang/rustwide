@@ -48,7 +48,8 @@ fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
     let dest = crate::utils::normalize_path(dest);
 
     let src_components = src.components().count();
-    for entry in WalkDir::new(&src) {
+    let mut entries = WalkDir::new(&src).into_iter();
+    while let Some(entry) = entries.next() {
         let entry = entry?;
 
         let mut components = entry.path().components();
@@ -58,7 +59,13 @@ fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
         let path = components.as_path();
 
         if entry.file_type().is_dir() {
-            std::fs::create_dir_all(dest.join(path))?;
+            // don't copy /target directory
+            if entry.file_name() == "target" && entry.depth() == 1 {
+                info!("ignoring top-level target directory {}", path.display());
+                entries.skip_current_dir();
+            } else {
+                std::fs::create_dir_all(dest.join(path))?;
+            }
         } else {
             std::fs::copy(src.join(path), dest.join(path))?;
         }
@@ -87,6 +94,24 @@ mod tests {
             std::fs::read(tmp_dest.path().join("dir").join("bar"))?,
             b"Rustwide"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_copy_target() -> Result<(), Error> {
+        let (src, dest) = (tempfile::tempdir()?, tempfile::tempdir()?);
+        std::fs::create_dir(src.path().join("target"))?;
+        std::fs::write(
+            src.path().join("target").join("a.out"),
+            b"this is not actually an ELF file",
+        )?;
+        println!("made subdirs and files");
+
+        super::copy_dir(src.path(), dest.path())?;
+        println!("copied");
+
+        assert!(!dest.path().join("target").exists());
 
         Ok(())
     }
