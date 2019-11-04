@@ -100,18 +100,16 @@ mod tests {
 
     #[test]
     fn test_no_copy_target() -> Result<(), Error> {
-        use log::debug;
-        env_logger::init();
-
-        debug!("debugging works");
         let (src, dest) = (tempfile::tempdir()?, tempfile::tempdir()?);
-        debug!("made root dirs");
         std::fs::create_dir(src.path().join("target"))?;
-        std::fs::write(src.path().join("target").join("a.out"), b"this is not actually an ELF file")?;
-        debug!("made subdirs and files");
+        std::fs::write(
+            src.path().join("target").join("a.out"),
+            b"this is not actually an ELF file",
+        )?;
+        println!("made subdirs and files");
 
         super::copy_dir(src.path(), dest.path())?;
-        debug!("copied");
+        println!("copied");
 
         assert!(!dest.path().join("target").exists());
 
