@@ -48,7 +48,7 @@ fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
     let dest = crate::utils::normalize_path(dest);
 
     let src_components = src.components().count();
-    let mut entries = WalkDir::new(&src).into_iter();
+    let mut entries = WalkDir::new(&src).follow_links(true).into_iter();
     while let Some(entry) = entries.next() {
         let entry = entry?;
 
@@ -112,7 +112,51 @@ mod tests {
         println!("copied");
 
         assert!(!dest.path().join("target").exists());
+        Ok(())
+    }
 
+    #[test]
+    fn test_copy_symlinks() -> Result<(), Error> {
+        use std::{fs, os, path::Path};
+
+        let tmp_src = tempfile::tempdir()?;
+        let tmp_dest = tempfile::tempdir()?;
+        let assert_copy_err_has_filename = || {
+            match super::copy_dir(tmp_src.path(), tmp_dest.path()) {
+                Ok(_) => panic!("copy with bad symbolic link did not fail"),
+                Err(err) => assert!(err.downcast::<walkdir::Error>().unwrap().path().is_some()),
+            };
+        };
+
+        // Create some files in the src dir
+        fs::create_dir(tmp_src.path().join("dir"))?;
+        fs::write(tmp_src.path().join("foo"), b"Hello world")?;
+        fs::write(tmp_src.path().join("dir").join("bar"), b"Rustwide")?;
+        let bad_link = tmp_src.path().join("symlink");
+
+        // test link to non-existent file
+        #[cfg(unix)]
+        os::unix::fs::symlink(Path::new("/does_not_exist"), &bad_link)?;
+        #[cfg(windows)]
+        os::windows::fs::symlink_file(Path::new(r"C:\does_not_exist"), &bad_link)?;
+        #[cfg(not(any(unix, windows)))]
+        panic!("testing symbolic links not supported except on windows and linux");
+
+        println!("{} should cause copy to fail", bad_link.display());
+        assert_copy_err_has_filename();
+
+        fs::remove_file(&bad_link)?;
+        // make sure it works without that link
+        super::copy_dir(tmp_src.path(), tmp_dest.path())?;
+
+        // test link to self
+        #[cfg(unix)]
+        os::unix::fs::symlink(&bad_link, &bad_link)?;
+        #[cfg(windows)]
+        os::windows::fs::symlink_file(&bad_link, &bad_link)?;
+
+        println!("{} should cause copy to fail", bad_link.display());
+        assert_copy_err_has_filename();
         Ok(())
     }
 }
