@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The directory `target/` inside local crates won't be copied into the build
   anymore.
+- Symbolic links will be followed instead of copied as links.
+  Better error messages will be given for broken symbolic links.
 
 ## [0.3.2] - 2019-10-08
 
