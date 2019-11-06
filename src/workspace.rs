@@ -54,8 +54,8 @@ impl WorkspaceBuilder {
     /// [rustops/crates-build-env-windows] on Windows systems. Those images contain dependencies to
     /// build a large amount of crates.
     ///
-    /// [rustops/crates-build-env]: https://hub.docker.com/rustops/crates-build-env
-    /// [rustops/crates-build-env-windows]: https://hub.docker.com/rustops/crates-build-env-windows
+    /// [rustops/crates-build-env]: https://hub.docker.com/r/rustops/crates-build-env
+    /// [rustops/crates-build-env-windows]: https://hub.docker.com/r/rustops/crates-build-env-windows
     pub fn sandbox_image(mut self, image: SandboxImage) -> Self {
         self.sandbox_image = Some(image);
         self
