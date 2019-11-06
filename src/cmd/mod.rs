@@ -257,7 +257,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// Enable or disable logging all the output lines to the [`log` crate][log]. By default
     /// logging is enabled.
     ///
-    /// [log]: (https://crates.io/crates/log)
+    /// [log]: https://crates.io/crates/log
     pub fn log_output(mut self, log_output: bool) -> Self {
         self.log_output = log_output;
         self
@@ -266,7 +266,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// Enable or disable logging the command name and args to the [`log` crate][log] before the
     /// exectuion. By default logging is enabled.
     ///
-    /// [log]: (https://crates.io/crates/log)
+    /// [log]: https://crates.io/crates/log
     pub fn log_command(mut self, log_command: bool) -> Self {
         self.log_command = log_command;
         self
