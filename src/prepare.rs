@@ -198,9 +198,12 @@ impl<'a> TomlTweaker<'a> {
         value
             .iter()
             .filter_map(|t| t.as_table())
-            .filter(|t| t.get("name").is_some())
-            .map(|table| {
-                let name = table.get("name").unwrap().to_string();
+            .filter_map(|t| {
+                t.get("name")
+                    .and_then(Value::as_str)
+                    .map(|n| (t, n.to_owned()))
+            })
+            .map(|(table, name)| {
                 let path = table.get("path").map_or_else(
                     || dir.join(folder).join(name + ".rs"),
                     |path| dir.join(path.as_str().unwrap()),
