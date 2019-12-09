@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Copying broken symbolic links will now include the path of the link.
+- Copying broken symbolic links will now include the path of the link in the
+  error message.
+- Fix removing present standalone tests during TOML tweaks.
 
 ## [0.3.2] - 2019-10-08
 
