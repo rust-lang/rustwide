@@ -80,9 +80,9 @@ impl CommandExt for Command {
         if !out.status.success() {
             eprintln!("failed to execute command {:?}", self);
             eprintln!("stdout:");
-            std::io::stderr().lock().write(&out.stdout)?;
+            std::io::stderr().lock().write_all(&out.stdout)?;
             eprintln!("stderr:");
-            std::io::stderr().lock().write(&out.stderr)?;
+            std::io::stderr().lock().write_all(&out.stderr)?;
             failure::bail!("failed to execute command {:?}", self);
         }
         Ok(())

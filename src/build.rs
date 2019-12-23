@@ -156,7 +156,7 @@ impl BuildDirectory {
         let res = f(&Build {
             dir: self,
             toolchain,
-            sandbox: sandbox.clone(),
+            sandbox,
         })?;
 
         remove_dir_all(&source_dir)?;

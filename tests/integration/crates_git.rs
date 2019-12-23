@@ -37,7 +37,7 @@ fn test_fetch() -> Result<(), Error> {
 
     // Make a new commit
     repo.commit(&workspace)?;
-    let new_commit = repo.last_commit_sha.clone().unwrap();
+    let new_commit = repo.last_commit_sha.unwrap();
     assert_ne!(initial_commit, new_commit);
     assert_eq!(initial_commit, krate.git_commit(&workspace).unwrap());
     assert_eq!(initial_commit, cloned_commit()?);
