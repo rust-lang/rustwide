@@ -231,7 +231,7 @@ impl Workspace {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// let main_toolchain = Toolchain::Dist { name: "stable".into() };
+    /// let main_toolchain = Toolchain::dist("stable");
     /// for installed in &workspace.installed_toolchains()? {
     ///     if *installed != main_toolchain {
     ///         installed.uninstall(&workspace)?;

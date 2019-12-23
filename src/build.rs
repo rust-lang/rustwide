@@ -42,7 +42,7 @@ impl<'a> BuildBuilder<'a> {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
@@ -76,7 +76,7 @@ impl<'a> BuildBuilder<'a> {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
@@ -110,7 +110,7 @@ impl BuildDirectory {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
@@ -208,7 +208,7 @@ impl Build<'_> {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
@@ -245,7 +245,7 @@ impl Build<'_> {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// # let toolchain = Toolchain::Dist { name: "".into() };
+    /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");

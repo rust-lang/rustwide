@@ -25,7 +25,7 @@ mod inside_docker;
 pub mod logging;
 mod native;
 mod prepare;
-mod toolchain;
+pub mod toolchain;
 mod tools;
 mod utils;
 mod workspace;

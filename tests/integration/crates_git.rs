@@ -5,9 +5,7 @@ use rustwide::{Crate, PrepareError, Toolchain, Workspace};
 #[test]
 fn test_fetch() -> Result<(), Error> {
     let workspace = crate::utils::init_workspace()?;
-    let toolchain = Toolchain::Dist {
-        name: "stable".into(),
-    };
+    let toolchain = Toolchain::dist("stable");
     toolchain.install(&workspace)?;
 
     let mut repo = Repo::new(&workspace)?;

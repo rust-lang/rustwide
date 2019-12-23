@@ -1,3 +1,5 @@
+//! Tools to manage and use Rust toolchains.
+
 use crate::cmd::{Binary, Command, Runnable};
 use crate::tools::{RUSTUP, RUSTUP_TOOLCHAIN_INSTALL_MASTER};
 use crate::Workspace;
@@ -8,50 +10,171 @@ use std::path::Path;
 
 pub(crate) const MAIN_TOOLCHAIN_NAME: &str = "stable";
 
+/// Metadata of a dist toolchain. See [`Toolchain`](struct.Toolchain.html) to create and get it.
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
+pub struct DistToolchain {
+    name: Cow<'static, str>,
+}
+
+impl DistToolchain {
+    /// Get the name of this toolchain.
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    fn init(&self, workspace: &Workspace) -> Result<(), Error> {
+        info!("installing toolchain {}", self.name());
+        Command::new(workspace, &RUSTUP)
+            .args(&[
+                "toolchain",
+                "install",
+                self.name(),
+                "--profile",
+                workspace.rustup_profile(),
+            ])
+            .run()
+            .with_context(|_| format!("unable to install toolchain {} via rustup", self.name()))?;
+
+        Ok(())
+    }
+}
+
+/// Metadata of a CI toolchain. See [`Toolchain`](struct.Toolchain.html) to create and get it.
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
+pub struct CiToolchain {
+    /// Hash of the merge commit of the PR you want to download.
+    sha: String,
+    /// Whether you want to download a standard or "alt" build. "alt" builds have extra
+    /// compiler assertions enabled.
+    alt: bool,
+}
+
+impl CiToolchain {
+    /// Get the SHA of the git commit that produced this toolchain.
+    pub fn sha(&self) -> &str {
+        &self.sha
+    }
+
+    /// Check whether this is a normal CI artifact or an alternate CI artifact.
+    ///
+    /// Alternate CI artifacts are artifacts with extra assertions or features, produced by the Rust
+    /// team mostly for internal usage. The difference between them and normal CI artifacts can
+    /// change over time.
+    pub fn is_alt(&self) -> bool {
+        self.alt
+    }
+
+    fn init(&self, workspace: &Workspace) -> Result<(), Error> {
+        if self.alt {
+            info!("installing toolchain {}-alt", self.sha);
+        } else {
+            info!("installing toolchain {}", self.sha);
+        }
+
+        let mut args = vec![self.sha(), "-c", "cargo"];
+        if self.alt {
+            args.push("--alt");
+        }
+
+        Command::new(workspace, &RUSTUP_TOOLCHAIN_INSTALL_MASTER)
+            .args(&args)
+            .run()
+            .with_context(|_| {
+                format!(
+                    "unable to install toolchain {} via rustup-toolchain-install-master",
+                    self.sha
+                )
+            })?;
+
+        Ok(())
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
+#[serde(rename_all = "kebab-case", tag = "type")]
+enum ToolchainInner {
+    Dist(DistToolchain),
+    #[serde(rename = "ci")]
+    CI(CiToolchain),
+}
+
 /// Representation of a Rust compiler toolchain.
 ///
-/// The `Toolchain` enum represents a compiler toolchain, either downloaded from rustup or from the
-/// [rust-lang/rust][rustc] repo's CI artifacts storage. and it provides the tool to install and use it.
+/// The `Toolchain` struct represents a compiler toolchain, either downloaded from rustup or from
+/// the [rust-lang/rust][rustc] repo's CI artifacts storage, and it provides the methods to install
+/// and use it.
 ///
 /// [rustc]: https://github.com/rust-lang/rust
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
-#[serde(rename_all = "kebab-case", tag = "type")]
-pub enum Toolchain {
-    /// Toolchain available through rustup and distributed from
-    /// [static.rust-lang.org](https://static.rust-lang.org).
-    Dist {
-        /// The name of the toolchain, which is the same you'd use with `rustup toolchain install
-        /// <name>`.
-        name: Cow<'static, str>,
-    },
-    /// CI artifact from the [rust-lang/rust] repo. Each merged PR has its own full build
-    /// available for a while after it's been merged, identified by the merge commit sha. **There
-    /// is no retention or stability guarantee for these builds**.
-    ///
-    /// [rust-lang/rust]: https://github.com/rust-lang/rust
-    #[serde(rename = "ci")]
-    CI {
-        /// Hash of the merge commit of the PR you want to download.
-        sha: Cow<'static, str>,
-        /// Whether you want to download a standard or "alt" build. "alt" builds have extra
-        /// compiler assertions enabled.
-        alt: bool,
-    },
-    #[doc(hidden)]
-    __NonExaustive,
+pub struct Toolchain {
+    #[serde(flatten)]
+    inner: ToolchainInner,
 }
 
 impl Toolchain {
-    pub(crate) const MAIN: Toolchain = Toolchain::Dist {
-        name: Cow::Borrowed(MAIN_TOOLCHAIN_NAME),
+    pub(crate) const MAIN: Toolchain = Toolchain {
+        inner: ToolchainInner::Dist(DistToolchain {
+            name: Cow::Borrowed(MAIN_TOOLCHAIN_NAME),
+        }),
     };
+
+    /// Create a new dist toolchain.
+    ///
+    /// Dist toolchains are all the toolchains available through rustup and distributed from
+    /// [static.rust-lang.org][static-rlo]. You need to provide the toolchain name (the same you'd
+    /// use to install that toolchain with rustup).
+    ///
+    /// [static-rlo]: https://static.rust-lang.org
+    pub fn dist(name: &str) -> Self {
+        Toolchain {
+            inner: ToolchainInner::Dist(DistToolchain {
+                name: Cow::Owned(name.into()),
+            }),
+        }
+    }
+
+    /// Create a new CI toolchain.
+    ///
+    /// CI toolchains are artifacts built for every merged PR in the [rust-lang/rust][repo]
+    /// repository, identified by the SHA of the merge commit. These builds are purged after a
+    /// couple of months, and are available both in normal mode and "alternate" mode (experimental
+    /// builds with extra debugging and testing features enabled).
+    ///
+    /// **There is no availability or stability guarantee for these builds!**
+    ///
+    /// [repo]: https://github.com/rust-lang/rust
+    pub fn ci(sha: &str, alt: bool) -> Self {
+        Toolchain {
+            inner: ToolchainInner::CI(CiToolchain {
+                sha: sha.to_string(),
+                alt,
+            }),
+        }
+    }
+
+    /// If this toolchain is a dist toolchain, return its metadata.
+    pub fn as_dist(&self) -> Option<&DistToolchain> {
+        if let ToolchainInner::Dist(dist) = &self.inner {
+            Some(dist)
+        } else {
+            None
+        }
+    }
+
+    /// If this toolchain is a CI toolchain, return its metadata.
+    pub fn as_ci(&self) -> Option<&CiToolchain> {
+        if let ToolchainInner::CI(ci) = &self.inner {
+            Some(ci)
+        } else {
+            None
+        }
+    }
 
     /// Download and install the toolchain.
     pub fn install(&self, workspace: &Workspace) -> Result<(), Error> {
-        match self {
-            Self::Dist { name } => init_toolchain_from_dist(workspace, name)?,
-            Self::CI { sha, alt } => init_toolchain_from_ci(workspace, *alt, sha)?,
-            Self::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
+        match &self.inner {
+            ToolchainInner::Dist(dist) => dist.init(workspace)?,
+            ToolchainInner::CI(ci) => ci.init(workspace)?,
         }
 
         Ok(())
@@ -73,7 +196,7 @@ impl Toolchain {
         thing: &str,
         name: &str,
     ) -> Result<(), Error> {
-        if let Self::CI { .. } = self {
+        if let ToolchainInner::CI { .. } = self.inner {
             bail!("installing {} on CI toolchains is not supported yet", thing);
         }
         let toolchain_name = self.rustup_name();
@@ -114,7 +237,7 @@ impl Toolchain {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// let toolchain = Toolchain::Dist { name: "beta".into() };
+    /// let toolchain = Toolchain::dist("beta");
     /// Command::new(&workspace, toolchain.cargo())
     ///     .args(&["check"])
     ///     .run()?;
@@ -138,7 +261,7 @@ impl Toolchain {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// let toolchain = Toolchain::Dist { name: "beta".into() };
+    /// let toolchain = Toolchain::dist("beta");
     /// Command::new(&workspace, toolchain.rustc())
     ///     .args(&["hello.rs"])
     ///     .run()?;
@@ -153,11 +276,10 @@ impl Toolchain {
     }
 
     fn rustup_name(&self) -> String {
-        match self {
-            Self::Dist { name } => name.to_string(),
-            Self::CI { sha, alt: false } => sha.to_string(),
-            Self::CI { sha, alt: true } => format!("{}-alt", sha),
-            Self::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
+        match &self.inner {
+            ToolchainInner::Dist(dist) => dist.name.to_string(),
+            ToolchainInner::CI(ci) if ci.alt => format!("{}-alt", ci.sha),
+            ToolchainInner::CI(ci) => ci.sha.to_string(),
         }
     }
 }
@@ -166,47 +288,6 @@ impl std::fmt::Display for Toolchain {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.rustup_name())
     }
-}
-
-fn init_toolchain_from_dist(workspace: &Workspace, toolchain: &str) -> Result<(), Error> {
-    info!("installing toolchain {}", toolchain);
-    Command::new(workspace, &RUSTUP)
-        .args(&[
-            "toolchain",
-            "install",
-            toolchain,
-            "--profile",
-            workspace.rustup_profile(),
-        ])
-        .run()
-        .with_context(|_| format!("unable to install toolchain {} via rustup", toolchain))?;
-
-    Ok(())
-}
-
-fn init_toolchain_from_ci(workspace: &Workspace, alt: bool, sha: &str) -> Result<(), Error> {
-    if alt {
-        info!("installing toolchain {}-alt", sha);
-    } else {
-        info!("installing toolchain {}", sha);
-    }
-
-    let mut args = vec![sha, "-c", "cargo"];
-    if alt {
-        args.push("--alt");
-    }
-
-    Command::new(workspace, &RUSTUP_TOOLCHAIN_INSTALL_MASTER)
-        .args(&args)
-        .run()
-        .with_context(|_| {
-            format!(
-                "unable to install toolchain {} via rustup-toolchain-install-master",
-                sha
-            )
-        })?;
-
-    Ok(())
 }
 
 struct RustupProxy<'a> {
@@ -238,19 +319,14 @@ pub(crate) fn list_installed(rustup_home: &Path) -> Result<Vec<Toolchain>, Error
         // A toolchain installed by rustup has a corresponding file in $RUSTUP_HOME/update-hashes
         // A toolchain linked by rustup is just a symlink
         if entry.file_type()?.is_symlink() || update_hashes.join(&name).exists() {
-            result.push(Toolchain::Dist {
-                name: Cow::Owned(name),
-            });
+            result.push(Toolchain::dist(&name));
         } else {
             let (sha, alt) = if name.ends_with("-alt") {
                 ((&name[..name.len() - 4]).to_string(), true)
             } else {
                 (name, false)
             };
-            result.push(Toolchain::CI {
-                sha: Cow::Owned(sha),
-                alt,
-            });
+            result.push(Toolchain::ci(&sha, alt));
         }
     }
     Ok(result)
@@ -260,6 +336,25 @@ pub(crate) fn list_installed(rustup_home: &Path) -> Result<Vec<Toolchain>, Error
 mod tests {
     use super::Toolchain;
     use failure::Error;
+
+    #[test]
+    fn test_serde_repr() -> Result<(), Error> {
+        const DIST: &str = r#"{"type": "dist", "name": "stable"}"#;
+        const CI_NORMAL: &str = r#"{"type": "ci", "sha": "0000000", "alt": false}"#;
+        const CI_ALT: &str = r#"{"type": "ci", "sha": "0000000", "alt": true}"#;
+
+        assert_eq!(Toolchain::dist("stable"), serde_json::from_str(DIST)?);
+        assert_eq!(
+            Toolchain::ci("0000000", false),
+            serde_json::from_str(CI_NORMAL)?
+        );
+        assert_eq!(
+            Toolchain::ci("0000000", true),
+            serde_json::from_str(CI_ALT)?
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn test_list_installed() -> Result<(), Error> {
@@ -302,20 +397,10 @@ mod tests {
 
         let res = super::list_installed(rustup_home.path())?;
         assert_eq!(4, res.len());
-        assert!(res.contains(&Toolchain::Dist {
-            name: DIST_NAME.into()
-        }));
-        assert!(res.contains(&Toolchain::Dist {
-            name: LINK_NAME.into()
-        }));
-        assert!(res.contains(&Toolchain::CI {
-            sha: CI_SHA.into(),
-            alt: false
-        }));
-        assert!(res.contains(&Toolchain::CI {
-            sha: CI_SHA.into(),
-            alt: true
-        }));
+        assert!(res.contains(&Toolchain::dist(DIST_NAME)));
+        assert!(res.contains(&Toolchain::dist(LINK_NAME)));
+        assert!(res.contains(&Toolchain::ci(CI_SHA, false)));
+        assert!(res.contains(&Toolchain::ci(CI_SHA, true)));
 
         Ok(())
     }

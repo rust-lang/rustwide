@@ -11,9 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         WorkspaceBuilder::new(Path::new(".workspaces/docs-builder"), "rustwide-examples").init()?;
 
     // Run the builds on stable
-    let toolchain = Toolchain::Dist {
-        name: "stable".into(),
-    };
+    let toolchain = Toolchain::dist("stable");
     toolchain.install(&workspace)?;
 
     // Fetch lazy_static from crates.io

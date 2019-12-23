@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New struct `toolchain::CiToolchain` containing a CI toolchain's metadata.
+- New struct `toolchain::DistToolchain` containing a dist toolchain's metadata.
 - New method `WorkspaceBuilder::rustup_profile` to configure the rustup profile
   used during builds.
+- New method `Toolchain::as_ci` to get a CI toolchain's metadata.
+- New method `Toolchain::as_dist` to get a dist toolchain's metadata.
+- New method `Toolchain::ci` to create CI toolchains.
+- New method `Toolchain::dist` to create dist toolchains.
 
 ### Changed
 
 - **BREAKING**: The default rustup profile is now `minimal`.
+- **BREAKING**: The `Toolchain` enum is now an opaque struct.
 - The directory `target/` inside local crates won't be copied into the build
   anymore.
 - Symbolic links will be followed instead of copied as links.

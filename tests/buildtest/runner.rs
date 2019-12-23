@@ -1,11 +1,6 @@
 use failure::Error;
 use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace};
-use std::borrow::Cow;
 use std::path::Path;
-
-static TOOLCHAIN: Toolchain = Toolchain::Dist {
-    name: Cow::Borrowed("stable"),
-};
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Error>) {
     let mut runner = Runner::new(crate_name).unwrap();
@@ -15,7 +10,7 @@ pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Er
 pub(crate) struct Runner {
     crate_name: String,
     workspace: Workspace,
-    toolchain: &'static Toolchain,
+    toolchain: Toolchain,
     krate: Crate,
 }
 
@@ -35,7 +30,7 @@ impl Runner {
                 crate_name.to_string()
             },
             workspace,
-            toolchain: &TOOLCHAIN,
+            toolchain: Toolchain::dist("stable"),
             krate,
         })
     }
@@ -47,7 +42,7 @@ impl Runner {
     ) -> Result<T, Error> {
         let mut dir = self.workspace.build_dir(&self.crate_name);
         dir.purge()?;
-        dir.build(self.toolchain, &self.krate, sandbox).run(f)
+        dir.build(&self.toolchain, &self.krate, sandbox).run(f)
     }
 }
 
