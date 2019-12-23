@@ -18,6 +18,8 @@ static DEFAULT_SANDBOX_IMAGE: &str = "rustops/crates-build-env";
 const DEFAULT_COMMAND_TIMEOUT: Option<Duration> = Some(Duration::from_secs(15 * 60));
 const DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT: Option<Duration> = None;
 
+static DEFAULT_RUSTUP_PROFILE: &str = "minimal";
+
 /// Builder of a [`Workspace`](struct.Workspace.html).
 pub struct WorkspaceBuilder {
     user_agent: String,
@@ -28,6 +30,7 @@ pub struct WorkspaceBuilder {
     fetch_registry_index_during_builds: bool,
     running_inside_docker: bool,
     fast_init: bool,
+    rustup_profile: String,
 }
 
 impl WorkspaceBuilder {
@@ -45,6 +48,7 @@ impl WorkspaceBuilder {
             fetch_registry_index_during_builds: true,
             running_inside_docker: false,
             fast_init: false,
+            rustup_profile: DEFAULT_RUSTUP_PROFILE.into(),
         }
     }
 
@@ -125,6 +129,12 @@ impl WorkspaceBuilder {
         self
     }
 
+    /// Name of the rustup profile used when installing toolchains. The default is `minimal`.
+    pub fn rustup_profile(mut self, profile: &str) -> Self {
+        self.rustup_profile = profile.into();
+        self
+    }
+
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
     pub fn init(self) -> Result<Workspace, Error> {
@@ -157,6 +167,7 @@ impl WorkspaceBuilder {
                     command_no_output_timeout: self.command_no_output_timeout,
                     fetch_registry_index_during_builds: self.fetch_registry_index_during_builds,
                     current_container: None,
+                    rustup_profile: self.rustup_profile,
                 }),
             };
 
@@ -179,6 +190,7 @@ struct WorkspaceInner {
     command_no_output_timeout: Option<Duration>,
     fetch_registry_index_during_builds: bool,
     current_container: Option<CurrentContainer>,
+    rustup_profile: String,
 }
 
 /// Directory on the filesystem containing rustwide's state and caches.
@@ -270,6 +282,10 @@ impl Workspace {
 
     pub(crate) fn current_container(&self) -> Option<&CurrentContainer> {
         self.inner.current_container.as_ref()
+    }
+
+    pub(crate) fn rustup_profile(&self) -> &str {
+        &self.inner.rustup_profile
     }
 
     fn init(&self, fast_init: bool) -> Result<(), Error> {

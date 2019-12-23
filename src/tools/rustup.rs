@@ -56,16 +56,15 @@ impl Tool for Rustup {
             crate::native::make_executable(installer)?;
         }
 
-        // TODO(rustup.rs#998): Remove `.no_output_timeout(true)` once rust-docs is no longer a
-        // mandatory component.
         Command::new(workspace, installer.to_string_lossy().as_ref())
             .args(&[
                 "-y",
                 "--no-modify-path",
                 "--default-toolchain",
                 MAIN_TOOLCHAIN_NAME,
+                "--profile",
+                workspace.rustup_profile(),
             ])
-            .no_output_timeout(None)
             .env("RUSTUP_HOME", workspace.rustup_home())
             .env("CARGO_HOME", workspace.cargo_home())
             .run()

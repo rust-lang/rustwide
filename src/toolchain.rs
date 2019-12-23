@@ -171,7 +171,13 @@ impl std::fmt::Display for Toolchain {
 fn init_toolchain_from_dist(workspace: &Workspace, toolchain: &str) -> Result<(), Error> {
     info!("installing toolchain {}", toolchain);
     Command::new(workspace, &RUSTUP)
-        .args(&["toolchain", "install", toolchain])
+        .args(&[
+            "toolchain",
+            "install",
+            toolchain,
+            "--profile",
+            workspace.rustup_profile(),
+        ])
         .run()
         .with_context(|_| format!("unable to install toolchain {} via rustup", toolchain))?;
 

@@ -5,8 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `WorkspaceBuilder::rustup_profile` to configure the rustup profile
+  used during builds.
+
 ### Changed
 
+- **BREAKING**: The default rustup profile is now `minimal`.
 - The directory `target/` inside local crates won't be copied into the build
   anymore.
 - Symbolic links will be followed instead of copied as links.
