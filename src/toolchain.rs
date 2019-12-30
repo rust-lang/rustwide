@@ -10,6 +10,22 @@ use std::path::Path;
 
 pub(crate) const MAIN_TOOLCHAIN_NAME: &str = "stable";
 
+/// Error caused by methods in the `toolchain` moodule.
+#[derive(Debug, failure::Fail)]
+#[non_exhaustive]
+pub enum ToolchainError {
+    /// The toolchain is not installed in the workspace, but the called method requires it to be
+    /// present.  Use the [`Toolchain::Install`](struct.Toolchain.html#method.install) method to
+    /// install it inside the workspace.
+    #[fail(display = "the toolchain is not installed")]
+    NotInstalled,
+    /// Not every method can be called with every kind of toolchain. If you receive this error
+    /// please check the documentation of the method you're calling to see which toolchains can you
+    /// use with it.
+    #[fail(display = "unsupported operation on this toolchain")]
+    UnsupportedOperation,
+}
+
 /// Metadata of a dist toolchain. See [`Toolchain`](struct.Toolchain.html) to create and get it.
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct DistToolchain {
@@ -36,6 +52,44 @@ impl DistToolchain {
             .with_context(|_| format!("unable to install toolchain {} via rustup", self.name()))?;
 
         Ok(())
+    }
+}
+
+#[derive(Copy, Clone)]
+enum RustupAction {
+    Add,
+    Remove,
+}
+
+impl std::fmt::Display for RustupAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Add => "add",
+                Self::Remove => "remove",
+            }
+        )
+    }
+}
+
+#[derive(Copy, Clone)]
+enum RustupThing {
+    Target,
+    Component,
+}
+
+impl std::fmt::Display for RustupThing {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Target => "target",
+                Self::Component => "component",
+            }
+        )
     }
 }
 
@@ -182,39 +236,116 @@ impl Toolchain {
 
     /// Download and install a component for the toolchain.
     pub fn add_component(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
-        self.add_rustup_thing(workspace, "component", name)
+        self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Component, name)
     }
 
     /// Download and install a target for the toolchain.
+    ///
+    /// If the toolchain is not installed in the workspace an error will be returned. This is only
+    /// supported for dist toolchains.
     pub fn add_target(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
-        self.add_rustup_thing(workspace, "target", name)
+        self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Target, name)
     }
 
-    fn add_rustup_thing(
+    /// Remove a target already installed for the toolchain.
+    ///
+    /// If the toolchain is not installed in the workspace or the target is missing an error will
+    /// be returned. This is only supported for dist toolchains.
+    pub fn remove_target(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+        self.change_rustup_thing(workspace, RustupAction::Remove, RustupThing::Target, name)
+    }
+
+    /// Return a list of installed targets for this toolchain.
+    ///
+    /// If the toolchain is not installed an empty list is returned.
+    pub fn installed_targets(&self, workspace: &Workspace) -> Result<Vec<String>, Error> {
+        self.list_rustup_things(workspace, RustupThing::Target)
+    }
+
+    fn change_rustup_thing(
         &self,
         workspace: &Workspace,
-        thing: &str,
+        action: RustupAction,
+        thing: RustupThing,
         name: &str,
     ) -> Result<(), Error> {
+        let (log_action, log_action_ing) = match action {
+            RustupAction::Add => ("add", "adding"),
+            RustupAction::Remove => ("remove", "removing"),
+        };
+
+        let thing = thing.to_string();
+        let action = action.to_string();
+
         if let ToolchainInner::CI { .. } = self.inner {
-            bail!("installing {} on CI toolchains is not supported yet", thing);
+            bail!(
+                "{} {} on CI toolchains is not supported yet",
+                log_action_ing,
+                thing
+            );
         }
         let toolchain_name = self.rustup_name();
         info!(
-            "installing {} {} for toolchain {}",
-            thing, name, toolchain_name
+            "{} {} {} for toolchain {}",
+            log_action_ing, thing, name, toolchain_name
         );
 
         Command::new(workspace, &RUSTUP)
-            .args(&[thing, "add", "--toolchain", &toolchain_name, name])
+            .args(&[
+                thing.as_str(),
+                action.as_str(),
+                "--toolchain",
+                &toolchain_name,
+                name,
+            ])
             .run()
             .with_context(|_| {
                 format!(
-                    "unable to install {} {} for toolchain {} via rustup",
-                    thing, name, toolchain_name,
+                    "unable to {} {} {} for toolchain {} via rustup",
+                    log_action, thing, name, toolchain_name,
                 )
             })?;
         Ok(())
+    }
+
+    fn list_rustup_things(
+        &self,
+        workspace: &Workspace,
+        thing: RustupThing,
+    ) -> Result<Vec<String>, Error> {
+        let thing = thing.to_string();
+        let name = if let Some(dist) = self.as_dist() {
+            dist.name()
+        } else {
+            return Err(ToolchainError::UnsupportedOperation.into());
+        };
+
+        let mut not_installed = false;
+        let result = Command::new(workspace, &RUSTUP)
+            .args(&[thing.as_str(), "list", "--installed", "--toolchain", name])
+            .log_output(false)
+            .process_lines(&mut |line| {
+                if line.starts_with("error: toolchain ") && line.ends_with(" is not installed") {
+                    not_installed = true;
+                }
+            })
+            .run_capture();
+
+        match result {
+            Ok(out) => Ok(out
+                .stdout_lines()
+                .iter()
+                .filter(|line| !line.is_empty())
+                .cloned()
+                .collect()),
+            Err(_) if not_installed => Err(ToolchainError::NotInstalled.into()),
+            Err(err) => Err(err
+                .context(format!(
+                    "failed to read the list of installed {}s for {} with rustup",
+                    thing, name
+                ))
+                .into()),
+        }
     }
 
     /// Remove the toolchain from the rustwide workspace, freeing up disk space.
@@ -305,7 +436,7 @@ impl Runnable for RustupProxy<'_> {
     }
 }
 
-pub(crate) fn list_installed(rustup_home: &Path) -> Result<Vec<Toolchain>, Error> {
+pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolchain>, Error> {
     let update_hashes = rustup_home.join("update-hashes");
 
     let mut result = Vec::new();
@@ -395,7 +526,7 @@ mod tests {
                 .join(format!("{}-alt", CI_SHA)),
         )?;
 
-        let res = super::list_installed(rustup_home.path())?;
+        let res = super::list_installed_toolchains(rustup_home.path())?;
         assert_eq!(4, res.len());
         assert!(res.contains(&Toolchain::dist(DIST_NAME)));
         assert!(res.contains(&Toolchain::dist(LINK_NAME)));

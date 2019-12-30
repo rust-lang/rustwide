@@ -241,7 +241,7 @@ impl Workspace {
     /// # }
     /// ```
     pub fn installed_toolchains(&self) -> Result<Vec<Toolchain>, Error> {
-        crate::toolchain::list_installed(&self.rustup_home())
+        crate::toolchain::list_installed_toolchains(&self.rustup_home())
     }
 
     pub(crate) fn http_client(&self) -> &reqwest::Client {

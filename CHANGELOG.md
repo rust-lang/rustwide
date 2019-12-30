@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New enum `toolchain::ToolchainError`
+- New method `Toolchain::remove_target`
+- New method `Toolchain::installed_targets`
+
 ## [0.4.0] - 2019-12-23
 
 ### Added
