@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.5.0] - 2019-12-30
+
 ### Added
 
 - New enum `toolchain::ToolchainError`
@@ -117,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.5.0]: https://github.com/rust-lang/rustwide/releases/tag/0.4.0
 [0.4.0]: https://github.com/rust-lang/rustwide/releases/tag/0.4.0
 [0.3.2]: https://github.com/rust-lang/rustwide/releases/tag/0.3.2
 [0.3.1]: https://github.com/rust-lang/rustwide/releases/tag/0.3.1
