@@ -1,6 +1,6 @@
 [package]
 name = "rustwide"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Pietro Albini <pietro@pietroalbini.org>"]
 edition = "2018"
 build = "build.rs"
