@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- Fix `unstable` feature not working after the Rust 1.41.0 stable release.
+
 ## [0.5.0] - 2019-12-30
 
 ### Added
