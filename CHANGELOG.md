@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `SandboxBuilder::limit_cpu`
+
 ## [0.5.1] - 2020-01-31
 
 ### Fixed

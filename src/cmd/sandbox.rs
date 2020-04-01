@@ -121,6 +121,7 @@ pub struct SandboxBuilder {
     mounts: Vec<MountConfig>,
     env: Vec<(String, String)>,
     memory_limit: Option<usize>,
+    cpu_limit: Option<f32>,
     workdir: Option<String>,
     cmd: Vec<String>,
     enable_networking: bool,
@@ -134,6 +135,7 @@ impl SandboxBuilder {
             env: Vec::new(),
             workdir: None,
             memory_limit: None,
+            cpu_limit: None,
             cmd: Vec::new(),
             enable_networking: true,
         }
@@ -156,6 +158,17 @@ impl SandboxBuilder {
     /// By default no memory limit is present, and its size is provided in bytes.
     pub fn memory_limit(mut self, limit: Option<usize>) -> Self {
         self.memory_limit = limit;
+        self
+    }
+
+    /// Enable or disable the sandbox's CPU limit. The value of the limit is the fraction of CPU
+    /// cores the sandbox is allowed to use.
+    ///
+    /// For example, on a 4-core machine, setting a CPU limit of `2.0` will only allow two of the
+    /// cores to be used, while a CPU limit of `0.5` will only allow half of a single CPU core to
+    /// be used.
+    pub fn cpu_limit(mut self, limit: Option<f32>) -> Self {
+        self.cpu_limit = limit;
         self
     }
 
@@ -212,6 +225,11 @@ impl SandboxBuilder {
 
         if let Some(limit) = self.memory_limit {
             args.push("-m".into());
+            args.push(limit.to_string());
+        }
+
+        if let Some(limit) = self.cpu_limit {
+            args.push("--cpus".into());
             args.push(limit.to_string());
         }
 
