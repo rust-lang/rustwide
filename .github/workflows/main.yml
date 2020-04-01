@@ -49,5 +49,11 @@ jobs:
       - name: Build rustwide
         run: cargo build --all ${{ matrix.cargo_flags }}
 
+      # Having swap enabled causes problems with the OOM detector, so let's
+      # disable all swapfiles before running the build.
+      - name: Disable swap on Linux
+        run: sudo swapoff -a
+        if: matrix.os == 'ubuntu-latest'
+
       - name: Test rustwide
         run: cargo test --all ${{ matrix.cargo_flags }} -- ${{ matrix.test_flags }}
