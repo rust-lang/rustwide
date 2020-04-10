@@ -1,7 +1,9 @@
 //! Command execution and sandboxing.
 
+mod actions;
 mod sandbox;
 
+pub use actions::Actions;
 pub use sandbox::*;
 
 use crate::native;
@@ -125,7 +127,7 @@ pub struct Command<'w, 'pl> {
     binary: Binary,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
-    process_lines: Option<&'pl mut dyn FnMut(&str)>,
+    process_lines: Option<&'pl mut dyn FnMut(&str, &mut Actions)>,
     cd: Option<PathBuf>,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
@@ -240,7 +242,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// let mut ice = false;
     /// Command::new(&workspace, "cargo")
     ///     .args(&["build", "--all"])
-    ///     .process_lines(&mut |line| {
+    ///     .process_lines(&mut |line, _| {
     ///         if line.contains("internal compiler error") {
     ///             ice = true;
     ///         }
@@ -249,7 +251,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str)) -> Self {
+    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str, &mut Actions)) -> Self {
         self.process_lines = Some(f);
         self
     }
@@ -480,7 +482,7 @@ impl OutputKind {
 
 fn log_command(
     mut cmd: StdCommand,
-    mut process_lines: Option<&mut dyn FnMut(&str)>,
+    mut process_lines: Option<&mut dyn FnMut(&str, &mut Actions)>,
     capture: bool,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
@@ -512,6 +514,7 @@ fn log_command(
         .map(|line| (OutputKind::Stderr, line));
 
     let start = Instant::now();
+    let mut actions = Actions::new();
 
     let output = stdout
         .select(stderr)
@@ -541,13 +544,15 @@ fn log_command(
         .fold(
             (Vec::new(), Vec::new()),
             move |mut res, (kind, line)| -> Result<_, Error> {
+                actions.next_input(&line);
+
                 if let Some(f) = &mut process_lines {
-                    f(&line);
+                    f(&line, &mut actions);
                 }
                 if capture {
                     match kind {
-                        OutputKind::Stdout => res.0.push(line),
-                        OutputKind::Stderr => res.1.push(line),
+                        OutputKind::Stdout => res.0.append(&mut actions.take_lines()),
+                        OutputKind::Stderr => res.1.append(&mut actions.take_lines()),
                     }
                 }
                 Ok(res)

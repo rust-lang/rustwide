@@ -109,7 +109,7 @@ impl<'a> Prepare<'a> {
         }
         let res = cmd
             .cd(self.source_dir)
-            .process_lines(&mut |line| {
+            .process_lines(&mut |line, _| {
                 if line.contains("failed to select a version for the requirement") {
                     yanked_deps = true;
                 }
@@ -130,7 +130,7 @@ impl<'a> Prepare<'a> {
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["fetch", "--locked", "--manifest-path", "Cargo.toml"])
             .cd(&self.source_dir)
-            .process_lines(&mut |line| {
+            .process_lines(&mut |line, _| {
                 if line.ends_with(
                     "Cargo.lock needs to be updated but --locked was passed to prevent this",
                 ) {

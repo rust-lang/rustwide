@@ -1,4 +1,5 @@
 use super::CrateTrait;
+use crate::cmd::Actions;
 use crate::cmd::Command;
 use crate::prepare::PrepareError;
 use crate::Workspace;
@@ -83,7 +84,7 @@ impl CrateTrait for GitRepo {
         //    fata: credential helper '{path}' told us to quit
         //
         let mut private_repository = false;
-        let mut detect_private_repositories = |line: &str| {
+        let mut detect_private_repositories = |line: &str, _actions: &mut Actions| {
             if line.starts_with("fatal: credential helper") && line.ends_with("told us to quit") {
                 private_repository = true;
             }
