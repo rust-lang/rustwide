@@ -536,23 +536,27 @@ fn log_command(
                 return future::err(Error::from(CommandError::Timeout(timeout.as_secs())));
             }
 
-            if log_output {
-                info!("[{}] {}", kind.prefix(), line);
+            actions.next_input(&line);
+            if let Some(f) = &mut process_lines {
+                f(&line, &mut actions);
             }
-            future::ok((kind, line))
+            let lines = actions.take_lines();
+
+            if log_output {
+                for line in &lines {
+                    info!("[{}] {}", kind.prefix(), line);
+                }
+            }
+
+            future::ok((kind, lines))
         })
         .fold(
             (Vec::new(), Vec::new()),
-            move |mut res, (kind, line)| -> Result<_, Error> {
-                actions.next_input(&line);
-
-                if let Some(f) = &mut process_lines {
-                    f(&line, &mut actions);
-                }
+            move |mut res, (kind, mut lines)| -> Result<_, Error> {
                 if capture {
                     match kind {
-                        OutputKind::Stdout => res.0.append(&mut actions.take_lines()),
-                        OutputKind::Stderr => res.1.append(&mut actions.take_lines()),
+                        OutputKind::Stdout => res.0.append(&mut lines),
+                        OutputKind::Stderr => res.1.append(&mut lines),
                     }
                 }
                 Ok(res)
