@@ -262,6 +262,7 @@ impl SandboxBuilder {
         workspace: &Workspace,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
+        process_lines: Option<&mut dyn FnMut(&str)>,
     ) -> Result<(), Error> {
         let container = self.create(workspace)?;
 
@@ -276,7 +277,7 @@ impl SandboxBuilder {
             }
         }}
 
-        container.run(timeout, no_output_timeout)?;
+        container.run(timeout, no_output_timeout, process_lines)?;
         Ok(())
     }
 }
@@ -323,12 +324,18 @@ impl Container<'_> {
         &self,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
+        process_lines: Option<&mut dyn FnMut(&str)>,
     ) -> Result<(), Error> {
-        let res = Command::new(self.workspace, "docker")
+        let mut cmd = Command::new(self.workspace, "docker")
             .args(&["start", "-a", &self.id])
             .timeout(timeout)
-            .no_output_timeout(no_output_timeout)
-            .run();
+            .no_output_timeout(no_output_timeout);
+
+        if let Some(f) = process_lines {
+            cmd = cmd.process_lines(f);
+        }
+
+        let res = cmd.run();
         let details = self.inspect()?;
 
         // Return a different error if the container was killed due to an OOM
