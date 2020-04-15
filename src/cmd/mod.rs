@@ -1,9 +1,9 @@
 //! Command execution and sandboxing.
 
-mod actions;
+mod process_lines_actions;
 mod sandbox;
 
-pub use actions::Actions;
+pub use process_lines_actions::ProcessLinesActions;
 pub use sandbox::*;
 
 use crate::native;
@@ -11,6 +11,7 @@ use crate::workspace::Workspace;
 use failure::{Error, Fail};
 use futures::{future, Future, Stream};
 use log::{error, info};
+use process_lines_actions::InnerState;
 use std::convert::AsRef;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
@@ -127,7 +128,7 @@ pub struct Command<'w, 'pl> {
     binary: Binary,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
-    process_lines: Option<&'pl mut dyn FnMut(&str, &mut Actions)>,
+    process_lines: Option<&'pl mut dyn FnMut(&str, &mut ProcessLinesActions)>,
     cd: Option<PathBuf>,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
@@ -251,7 +252,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str, &mut Actions)) -> Self {
+    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str, &mut ProcessLinesActions)) -> Self {
         self.process_lines = Some(f);
         self
     }
@@ -482,7 +483,7 @@ impl OutputKind {
 
 fn log_command(
     mut cmd: StdCommand,
-    mut process_lines: Option<&mut dyn FnMut(&str, &mut Actions)>,
+    mut process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
     capture: bool,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
@@ -514,7 +515,7 @@ fn log_command(
         .map(|line| (OutputKind::Stderr, line));
 
     let start = Instant::now();
-    let mut actions = Actions::new();
+    let mut actions = ProcessLinesActions::new();
 
     let output = stdout
         .select(stderr)
@@ -536,11 +537,15 @@ fn log_command(
                 return future::err(Error::from(CommandError::Timeout(timeout.as_secs())));
             }
 
-            actions.next_input(&line);
             if let Some(f) = &mut process_lines {
                 f(&line, &mut actions);
             }
-            let lines = actions.take_lines();
+            // this is done here to avoid duplicating the output line
+            let lines = match actions.take_lines() {
+                InnerState::Removed => Vec::new(),
+                InnerState::Original => vec![line],
+                InnerState::Replaced(new_lines) => new_lines,
+            };
 
             if log_output {
                 for line in &lines {

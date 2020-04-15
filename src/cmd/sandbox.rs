@@ -1,4 +1,4 @@
-use crate::cmd::{Command, CommandError};
+use crate::cmd::{Command, CommandError, ProcessLinesActions};
 use crate::Workspace;
 use failure::Error;
 use log::{error, info};
@@ -262,7 +262,7 @@ impl SandboxBuilder {
         workspace: &Workspace,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
-        process_lines: Option<&mut dyn FnMut(&str)>,
+        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
     ) -> Result<(), Error> {
         let container = self.create(workspace)?;
 
@@ -324,7 +324,7 @@ impl Container<'_> {
         &self,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
-        process_lines: Option<&mut dyn FnMut(&str)>,
+        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
     ) -> Result<(), Error> {
         let mut cmd = Command::new(self.workspace, "docker")
             .args(&["start", "-a", &self.id])
