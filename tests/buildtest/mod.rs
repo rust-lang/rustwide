@@ -24,6 +24,32 @@ fn test_hello_world() {
 }
 
 #[test]
+fn test_process_lines() {
+    runner::run("hello-world", |run| {
+        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+            let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+            let mut ex = false;
+            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+                build
+                    .cargo()
+                    .process_lines(&mut |line: &str| {
+                        if line.contains("Hello, world!") {
+                            ex = true;
+                        }
+                    })
+                    .args(&["run"])
+                    .run()?;
+                Ok(())
+            })?;
+
+            assert!(ex);
+            Ok(())
+        })?;
+        Ok(())
+    });
+}
+
+#[test]
 #[cfg(not(windows))]
 fn test_sandbox_oom() {
     use rustwide::cmd::CommandError;

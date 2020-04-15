@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- Fix `Command::process_lines` not working in sandboxed enviroments. 
+
 ## [0.6.0] - 2020-04-01
 
 ### Added
