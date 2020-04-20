@@ -345,7 +345,12 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
                 .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap());
 
-            builder.run(workspace, self.timeout, self.no_output_timeout)?;
+            builder.run(
+                workspace,
+                self.timeout,
+                self.no_output_timeout,
+                self.process_lines,
+            )?;
             Ok(ProcessOutput {
                 stdout: Vec::new(),
                 stderr: Vec::new(),
