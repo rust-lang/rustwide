@@ -5,9 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.6.1] - 2020-05-04
+
 ### Fixed
 
-- Fix `Command::process_lines` not working in sandboxed enviroments. 
+- Fix `Command::process_lines` not working in sandboxed enviroments.
 
 ## [0.6.0] - 2020-04-01
 
@@ -135,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.6.1]: https://github.com/rust-lang/rustwide/releases/tag/0.6.1
 [0.6.0]: https://github.com/rust-lang/rustwide/releases/tag/0.6.0
 [0.5.1]: https://github.com/rust-lang/rustwide/releases/tag/0.5.1
 [0.5.0]: https://github.com/rust-lang/rustwide/releases/tag/0.5.0
