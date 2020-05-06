@@ -1,0 +1,2 @@
+[build]
+target = "invalid-test-target"

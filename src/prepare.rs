@@ -2,6 +2,7 @@ use crate::cmd::Command;
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
 use failure::{Error, Fail, ResultExt};
 use log::info;
+use std::fs::remove_file;
 use std::path::Path;
 use toml::{
     value::{Array, Table},
@@ -38,6 +39,7 @@ impl<'a> Prepare<'a> {
     pub(crate) fn prepare(&mut self) -> Result<(), Error> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
         self.validate_manifest()?;
+        self.remove_cargo_config()?;
         self.tweak_toml()?;
         self.capture_lockfile(false)?;
         self.fetch_deps()?;
@@ -65,6 +67,14 @@ impl<'a> Prepare<'a> {
             return Err(PrepareError::InvalidCargoTomlSyntax.into());
         }
 
+        Ok(())
+    }
+
+    fn remove_cargo_config(&self) -> Result<(), Error> {
+        let path = self.source_dir.join(".cargo").join("config");
+        if path.exists() {
+            remove_file(path)?;
+        }
         Ok(())
     }
 
