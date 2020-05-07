@@ -5,9 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New struct `cmd::ProcessLinesActions` to expose actions available while reading live output from a command.
+
 ### Changed
 
-- The file `.cargo/config` will be removed before starting the build 
+- **BREAKING**: `Command::process_lines` now accepts a `FnMut(&str, &mut ProcessLinesActions)`.
+- The file `.cargo/config` will be removed before starting the build.
 
 ## [0.6.1] - 2020-05-04
 

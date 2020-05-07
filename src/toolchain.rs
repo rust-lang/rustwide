@@ -324,7 +324,7 @@ impl Toolchain {
         let result = Command::new(workspace, &RUSTUP)
             .args(&[thing.as_str(), "list", "--installed", "--toolchain", name])
             .log_output(false)
-            .process_lines(&mut |line| {
+            .process_lines(&mut |line, _| {
                 if line.starts_with("error: toolchain ") && line.ends_with(" is not installed") {
                     not_installed = true;
                 }

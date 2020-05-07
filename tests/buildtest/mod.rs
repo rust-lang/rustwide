@@ -1,6 +1,6 @@
 use failure::Error;
 use log::LevelFilter;
-use rustwide::cmd::SandboxBuilder;
+use rustwide::cmd::{ProcessLinesActions, SandboxBuilder};
 
 #[macro_use]
 mod runner;
@@ -17,6 +17,9 @@ fn test_hello_world() {
             })?;
 
             assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
+            assert!(storage
+                .to_string()
+                .contains("[stdout] Hello, world again!\n"));
             Ok(())
         })?;
         Ok(())
@@ -32,9 +35,12 @@ fn test_process_lines() {
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
                 build
                     .cargo()
-                    .process_lines(&mut |line: &str| {
-                        if line.contains("Hello, world!") {
+                    .process_lines(&mut |line: &str, actions: &mut ProcessLinesActions| {
+                        if line.contains("Hello, world again!") {
                             ex = true;
+                            actions.replace_with_lines(line.split(","));
+                        } else if line.contains("Hello, world!") {
+                            actions.remove_line();
                         }
                     })
                     .args(&["run"])
@@ -43,6 +49,9 @@ fn test_process_lines() {
             })?;
 
             assert!(ex);
+            assert!(!storage.to_string().contains("[stdout] Hello, world!\n"));
+            assert!(storage.to_string().contains("[stdout]  world again!\n"));
+            assert!(storage.to_string().contains("[stdout] Hello\n"));
             Ok(())
         })?;
         Ok(())
