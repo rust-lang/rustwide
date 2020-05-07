@@ -73,6 +73,21 @@ fn test_sandbox_oom() {
     });
 }
 
+#[test]
+fn test_cargo_config() {
+    runner::run("cargo-config", |run| {
+        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+            let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+                build.cargo().args(&["run"]).run()?;
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        Ok(())
+    });
+}
+
 test_prepare_error!(
     test_missing_cargotoml,
     "missing-cargotoml",
