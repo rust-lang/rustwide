@@ -154,7 +154,7 @@ impl WorkspaceBuilder {
 
             let mut headers = reqwest::header::HeaderMap::new();
             headers.insert(reqwest::header::USER_AGENT, self.user_agent.parse()?);
-            let http = reqwest::ClientBuilder::new()
+            let http = reqwest::blocking::ClientBuilder::new()
                 .default_headers(headers)
                 .build()?;
 
@@ -183,7 +183,7 @@ impl WorkspaceBuilder {
 }
 
 struct WorkspaceInner {
-    http: reqwest::Client,
+    http: reqwest::blocking::Client,
     path: PathBuf,
     sandbox_image: SandboxImage,
     command_timeout: Option<Duration>,
@@ -244,7 +244,7 @@ impl Workspace {
         crate::toolchain::list_installed_toolchains(&self.rustup_home())
     }
 
-    pub(crate) fn http_client(&self) -> &reqwest::Client {
+    pub(crate) fn http_client(&self) -> &reqwest::blocking::Client {
         &self.inner.http
     }
 
