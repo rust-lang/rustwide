@@ -21,10 +21,9 @@ unstable = []
 
 [dependencies]
 failure = "0.1.3"
-futures = "0.1.13"
+futures-util = "0.3.5"
 log = "0.4.6"
-tokio = "0.1.11"
-tokio-process = "0.2.3"
+tokio = { version = "0.2.21", features = ["process", "time"] }
 nix = "0.11.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -32,7 +31,7 @@ scopeguard = "1.0.0"
 lazy_static = "1.0.0"
 winapi = "0.3"
 tempfile = "3.0.0"
-reqwest = "0.9"
+reqwest = { version = "0.10.4", features = ["blocking"] }
 flate2 = "1"
 tar = "0.4.0"
 percent-encoding = "2.1.0"
@@ -40,9 +39,9 @@ walkdir = "2.2"
 toml = "0.5"
 fs2 = "0.4.3"
 remove_dir_all = "0.5.2"
-base64 = "0.10.1"
+base64 = "0.11.0"
 getrandom = { version = "0.1.12", features = ["std"] }
 
 [dev-dependencies]
 env_logger = "0.6.1"
-tiny_http = "0.6.2"
+tiny_http = "0.7.0"
