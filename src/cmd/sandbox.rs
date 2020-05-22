@@ -28,11 +28,15 @@ impl SandboxImage {
     /// This will access the network to download the image from the registry. If pulling fails an
     /// error will be returned instead.
     pub fn remote(name: &str) -> Result<Self, Error> {
-        let image = SandboxImage { name: name.into() };
+        let mut image = SandboxImage { name: name.into() };
         info!("pulling image {} from Docker Hub", name);
         Command::new_workspaceless("docker")
             .args(&["pull", &name])
             .run()?;
+        if let Some(name_with_hash) = image.get_name_with_hash() {
+            image.name = name_with_hash;
+            info!("pulled image {}", image.name);
+        }
         image.ensure_exists_locally()?;
         Ok(image)
     }
@@ -44,6 +48,22 @@ impl SandboxImage {
             .log_output(false)
             .run()?;
         Ok(())
+    }
+
+    fn get_name_with_hash(&self) -> Option<String> {
+        Command::new_workspaceless("docker")
+            .args(&[
+                "inspect",
+                &self.name,
+                "--format",
+                "{{index .RepoDigests 0}}",
+            ])
+            .log_output(false)
+            .run_capture()
+            .ok()?
+            .stdout_lines()
+            .first()
+            .cloned()
     }
 }
 
