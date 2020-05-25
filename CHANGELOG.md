@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Added logging of exact image hash used during build
+
 ## [0.7.1] - 2020-05-20
 
 ### Changed
