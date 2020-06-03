@@ -1,13 +1,21 @@
 use failure::Error;
 use log::LevelFilter;
 use rustwide::{Workspace, WorkspaceBuilder};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 static USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";
 
+pub(crate) fn workspace_path(name: &str) -> PathBuf {
+    Path::new(".workspaces").join(name)
+}
+
 pub(crate) fn init_workspace() -> Result<Workspace, Error> {
+    init_named_workspace("integration")
+}
+
+pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace, Error> {
     init_logs();
-    let workspace_path = Path::new(".workspaces").join("integration");
+    let workspace_path = workspace_path(name);
     let mut builder = WorkspaceBuilder::new(&workspace_path, USER_AGENT).fast_init(true);
 
     if std::env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {

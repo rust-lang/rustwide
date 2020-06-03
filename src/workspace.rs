@@ -220,6 +220,31 @@ impl Workspace {
         Ok(())
     }
 
+    /// Remove all the contents of the caches in the workspace, freeing disk space.
+    pub fn purge_all_caches(&self) -> Result<(), Error> {
+        let mut paths = vec![
+            self.cache_dir(),
+            self.cargo_home().join("git"),
+            self.cargo_home().join("registry").join("src"),
+            self.cargo_home().join("registry").join("cache"),
+        ];
+
+        for index in std::fs::read_dir(self.cargo_home().join("registry").join("index"))? {
+            let index = index?;
+            if index.file_type()?.is_dir() {
+                paths.push(index.path().join(".cache"));
+            }
+        }
+
+        for path in &paths {
+            if path.exists() {
+                remove_dir_all(&path)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Return a list of all the toolchains present in the workspace.
     ///
     /// # Example
