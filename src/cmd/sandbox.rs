@@ -1,4 +1,4 @@
-use crate::cmd::{Command, CommandError, ProcessLinesActions};
+use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput};
 use crate::Workspace;
 use failure::Error;
 use log::{error, info};
@@ -277,13 +277,17 @@ impl SandboxBuilder {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn run(
         self,
         workspace: &Workspace,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
         process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
-    ) -> Result<(), Error> {
+        log_output: bool,
+        log_command: bool,
+        capture: bool,
+    ) -> Result<ProcessOutput, Error> {
         let container = self.create(workspace)?;
 
         // Ensure the container is properly deleted even if something panics
@@ -297,8 +301,14 @@ impl SandboxBuilder {
             }
         }}
 
-        container.run(timeout, no_output_timeout, process_lines)?;
-        Ok(())
+        container.run(
+            timeout,
+            no_output_timeout,
+            process_lines,
+            log_output,
+            log_command,
+            capture,
+        )
     }
 }
 
@@ -345,17 +355,22 @@ impl Container<'_> {
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
         process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
-    ) -> Result<(), Error> {
+        log_output: bool,
+        log_command: bool,
+        capture: bool,
+    ) -> Result<ProcessOutput, Error> {
         let mut cmd = Command::new(self.workspace, "docker")
             .args(&["start", "-a", &self.id])
             .timeout(timeout)
+            .log_output(log_output)
+            .log_command(log_command)
             .no_output_timeout(no_output_timeout);
 
         if let Some(f) = process_lines {
             cmd = cmd.process_lines(f);
         }
 
-        let res = cmd.run();
+        let res = cmd.run_inner(capture);
         let details = self.inspect()?;
 
         // Return a different error if the container was killed due to an OOM

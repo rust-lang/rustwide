@@ -364,11 +364,10 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 self.timeout,
                 self.no_output_timeout,
                 self.process_lines,
-            )?;
-            Ok(ProcessOutput {
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-            })
+                self.log_output,
+                self.log_command,
+                capture,
+            )
         } else {
             let (binary, managed_by_rustwide) = match self.binary {
                 Binary::Global(path) => (path, false),
