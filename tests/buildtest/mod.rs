@@ -28,7 +28,7 @@ fn test_hello_world() {
 
 #[test]
 fn test_process_lines() {
-    runner::run("hello-world", |run| {
+    runner::run("process-lines", |run| {
         run.build(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             let mut ex = false;
