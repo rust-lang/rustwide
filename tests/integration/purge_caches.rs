@@ -48,8 +48,32 @@ fn test_purge_caches() -> Result<(), Error> {
     Ok(())
 }
 
+/// Define which files should be ignored when comparing the two workspaces. If there are expected
+/// changes, update the function to match them.
+fn should_ignore(base: &Path, path: &Path) -> bool {
+    let components = match path.strip_prefix(base) {
+        Ok(stripped) => stripped
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy().to_string())
+            .collect::<Vec<_>>(),
+        Err(_) => return false,
+    };
+
+    let components = components.iter().map(|c| c.as_str()).collect::<Vec<_>>();
+    match components.as_slice() {
+        // The indexes could be updated during the build. The index is not considered a cache
+        // though, so it's fine to ignore it during the comparison.
+        ["cargo-home", "registry", "index", _, ".git", ..] => true,
+        ["cargo-home", "registry", "index", _, ".cargo-index-lock"] => true,
+        ["cargo-home", "registry", "index", _, ".last-updated"] => true,
+
+        _ => false,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct WorkspaceContents {
+    base: PathBuf,
     files: HashMap<PathBuf, Digest>,
 }
 
@@ -69,7 +93,10 @@ impl WorkspaceContents {
             files.insert(entry.path().into(), sha.digest());
         }
 
-        Ok(Self { files })
+        Ok(Self {
+            base: path.into(),
+            files,
+        })
     }
 
     fn assert_same(self, mut other: Self) {
@@ -78,6 +105,10 @@ impl WorkspaceContents {
         println!("=== start directory differences ===");
 
         for (path, start_digest) in self.files.into_iter() {
+            if should_ignore(&self.base, &path) {
+                continue;
+            }
+
             if let Some(end_digest) = other.files.remove(&path) {
                 if start_digest != end_digest {
                     println!("file {} changed", path.display());
@@ -90,6 +121,10 @@ impl WorkspaceContents {
         }
 
         for (path, _) in other.files.into_iter() {
+            if should_ignore(&other.base, &path) {
+                continue;
+            }
+
             println!("file {} was added", path.display());
             same = false;
         }
