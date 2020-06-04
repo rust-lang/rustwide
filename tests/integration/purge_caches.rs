@@ -1,7 +1,6 @@
 use failure::Error;
 use rustwide::cmd::SandboxBuilder;
 use rustwide::{Crate, Toolchain};
-use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -74,7 +73,7 @@ fn should_ignore(base: &Path, path: &Path) -> bool {
 #[derive(Debug, PartialEq, Eq)]
 struct WorkspaceContents {
     base: PathBuf,
-    files: HashMap<PathBuf, Digest>,
+    files: HashMap<PathBuf, u64>,
 }
 
 impl WorkspaceContents {
@@ -83,14 +82,13 @@ impl WorkspaceContents {
 
         for entry in walkdir::WalkDir::new(path) {
             let entry = entry?;
-            if !entry.metadata()?.is_file() {
+            let metadata = entry.metadata()?;
+
+            if !metadata.is_file() {
                 continue;
             }
 
-            let mut sha = Sha1::new();
-            sha.update(&std::fs::read(entry.path())?);
-
-            files.insert(entry.path().into(), sha.digest());
+            files.insert(entry.path().into(), metadata.len());
         }
 
         Ok(Self {
@@ -111,7 +109,7 @@ impl WorkspaceContents {
 
             if let Some(end_digest) = other.files.remove(&path) {
                 if start_digest != end_digest {
-                    println!("file {} changed", path.display());
+                    println!("file {} changed its size", path.display());
                     same = false;
                 }
             } else {

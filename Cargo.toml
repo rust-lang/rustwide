@@ -45,4 +45,3 @@ getrandom = { version = "0.1.12", features = ["std"] }
 [dev-dependencies]
 env_logger = "0.6.1"
 tiny_http = "0.7.0"
-sha1 = "0.6.0"
