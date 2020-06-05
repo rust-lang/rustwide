@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New method `Workspace::purge_all_caches`
+- New method `Workspace::purge_all_caches`.
 
 ### Changed
 
-- Subcommands executed in sandbox respect configs of parent command
-- Added logging of exact image hash used during build
+- The exact image has used during builds will be logged.
+
+### Fixed
+
+- Subcommands executed in sandbox respect configs of parent command.
 
 ## [0.7.1] - 2020-05-20
 
