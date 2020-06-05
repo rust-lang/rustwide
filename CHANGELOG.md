@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.8.0] - 2020-06-05
+
 ### Added
 
 - New method `Workspace::purge_all_caches`.
@@ -166,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.8.0]: https://github.com/rust-lang/rustwide/releases/tag/0.8.0
 [0.7.1]: https://github.com/rust-lang/rustwide/releases/tag/0.7.1
 [0.7.0]: https://github.com/rust-lang/rustwide/releases/tag/0.7.0
 [0.6.1]: https://github.com/rust-lang/rustwide/releases/tag/0.6.1
