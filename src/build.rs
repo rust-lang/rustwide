@@ -21,6 +21,7 @@ pub(crate) struct CratePatch {
 pub struct BuildDirectory {
     workspace: Workspace,
     name: String,
+    purge_on_drop: bool,
 }
 
 /// Builder for configuring builds in a [`BuildDirectory`](struct.BuildDirectory.html).
@@ -97,6 +98,7 @@ impl BuildDirectory {
         Self {
             workspace,
             name: name.into(),
+            purge_on_drop: false,
         }
     }
 
@@ -172,6 +174,13 @@ impl BuildDirectory {
         Ok(())
     }
 
+    /// Enable or disable purging the build directory when dropped.
+    ///
+    /// By default, the directory is not purged.
+    pub fn purge_on_drop(&mut self, yes: bool) {
+        self.purge_on_drop = yes;
+    }
+
     fn build_dir(&self) -> PathBuf {
         self.workspace.builds_dir().join(&self.name)
     }
@@ -182,6 +191,16 @@ impl BuildDirectory {
 
     fn target_dir(&self) -> PathBuf {
         self.build_dir().join("target")
+    }
+}
+
+impl Drop for BuildDirectory {
+    fn drop(&mut self) {
+        if self.purge_on_drop {
+            if let Err(err) = self.purge() {
+                log::error!("failed to delete build directory: {}", err);
+            }
+        }
     }
 }
 
