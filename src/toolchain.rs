@@ -239,6 +239,16 @@ impl Toolchain {
         self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Component, name)
     }
 
+    /// Remove a component already installed for the toolchain.
+    pub fn remove_component(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+        self.change_rustup_thing(
+            workspace,
+            RustupAction::Remove,
+            RustupThing::Component,
+            name,
+        )
+    }
+
     /// Download and install a target for the toolchain.
     ///
     /// If the toolchain is not installed in the workspace an error will be returned. This is only
