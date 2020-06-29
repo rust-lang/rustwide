@@ -381,7 +381,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 ),
                 Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
-            let mut cmd = AsyncCommand::new(crate::utils::normalize_path(&binary));
+            let mut cmd = AsyncCommand::new(&binary);
 
             cmd.args(&self.args);
 
