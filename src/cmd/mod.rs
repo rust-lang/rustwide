@@ -373,7 +373,8 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 // global paths should never be normalized
                 Binary::Global(path) => (path, false),
                 Binary::ManagedByRustwide(path) => {
-                    let binary = self.workspace
+                    let binary = self
+                        .workspace
                         .expect("calling rustwide bins without a workspace is not supported")
                         .cargo_home()
                         .join("bin")

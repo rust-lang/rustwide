@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - When passed a global command with the same name as a file in the current directory,
-Rustwide will now execute the global command instead of the file.
+  Rustwide will now execute the global command instead of the file.
 
 ## [0.8.0] - 2020-06-05
 
