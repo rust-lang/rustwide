@@ -12,15 +12,7 @@ static CONTAINER_PREFIX: &str = "/outside";
 #[test]
 #[cfg(unix)]
 fn test_hello_world() {
-    // regression test for https://github.com/rust-lang/rustwide/issues/30
-    let already_present = Path::new("docker").exists();
-    if !already_present {
-        std::fs::create_dir("docker").unwrap();
-    }
     execute("buildtest::test_hello_world").unwrap();
-    if !already_present {
-        std::fs::remove_dir("docker").unwrap();
-    }
 }
 
 fn execute(test: &str) -> Result<(), Error> {
