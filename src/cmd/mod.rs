@@ -370,19 +370,22 @@ impl<'w, 'pl> Command<'w, 'pl> {
             )
         } else {
             let (binary, managed_by_rustwide) = match self.binary {
+                // global paths should never be normalized
                 Binary::Global(path) => (path, false),
-                Binary::ManagedByRustwide(path) => (
-                    self.workspace
+                Binary::ManagedByRustwide(path) => {
+                    let binary = self
+                        .workspace
                         .expect("calling rustwide bins without a workspace is not supported")
                         .cargo_home()
                         .join("bin")
-                        .join(exe_suffix(path.as_os_str())),
-                    true,
-                ),
+                        .join(exe_suffix(path.as_os_str()));
+                    // `cargo_home()` might a relative path
+                    (crate::utils::normalize_path(&binary), true)
+                }
                 Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
-            let mut cmd = AsyncCommand::new(crate::utils::normalize_path(&binary));
 
+            let mut cmd = AsyncCommand::new(&binary);
             cmd.args(&self.args);
 
             if managed_by_rustwide {
