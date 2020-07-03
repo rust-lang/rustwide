@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: all functions and methods inside `cmd` now return `CommandError`.
 - `winapi` is no longer required on unix; `nix` is no longer required on windows.
 - Relaxed lifetime restrictions of `Build::cmd` and `Build::cargo`.
+- The requirement of using an image similar to `crates-build-env` has been
+  lifted, and it's now possible to use any Docker image for the sandbox.
 
 ## [0.9.0] - 2020-07-01
 

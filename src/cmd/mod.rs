@@ -389,7 +389,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 .cmd(cmd);
 
             if let Some(user) = native::current_user() {
-                builder = builder.env("MAP_USER_ID", user.user_id.to_string());
+                builder = builder.user(user.user_id, user.group_id);
             }
 
             for (key, value) in self.env {

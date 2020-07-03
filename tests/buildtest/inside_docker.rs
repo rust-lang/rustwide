@@ -63,10 +63,9 @@ impl CommandExt for Command {
     fn map_user_group(&mut self) -> Result<&mut Self, Error> {
         use std::os::unix::fs::MetadataExt;
         let gid = std::fs::metadata(DOCKER_SOCKET)?.gid();
-        self.arg("-e")
-            .arg(format!("MAP_USER_ID={}", nix::unistd::Uid::effective()))
-            .arg("-e")
-            .arg(format!("MAP_GROUP_ID={}", gid));
+        let uid = nix::unistd::Uid::effective();
+
+        self.arg("--user").arg(format!("{}:{}", uid, gid));
         Ok(self)
     }
 

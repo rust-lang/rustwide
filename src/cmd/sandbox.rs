@@ -143,6 +143,7 @@ pub struct SandboxBuilder {
     memory_limit: Option<usize>,
     cpu_limit: Option<f32>,
     workdir: Option<String>,
+    user: Option<String>,
     cmd: Vec<String>,
     enable_networking: bool,
 }
@@ -156,6 +157,7 @@ impl SandboxBuilder {
             workdir: None,
             memory_limit: None,
             cpu_limit: None,
+            user: None,
             cmd: Vec::new(),
             enable_networking: true,
         }
@@ -216,6 +218,11 @@ impl SandboxBuilder {
         self
     }
 
+    pub(super) fn user(mut self, user: u32, group: u32) -> Self {
+        self.user = Some(format!("{}:{}", user, group));
+        self
+    }
+
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
@@ -251,6 +258,11 @@ impl SandboxBuilder {
         if let Some(limit) = self.cpu_limit {
             args.push("--cpus".into());
             args.push(limit.to_string());
+        }
+
+        if let Some(user) = self.user {
+            args.push("--user".into());
+            args.push(user);
         }
 
         if !self.enable_networking {
