@@ -101,10 +101,8 @@ impl WorkspaceBuilder {
     /// to build a lot of crates in a batch, but having the option disabled might cause trouble if
     /// you need to build recently published crates, as they might be missing from the cached
     /// index.
-    ///
-    /// **To call this method the `unstable` rustwide feature flag needs to be enabled**, as it
-    /// relies on unstable Cargo features.
-    #[cfg(feature = "unstable")]
+    #[cfg(any(feature = "unstable", doc))]
+    #[cfg_attr(docs_rs, doc(cfg(feature = "unstable")))]
     pub fn fetch_registry_index_during_builds(mut self, enable: bool) -> Self {
         self.fetch_registry_index_during_builds = enable;
         self

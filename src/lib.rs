@@ -1,11 +1,14 @@
 #![warn(missing_docs)]
 #![allow(clippy::new_without_default)]
 
+#![cfg_attr(docs_rs, feature(doc_cfg))]
+
 //! Rustwide is a library to execute your code on the Rust ecosystem, powering projects like
 //! [Crater][crater] and [docs.rs][docsrs].
 //!
-//! Rustwide uses feature flags to enable or disable parts of its code at compile time. The
-//! available flags are:
+//! ## Feature flags
+//!
+//! Rustwide provides some optional features that can be enabled with Cargo:
 //!
 //! * **unstable**: allow Rustwide to use unstable Rust and Cargo features. While this feature also
 //!   works on Rust stable it might cause Rustwide to break, and **no stability guarantee is
