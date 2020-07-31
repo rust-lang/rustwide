@@ -59,6 +59,7 @@ pub(crate) mod container_dirs {
 
 /// Error happened while executing a command.
 #[derive(Debug, Fail)]
+#[non_exhaustive]
 pub enum CommandError {
     /// The command didn't output anything to stdout or stderr for more than the timeout, and it
     /// was killed. The timeout's value (in seconds) is the first value.
@@ -71,12 +72,10 @@ pub enum CommandError {
     /// The sandbox ran out of memory and was killed.
     #[fail(display = "container ran out of memory")]
     SandboxOOM,
-    #[doc(hidden)]
-    #[fail(display = "this error shouldn't have happened")]
-    __NonExaustive,
 }
 
 /// Name and kind of a binary executed by [`Command`](struct.Command.html).
+#[non_exhaustive]
 pub enum Binary {
     /// Global binary, available in `$PATH`. Rustwide doesn't apply any tweaks to its execution
     /// environment.
@@ -85,8 +84,6 @@ pub enum Binary {
     /// tweak the environment to use the local rustup instead of the host system one, and will
     /// search the binary in the cargo home.
     ManagedByRustwide(PathBuf),
-    #[doc(hidden)]
-    __NonExaustive,
 }
 
 /// Trait representing a command that can be run by [`Command`](struct.Command.html).
@@ -313,7 +310,6 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 Binary::ManagedByRustwide(path) => {
                     container_dirs::CARGO_BIN_DIR.join(exe_suffix(path.as_os_str()))
                 }
-                Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
 
             let mut cmd = Vec::new();
@@ -382,7 +378,6 @@ impl<'w, 'pl> Command<'w, 'pl> {
                     // `cargo_home()` might a relative path
                     (crate::utils::normalize_path(&binary), true)
                 }
-                Binary::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
             };
 
             let mut cmd = AsyncCommand::new(&binary);

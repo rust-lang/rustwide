@@ -69,13 +69,12 @@ impl SandboxImage {
 
 /// Whether to mount a path in the sandbox with write permissions or not.
 #[derive(Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MountKind {
     /// Allow the sandboxed code to change the mounted data.
     ReadWrite,
     /// Prevent the sandboxed code from changing the mounted data.
     ReadOnly,
-    #[doc(hidden)]
-    __NonExaustive,
 }
 
 #[derive(Clone)]
@@ -108,7 +107,6 @@ impl MountConfig {
         let perm = match self.perm {
             MountKind::ReadWrite => "rw",
             MountKind::ReadOnly => "ro",
-            MountKind::__NonExaustive => panic!("do not create __NonExaustive variants manually"),
         };
         Ok(format!(
             "{}:{}:{},Z",

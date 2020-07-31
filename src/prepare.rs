@@ -373,6 +373,7 @@ impl<'a> TomlTweaker<'a> {
 
 /// Error happened while preparing a crate for a build.
 #[derive(Debug, Fail)]
+#[non_exhaustive]
 pub enum PrepareError {
     /// The git repository isn't publicly available.
     #[fail(display = "can't fetch private git repositories")]
@@ -387,9 +388,6 @@ pub enum PrepareError {
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
     #[fail(display = "the crate depends on yanked dependencies")]
     YankedDependencies,
-    #[doc(hidden)]
-    #[fail(display = "this error shouldn't have happened")]
-    __NonExaustive,
 }
 
 #[cfg(test)]
