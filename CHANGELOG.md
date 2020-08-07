@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `winapi` is no longer required on unix; `nix` is no longer required on windows.
+- Relaxed lifetime restrictions of `Build::cmd` and `Build::cargo`.
 
 ## [0.9.0] - 2020-07-01
 
