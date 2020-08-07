@@ -188,13 +188,13 @@ impl BuildDirectory {
 /// API to interact with a running build.
 ///
 /// This is created from [`BuildDirectory::build`](struct.BuildDirectory.html#method.build)
-pub struct Build<'b> {
-    dir: &'b BuildDirectory,
-    toolchain: &'b Toolchain,
+pub struct Build<'ws> {
+    dir: &'ws BuildDirectory,
+    toolchain: &'ws Toolchain,
     sandbox: SandboxBuilder,
 }
 
-impl Build<'_> {
+impl<'ws> Build<'ws> {
     /// Run a command inside the sandbox.
     ///
     /// Any `cargo` invocation will automatically be configured to use a target directory mounted
@@ -219,7 +219,7 @@ impl Build<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn cmd<R: Runnable>(&self, bin: R) -> Command {
+    pub fn cmd<'pl, R: Runnable>(&self, bin: R) -> Command<'ws, 'pl> {
         let container_dir = &*crate::cmd::container_dirs::TARGET_DIR;
 
         Command::new_sandboxed(
@@ -256,7 +256,7 @@ impl Build<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn cargo(&self) -> Command {
+    pub fn cargo<'pl>(&self) -> Command<'ws, 'pl> {
         self.cmd(self.toolchain.cargo())
     }
 
