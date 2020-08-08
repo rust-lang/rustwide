@@ -22,6 +22,11 @@ pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace, Error> {
         builder = builder.running_inside_docker(true);
     }
 
+    #[cfg(linux)]
+    {
+        builder = builder.sandbox_image(rustwide::cmd::SandboxImage::remote("ubuntu:latest")?);
+    }
+
     Ok(builder.init()?)
 }
 
