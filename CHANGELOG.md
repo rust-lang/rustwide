@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: support for CI toolchains is now gated behind the
+  `unstable-toolchain-ci` Cargo feature.
 - `winapi` is no longer required on unix; `nix` is no longer required on windows.
 - Relaxed lifetime restrictions of `Build::cmd` and `Build::cargo`.
 

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 pub(crate) static RUSTUP: Rustup = Rustup;
 
+#[cfg(feature = "unstable-toolchain-ci")]
 pub(crate) static RUSTUP_TOOLCHAIN_INSTALL_MASTER: BinaryCrate = BinaryCrate {
     crate_name: "rustup-toolchain-install-master",
     binary: "rustup-toolchain-install-master",
@@ -25,6 +26,7 @@ pub(crate) static GIT_CREDENTIAL_NULL: BinaryCrate = BinaryCrate {
 
 static INSTALLABLE_TOOLS: &[&dyn Tool] = &[
     &RUSTUP,
+    #[cfg(feature = "unstable-toolchain-ci")]
     &RUSTUP_TOOLCHAIN_INSTALL_MASTER,
     &GIT_CREDENTIAL_NULL,
 ];
