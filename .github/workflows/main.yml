@@ -36,7 +36,7 @@ jobs:
           # Integration tests are disabled on Windows as they take *way* too
           # long to pull the Docker image
           - os: windows-latest
-            test_flags: --skip buildtest --skip integration
+            test_flags: --skip buildtest --skip integration --skip run_binary_with_same_name_as_file
     steps:
       - name: Checkout the source code
         uses: actions/checkout@master
