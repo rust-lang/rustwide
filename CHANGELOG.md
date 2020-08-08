@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.10.0] - 2020-08-08
+
 ### Added
 
 - New variant `CommandError::ExecutionFailed`
@@ -200,6 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.10.0]: https://github.com/rust-lang/rustwide/releases/tag/0.10.0
 [0.9.0]: https://github.com/rust-lang/rustwide/releases/tag/0.9.0
 [0.8.0]: https://github.com/rust-lang/rustwide/releases/tag/0.8.0
 [0.7.1]: https://github.com/rust-lang/rustwide/releases/tag/0.7.1
