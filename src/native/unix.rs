@@ -1,3 +1,4 @@
+use super::CurrentUser;
 use crate::cmd::KillFailedError;
 use failure::Error;
 use nix::{
@@ -24,20 +25,21 @@ pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
     }
 }
 
-pub(crate) fn current_user() -> Option<u32> {
-    Some(Uid::effective().into())
-}
-
-fn current_group() -> u32 {
-    Gid::effective().into()
+pub(crate) fn current_user() -> Option<CurrentUser> {
+    Some(CurrentUser {
+        user_id: Uid::effective().into(),
+        group_id: Gid::effective().into(),
+    })
 }
 
 fn executable_mode_for(path: &Path) -> Result<u32, Error> {
     let metadata = path.metadata()?;
 
-    if metadata.uid() == current_user().unwrap() {
+    let user = current_user().unwrap();
+
+    if metadata.uid() == user.user_id {
         Ok(EXECUTABLE_BITS << 6)
-    } else if metadata.gid() == current_group() {
+    } else if metadata.gid() == user.group_id {
         Ok(EXECUTABLE_BITS << 3)
     } else {
         Ok(EXECUTABLE_BITS)
@@ -65,6 +67,7 @@ pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
+    use super::CurrentUser;
     use nix::unistd::{Gid, Uid};
     use std::fs::File;
     use std::os::unix::process::ExitStatusExt;
@@ -82,12 +85,13 @@ mod tests {
 
     #[test]
     fn test_current_user() {
-        assert_eq!(super::current_user(), Some(u32::from(Uid::effective())));
-    }
-
-    #[test]
-    fn test_current_group() {
-        assert_eq!(super::current_group(), u32::from(Gid::effective()));
+        assert_eq!(
+            super::current_user(),
+            Some(CurrentUser {
+                user_id: u32::from(Uid::effective()),
+                group_id: u32::from(Gid::effective()),
+            })
+        );
     }
 
     #[test]

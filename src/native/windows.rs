@@ -1,5 +1,6 @@
+use super::CurrentUser;
 use crate::cmd::KillFailedError;
-use failure::Error;
+use failure::{bail, Error};
 use std::fs::File;
 use std::path::Path;
 use winapi::um::handleapi::CloseHandle;
@@ -25,7 +26,7 @@ pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
     Ok(())
 }
 
-pub(crate) fn current_user() -> Option<u32> {
+pub(crate) fn current_user() -> Option<CurrentUser> {
     None
 }
 

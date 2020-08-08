@@ -388,8 +388,8 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 .workdir(container_dirs::WORK_DIR.to_str().unwrap())
                 .cmd(cmd);
 
-            if let Some(user_id) = native::current_user() {
-                builder = builder.env("MAP_USER_ID", user_id.to_string());
+            if let Some(user) = native::current_user() {
+                builder = builder.user(user.user_id, user.group_id);
             }
 
             for (key, value) in self.env {
