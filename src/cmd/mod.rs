@@ -8,7 +8,6 @@ pub use sandbox::*;
 
 use crate::native;
 use crate::workspace::Workspace;
-use failure::{Error, Fail};
 use futures_util::{
     future::{self, FutureExt},
     stream::{self, TryStreamExt},
@@ -58,20 +57,79 @@ pub(crate) mod container_dirs {
 }
 
 /// Error happened while executing a command.
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum CommandError {
     /// The command didn't output anything to stdout or stderr for more than the timeout, and it
     /// was killed. The timeout's value (in seconds) is the first value.
-    #[fail(display = "no output for {} seconds", _0)]
+    #[error("no output for {0} seconds")]
     NoOutputFor(u64),
+
     /// The command took more time than the timeout to end, and it was killed. The timeout's value
     /// (in seconds) is the first value.
-    #[fail(display = "command timed out after {} seconds", _0)]
+    #[error("command timed out after {0} seconds")]
     Timeout(u64),
+
+    /// The command failed to execute.
+    #[error("command failed: {0}")]
+    ExecutionFailed(ExitStatus),
+
+    /// Killing the underlying process after the timeout failed.
+    #[error("{0}")]
+    KillAfterTimeoutFailed(#[source] KillFailedError),
+
     /// The sandbox ran out of memory and was killed.
-    #[fail(display = "container ran out of memory")]
+    #[error("container ran out of memory")]
     SandboxOOM,
+
+    /// Pulling a sandbox image from the registry failed
+    #[error("failed to pull the sandbox image from the registry: {0}")]
+    SandboxImagePullFailed(#[source] Box<CommandError>),
+
+    /// The sandbox image is missing from the local system.
+    #[error("sandbox image missing from the local system: {0}")]
+    SandboxImageMissing(#[source] Box<CommandError>),
+
+    /// Running rustwide inside a Docker container requires the workspace directory to be mounted
+    /// from the host system. This error happens if that's not true, for example if the workspace
+    /// lives in a directory inside the container.
+    #[error("the workspace is not mounted from outside the container")]
+    WorkspaceNotMountedCorrectly,
+
+    /// The data received from the `docker inspect` command is not valid.
+    #[error("invalid output of `docker inspect`: {0}")]
+    InvalidDockerInspectOutput(#[source] serde_json::Error),
+
+    /// An I/O error occured while executing the command.
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
+}
+
+/// Error happened while trying to kill a process.
+#[derive(Debug, thiserror::Error)]
+#[cfg_attr(unix, error(
+    "failed to kill the process with PID {pid}{}",
+    .errno.map(|e| format!(": {}", e.desc())).unwrap_or_else(String::new)
+))]
+#[cfg_attr(not(unix), error("failed to kill the process with PID {pid}"))]
+pub struct KillFailedError {
+    pub(crate) pid: u32,
+    #[cfg(unix)]
+    pub(crate) errno: Option<nix::errno::Errno>,
+}
+
+impl KillFailedError {
+    /// Return the PID of the process that couldn't be killed.
+    pub fn pid(&self) -> u32 {
+        self.pid
+    }
+
+    /// Return the underlying error number provided by the operative system.
+    #[cfg(any(unix, doc))]
+    #[cfg_attr(docs_rs, doc(cfg(unix)))]
+    pub fn errno(&self) -> Option<i32> {
+        self.errno.map(|errno| errno as i32)
+    }
 }
 
 /// Name and kind of a binary executed by [`Command`](struct.Command.html).
@@ -285,7 +343,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
 
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
-    pub fn run(self) -> Result<(), Error> {
+    pub fn run(self) -> Result<(), CommandError> {
         self.run_inner(false)?;
         Ok(())
     }
@@ -296,11 +354,11 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// Even though the output will be captured and returned, if output logging is enabled (as it
     /// is by default) the output will be also logged. You can disable this behavior by calling the
     /// [`log_output`](struct.Command.html#method.log_output) method.
-    pub fn run_capture(self) -> Result<ProcessOutput, Error> {
+    pub fn run_capture(self) -> Result<ProcessOutput, CommandError> {
         Ok(self.run_inner(true)?)
     }
 
-    fn run_inner(self, capture: bool) -> Result<ProcessOutput, Error> {
+    fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
         if let Some(mut builder) = self.sandbox {
             let workspace = self
                 .workspace
@@ -438,7 +496,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
             if out.status.success() {
                 Ok(out.into())
             } else {
-                failure::bail!("command `{}` failed", cmdstr);
+                Err(CommandError::ExecutionFailed(out.status))
             }
         }
     }
@@ -499,7 +557,7 @@ async fn log_command(
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
     log_output: bool,
-) -> Result<InnerProcessOutput, Error> {
+) -> Result<InnerProcessOutput, CommandError> {
     let timeout = if let Some(t) = timeout {
         t
     } else {
@@ -532,12 +590,12 @@ async fn log_command(
         .map(move |result| match result {
             // If the timeout elapses, kill the process
             Err(_timeout) => Err(match native::kill_process(child_id) {
-                Ok(()) => Error::from(CommandError::NoOutputFor(no_output_timeout.as_secs())),
-                Err(err) => err,
+                Ok(()) => CommandError::NoOutputFor(no_output_timeout.as_secs()),
+                Err(err) => CommandError::KillAfterTimeoutFailed(err),
             }),
 
             // If an error occurred reading the line, flatten the error
-            Ok((_, Err(read_err))) => Err(Error::from(read_err)),
+            Ok((_, Err(read_err))) => Err(read_err.into()),
 
             // If the read was successful, return the `OutputKind` and the read line
             Ok((out_kind, Ok(line))) => Ok((out_kind, line)),
@@ -546,7 +604,7 @@ async fn log_command(
             // If the process is in a tight output loop the timeout on the process might fail to
             // be executed, so this extra check prevents the process to run without limits.
             if start.elapsed() > timeout {
-                return future::err(Error::from(CommandError::Timeout(timeout.as_secs())));
+                return future::err(CommandError::Timeout(timeout.as_secs()));
             }
 
             if let Some(f) = &mut process_lines {
@@ -587,12 +645,12 @@ async fn log_command(
         match result {
             // If the timeout elapses, kill the process
             Err(_timeout) => Err(match native::kill_process(child_id) {
-                Ok(()) => Error::from(CommandError::Timeout(timeout.as_secs())),
-                Err(err) => err,
+                Ok(()) => CommandError::Timeout(timeout.as_secs()),
+                Err(err) => CommandError::KillAfterTimeoutFailed(err),
             }),
 
             // If an error occurred with the child
-            Ok(Err(err)) => Err(Error::from(err)),
+            Ok(Err(err)) => Err(err.into()),
 
             // If the read was successful, return the process's exit status
             Ok(Ok(exit_status)) => Ok(exit_status),

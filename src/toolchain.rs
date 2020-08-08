@@ -363,7 +363,7 @@ impl Toolchain {
                 .cloned()
                 .collect()),
             Err(_) if not_installed => Err(ToolchainError::NotInstalled.into()),
-            Err(err) => Err(err
+            Err(err) => Err(Error::from(err)
                 .context(format!(
                     "failed to read the list of installed {}s for {} with rustup",
                     thing, name

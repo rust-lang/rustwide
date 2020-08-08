@@ -5,10 +5,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New variant `CommandError::ExecutionFailed`
+- New variant `CommandError::KillAfterTimeoutFailed`
+- New variant `CommandError::SandboxImagePullFailed`
+- New variant `CommandError::SandboxImageMissing`
+- New variant `CommandError::WorkspaceNotMountedCorrectly`
+- New variant `CommandError::InvalidDockerInspectOutput`
+- New variant `CommandError::IO`
+- New struct `KillFailedError`
+
 ### Changed
 
 - **BREAKING**: support for CI toolchains is now gated behind the
   `unstable-toolchain-ci` Cargo feature.
+- **BREAKING**: all functions and methods inside `cmd` now return `CommandError`.
 - `winapi` is no longer required on unix; `nix` is no longer required on windows.
 - Relaxed lifetime restrictions of `Build::cmd` and `Build::cargo`.
 

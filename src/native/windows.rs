@@ -1,21 +1,24 @@
-use failure::{bail, Error};
+use crate::cmd::KillFailedError;
+use failure::Error;
 use std::fs::File;
 use std::path::Path;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess};
 use winapi::um::winnt::PROCESS_TERMINATE;
 
-pub(crate) fn kill_process(id: u32) -> Result<(), Error> {
+pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
+    let error = Err(KillFailedError { pid: id });
+
     unsafe {
         let handle = OpenProcess(PROCESS_TERMINATE, 0, id);
         if handle.is_null() {
-            bail!("OpenProcess for process {} failed", id);
+            return error;
         }
         if TerminateProcess(handle, 101) == 0 {
-            bail!("TerminateProcess for process {} failed", id);
+            return error;
         }
         if CloseHandle(handle) == 0 {
-            bail!("CloseHandle for process {} failed", id);
+            return error;
         }
     }
 

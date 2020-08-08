@@ -1,8 +1,8 @@
 use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput};
 use crate::Workspace;
-use failure::Error;
 use log::{error, info};
 use serde::Deserialize;
+use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -16,7 +16,7 @@ impl SandboxImage {
     /// Load a local image present in the host machine.
     ///
     /// If the image is not available locally an error will be returned instead.
-    pub fn local(name: &str) -> Result<Self, Error> {
+    pub fn local(name: &str) -> Result<Self, CommandError> {
         let image = SandboxImage { name: name.into() };
         info!("sandbox image is local, skipping pull");
         image.ensure_exists_locally()?;
@@ -27,12 +27,13 @@ impl SandboxImage {
     ///
     /// This will access the network to download the image from the registry. If pulling fails an
     /// error will be returned instead.
-    pub fn remote(name: &str) -> Result<Self, Error> {
+    pub fn remote(name: &str) -> Result<Self, CommandError> {
         let mut image = SandboxImage { name: name.into() };
         info!("pulling image {} from Docker Hub", name);
         Command::new_workspaceless("docker")
             .args(&["pull", &name])
-            .run()?;
+            .run()
+            .map_err(|e| CommandError::SandboxImagePullFailed(Box::new(e)))?;
         if let Some(name_with_hash) = image.get_name_with_hash() {
             image.name = name_with_hash;
             info!("pulled image {}", image.name);
@@ -41,12 +42,13 @@ impl SandboxImage {
         Ok(image)
     }
 
-    fn ensure_exists_locally(&self) -> Result<(), Error> {
+    fn ensure_exists_locally(&self) -> Result<(), CommandError> {
         info!("checking the image {} is available locally", self.name);
         Command::new_workspaceless("docker")
             .args(&["image", "inspect", &self.name])
             .log_output(false)
-            .run()?;
+            .run()
+            .map_err(|e| CommandError::SandboxImageMissing(Box::new(e)))?;
         Ok(())
     }
 
@@ -85,7 +87,7 @@ struct MountConfig {
 }
 
 impl MountConfig {
-    fn host_path(&self, workspace: &Workspace) -> Result<PathBuf, Error> {
+    fn host_path(&self, workspace: &Workspace) -> Result<PathBuf, CommandError> {
         if let Some(container) = workspace.current_container() {
             // If we're inside a Docker container we'll need to remap the mount sources to point to
             // the directories in the host system instead of the containers. To do that we try to
@@ -97,13 +99,13 @@ impl MountConfig {
                     return Ok(Path::new(mount.source()).join(shared));
                 }
             }
-            failure::bail!("the workspace is not mounted from outside the container");
+            Err(CommandError::WorkspaceNotMountedCorrectly)
         } else {
             Ok(crate::utils::normalize_path(&self.host_path))
         }
     }
 
-    fn to_volume_arg(&self, workspace: &Workspace) -> Result<String, Error> {
+    fn to_volume_arg(&self, workspace: &Workspace) -> Result<String, CommandError> {
         let perm = match self.perm {
             MountKind::ReadWrite => "rw",
             MountKind::ReadOnly => "ro",
@@ -116,7 +118,7 @@ impl MountConfig {
         ))
     }
 
-    fn to_mount_arg(&self, workspace: &Workspace) -> Result<String, Error> {
+    fn to_mount_arg(&self, workspace: &Workspace) -> Result<String, CommandError> {
         let mut opts_with_leading_comma = vec![];
 
         if self.perm == MountKind::ReadOnly {
@@ -214,7 +216,7 @@ impl SandboxBuilder {
         self
     }
 
-    fn create(self, workspace: &Workspace) -> Result<Container<'_>, Error> {
+    fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
         for mount in &self.mounts {
@@ -285,7 +287,7 @@ impl SandboxBuilder {
         log_output: bool,
         log_command: bool,
         capture: bool,
-    ) -> Result<ProcessOutput, Error> {
+    ) -> Result<ProcessOutput, CommandError> {
         let container = self.create(workspace)?;
 
         // Ensure the container is properly deleted even if something panics
@@ -293,8 +295,10 @@ impl SandboxBuilder {
             if let Err(err) = container.delete() {
                 error!("failed to delete container {}", container.id);
                 error!("caused by: {}", err);
-                for cause in err.iter_causes() {
+                let mut err: &dyn Error = &err;
+                while let Some(cause) = err.source() {
                     error!("caused by: {}", cause);
+                    err = cause;
                 }
             }
         }}
@@ -336,14 +340,15 @@ impl fmt::Display for Container<'_> {
 }
 
 impl Container<'_> {
-    fn inspect(&self) -> Result<InspectContainer, Error> {
+    fn inspect(&self) -> Result<InspectContainer, CommandError> {
         let output = Command::new(self.workspace, "docker")
             .args(&["inspect", &self.id])
             .log_output(false)
             .run_capture()?;
 
         let mut data: Vec<InspectContainer> =
-            ::serde_json::from_str(&output.stdout_lines().join("\n"))?;
+            ::serde_json::from_str(&output.stdout_lines().join("\n"))
+                .map_err(CommandError::InvalidDockerInspectOutput)?;
         assert_eq!(data.len(), 1);
         Ok(data.pop().unwrap())
     }
@@ -356,7 +361,7 @@ impl Container<'_> {
         log_output: bool,
         log_command: bool,
         capture: bool,
-    ) -> Result<ProcessOutput, Error> {
+    ) -> Result<ProcessOutput, CommandError> {
         let mut cmd = Command::new(self.workspace, "docker")
             .args(&["start", "-a", &self.id])
             .timeout(timeout)
@@ -373,17 +378,16 @@ impl Container<'_> {
 
         // Return a different error if the container was killed due to an OOM
         if details.state.oom_killed {
-            if let Err(err) = res {
-                Err(err.context(CommandError::SandboxOOM).into())
-            } else {
-                Err(CommandError::SandboxOOM.into())
-            }
+            Err(match res {
+                Ok(_) | Err(CommandError::ExecutionFailed(_)) => CommandError::SandboxOOM,
+                Err(err) => err,
+            })
         } else {
             res
         }
     }
 
-    fn delete(&self) -> Result<(), Error> {
+    fn delete(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
             .args(&["rm", "-f", &self.id])
             .run()

@@ -147,7 +147,7 @@ impl<'a> Prepare<'a> {
                 self.capture_lockfile(true)?;
                 return self.fetch_deps();
             }
-            err => return err,
+            err => return err.map_err(|e| e.into()),
         }
         Ok(())
     }
