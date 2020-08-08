@@ -1,3 +1,4 @@
+use crate::cmd::KillFailedError;
 use failure::Error;
 use nix::{
     sys::signal::{kill, Signal},
@@ -9,9 +10,18 @@ use std::path::Path;
 
 const EXECUTABLE_BITS: u32 = 0o5;
 
-pub(crate) fn kill_process(id: u32) -> Result<(), Error> {
-    kill(Pid::from_raw(id as i32), Signal::SIGKILL)?;
-    Ok(())
+pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
+    match kill(Pid::from_raw(id as i32), Signal::SIGKILL) {
+        Ok(()) => Ok(()),
+        Err(err) => Err(KillFailedError {
+            pid: id,
+            errno: if let nix::Error::Sys(errno) = err {
+                Some(errno)
+            } else {
+                None
+            },
+        }),
+    }
 }
 
 pub(crate) fn current_user() -> Option<u32> {
