@@ -1,9 +1,11 @@
 //! Tools to manage and use Rust toolchains.
 
 use crate::cmd::{Binary, Command, Runnable};
-use crate::tools::{RUSTUP, RUSTUP_TOOLCHAIN_INSTALL_MASTER};
+use crate::tools::RUSTUP;
+#[cfg(feature = "unstable-toolchain-ci")]
+use crate::tools::RUSTUP_TOOLCHAIN_INSTALL_MASTER;
 use crate::Workspace;
-use failure::{bail, Error, ResultExt};
+use failure::{Error, ResultExt};
 use log::info;
 use std::borrow::Cow;
 use std::path::Path;
@@ -95,6 +97,8 @@ impl std::fmt::Display for RustupThing {
 
 /// Metadata of a CI toolchain. See [`Toolchain`](struct.Toolchain.html) to create and get it.
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
+#[cfg(any(feature = "unstable-toolchain-ci", doc))]
+#[cfg_attr(docs_rs, doc(cfg(feature = "unstable-toolchain-ci")))]
 pub struct CiToolchain {
     /// Hash of the merge commit of the PR you want to download.
     sha: String,
@@ -103,6 +107,7 @@ pub struct CiToolchain {
     alt: bool,
 }
 
+#[cfg(any(feature = "unstable-toolchain-ci", doc))]
 impl CiToolchain {
     /// Get the SHA of the git commit that produced this toolchain.
     pub fn sha(&self) -> &str {
@@ -149,6 +154,7 @@ impl CiToolchain {
 enum ToolchainInner {
     Dist(DistToolchain),
     #[serde(rename = "ci")]
+    #[cfg(feature = "unstable-toolchain-ci")]
     CI(CiToolchain),
 }
 
@@ -197,6 +203,8 @@ impl Toolchain {
     /// **There is no availability or stability guarantee for these builds!**
     ///
     /// [repo]: https://github.com/rust-lang/rust
+    #[cfg(any(feature = "unstable-toolchain-ci", doc))]
+    #[cfg_attr(docs_rs, doc(cfg(feature = "unstable-toolchain-ci")))]
     pub fn ci(sha: &str, alt: bool) -> Self {
         Toolchain {
             inner: ToolchainInner::CI(CiToolchain {
@@ -207,6 +215,7 @@ impl Toolchain {
     }
 
     /// If this toolchain is a dist toolchain, return its metadata.
+    #[allow(irrefutable_let_patterns)]
     pub fn as_dist(&self) -> Option<&DistToolchain> {
         if let ToolchainInner::Dist(dist) = &self.inner {
             Some(dist)
@@ -216,6 +225,8 @@ impl Toolchain {
     }
 
     /// If this toolchain is a CI toolchain, return its metadata.
+    #[cfg(any(feature = "unstable-toolchain-ci", doc))]
+    #[cfg_attr(docs_rs, doc(cfg(feature = "unstable-toolchain-ci")))]
     pub fn as_ci(&self) -> Option<&CiToolchain> {
         if let ToolchainInner::CI(ci) = &self.inner {
             Some(ci)
@@ -228,6 +239,7 @@ impl Toolchain {
     pub fn install(&self, workspace: &Workspace) -> Result<(), Error> {
         match &self.inner {
             ToolchainInner::Dist(dist) => dist.init(workspace)?,
+            #[cfg(feature = "unstable-toolchain-ci")]
             ToolchainInner::CI(ci) => ci.init(workspace)?,
         }
 
@@ -287,13 +299,15 @@ impl Toolchain {
         let thing = thing.to_string();
         let action = action.to_string();
 
+        #[cfg(feature = "unstable-toolchain-ci")]
         if let ToolchainInner::CI { .. } = self.inner {
-            bail!(
+            failure::bail!(
                 "{} {} on CI toolchains is not supported yet",
                 log_action_ing,
                 thing
             );
         }
+
         let toolchain_name = self.rustup_name();
         info!(
             "{} {} {} for toolchain {}",
@@ -419,7 +433,9 @@ impl Toolchain {
     fn rustup_name(&self) -> String {
         match &self.inner {
             ToolchainInner::Dist(dist) => dist.name.to_string(),
+            #[cfg(feature = "unstable-toolchain-ci")]
             ToolchainInner::CI(ci) if ci.alt => format!("{}-alt", ci.sha),
+            #[cfg(feature = "unstable-toolchain-ci")]
             ToolchainInner::CI(ci) => ci.sha.to_string(),
         }
     }
@@ -462,12 +478,15 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
         if entry.file_type()?.is_symlink() || update_hashes.join(&name).exists() {
             result.push(Toolchain::dist(&name));
         } else {
-            let (sha, alt) = if name.ends_with("-alt") {
-                ((&name[..name.len() - 4]).to_string(), true)
-            } else {
-                (name, false)
-            };
-            result.push(Toolchain::ci(&sha, alt));
+            #[cfg(feature = "unstable-toolchain-ci")]
+            {
+                let (sha, alt) = if name.ends_with("-alt") {
+                    ((&name[..name.len() - 4]).to_string(), true)
+                } else {
+                    (name, false)
+                };
+                result.push(Toolchain::ci(&sha, alt));
+            }
         }
     }
     Ok(result)
@@ -479,12 +498,20 @@ mod tests {
     use failure::Error;
 
     #[test]
-    fn test_serde_repr() -> Result<(), Error> {
+    fn test_dist_serde_repr() -> Result<(), Error> {
         const DIST: &str = r#"{"type": "dist", "name": "stable"}"#;
+
+        assert_eq!(Toolchain::dist("stable"), serde_json::from_str(DIST)?);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "unstable-toolchain-ci")]
+    fn test_ci_serde_repr() -> Result<(), Error> {
         const CI_NORMAL: &str = r#"{"type": "ci", "sha": "0000000", "alt": false}"#;
         const CI_ALT: &str = r#"{"type": "ci", "sha": "0000000", "alt": true}"#;
 
-        assert_eq!(Toolchain::dist("stable"), serde_json::from_str(DIST)?);
         assert_eq!(
             Toolchain::ci("0000000", false),
             serde_json::from_str(CI_NORMAL)?
@@ -537,11 +564,21 @@ mod tests {
         )?;
 
         let res = super::list_installed_toolchains(rustup_home.path())?;
-        assert_eq!(4, res.len());
+
+        let mut expected_count = 0;
+
         assert!(res.contains(&Toolchain::dist(DIST_NAME)));
         assert!(res.contains(&Toolchain::dist(LINK_NAME)));
-        assert!(res.contains(&Toolchain::ci(CI_SHA, false)));
-        assert!(res.contains(&Toolchain::ci(CI_SHA, true)));
+        expected_count += 2;
+
+        #[cfg(feature = "unstable-toolchain-ci")]
+        {
+            assert!(res.contains(&Toolchain::ci(CI_SHA, false)));
+            assert!(res.contains(&Toolchain::ci(CI_SHA, true)));
+            expected_count += 2;
+        }
+
+        assert_eq!(res.len(), expected_count);
 
         Ok(())
     }

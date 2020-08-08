@@ -12,6 +12,9 @@
 //! * **unstable**: allow Rustwide to use unstable Rust and Cargo features. While this feature also
 //!   works on Rust stable it might cause Rustwide to break, and **no stability guarantee is
 //!   present when using it!**
+//! * **unstable-toolchain-ci**: allow fetching toolchains from rustc's CI artifacts storage. Support for
+//!   them is **incomplete** (not all methods might work), and there is **no stability guarantee**
+//!   when using them!
 //!
 //! [crater]: https://github.com/rust-lang/crater
 //! [docsrs]: https://github.com/rust-lang/docs.rs
