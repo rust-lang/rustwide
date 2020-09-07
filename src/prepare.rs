@@ -59,7 +59,7 @@ impl<'a> Prepare<'a> {
         }
 
         let res = Command::new(self.workspace, self.toolchain.cargo())
-            .args(&["read-manifest", "--manifest-path", "Cargo.toml"])
+            .args(&["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
             .cd(self.source_dir)
             .log_output(false)
             .run();
@@ -196,7 +196,7 @@ impl<'a> TomlTweaker<'a> {
 
         self.remove_missing_items("example");
         self.remove_missing_items("test");
-        self.remove_workspaces();
+        self.remove_parent_workspaces();
         self.remove_unwanted_cargo_features();
         self.remove_dependencies();
         self.apply_patches();
@@ -237,12 +237,8 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    fn remove_workspaces(&mut self) {
+    fn remove_parent_workspaces(&mut self) {
         let krate = self.krate.to_string();
-
-        if self.table.remove("workspace").is_some() {
-            info!("removed workspace from {}", krate);
-        }
 
         // Eliminate parent workspaces
         if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package") {
@@ -467,6 +463,9 @@ mod tests {
 
             [target."cfg(unix)".dependencies]
             quux = { version = "1.0" }
+
+            [workspace]
+            members = []
         };
 
         let krate = Crate::local("/dev/null".as_ref());
