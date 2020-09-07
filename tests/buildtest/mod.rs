@@ -98,8 +98,8 @@ fn test_cargo_config() {
 }
 
 #[test]
-fn workspace() {
-    runner::run("workspace", |run| {
+fn test_cargo_workspace() {
+    runner::run("cargo-workspace", |run| {
         run.build(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
