@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- allow workspaces by having validate_manifest now use `metadata --no-deps` instead of deprecated `read-manifest`
+  therefor no longer failing on workspaces and TomlTweaker no longer removing the workspace table from `Cargo.toml`
+
+
 ## [0.10.0] - 2020-08-08
 
 ### Added
