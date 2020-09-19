@@ -188,6 +188,7 @@ impl<'a, B: Runnable> Runnable for &'a B {
 /// output processing, output logging and sandboxing.
 ///
 /// [std]: https://doc.rust-lang.org/std/process/struct.Command.html
+#[must_use = "call `.run()` to run the command"]
 pub struct Command<'w, 'pl> {
     workspace: Option<&'w Workspace>,
     sandbox: Option<SandboxBuilder>,
