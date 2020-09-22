@@ -43,6 +43,7 @@ impl<'a> Prepare<'a> {
         self.tweak_toml()?;
         self.capture_lockfile(false)?;
         self.fetch_deps()?;
+        self.create_ios_sdkroot()?;
 
         Ok(())
     }
@@ -150,6 +151,10 @@ impl<'a> Prepare<'a> {
             err => return err.map_err(|e| e.into()),
         }
         Ok(())
+    }
+
+    fn create_ios_sdkroot(&mut self) -> Result<(), Error> {
+        Command::new(self.workspace, "mkdir").args(&["iPhoneOS.platform"]).run().map_err(Into::into)
     }
 }
 

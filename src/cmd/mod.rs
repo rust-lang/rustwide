@@ -244,7 +244,8 @@ impl<'w, 'pl> Command<'w, 'pl> {
             sandbox,
             binary,
             args: Vec::new(),
-            env: Vec::new(),
+            // Workaround for https://github.com/rust-lang/rust/issues/76584
+            env: vec![("SDKROOT".into(), "iPhoneOS.platform".into())],
             process_lines: None,
             cd: None,
             timeout,
