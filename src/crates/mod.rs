@@ -69,7 +69,7 @@ impl Crate {
                 "crate source directory {} already exists, cleaning it up",
                 dest.display()
             );
-            remove_dir_all(dest)?;
+            remove_dir_all(dest).map_err(|error|crate::utils::improve_remove_dir_error(error, dest))?;
         }
         self.as_trait().copy_source_to(workspace, dest)
     }

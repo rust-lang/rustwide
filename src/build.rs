@@ -146,7 +146,7 @@ impl BuildDirectory {
     ) -> Result<R, Error> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
-            remove_dir_all(&source_dir)?;
+            remove_dir_all(&source_dir).map_err(|error|crate::utils::improve_remove_dir_error(error, &source_dir))?;
         }
 
         let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
@@ -159,7 +159,7 @@ impl BuildDirectory {
             sandbox,
         })?;
 
-        remove_dir_all(&source_dir)?;
+        remove_dir_all(&source_dir).map_err(|error|crate::utils::improve_remove_dir_error(error, &source_dir))?;
         Ok(res)
     }
 
@@ -167,7 +167,7 @@ impl BuildDirectory {
     pub fn purge(&mut self) -> Result<(), Error> {
         let build_dir = self.build_dir();
         if build_dir.exists() {
-            remove_dir_all(build_dir)?;
+            remove_dir_all(&build_dir).map_err(|error|crate::utils::improve_remove_dir_error(error, &build_dir))?;
         }
         Ok(())
     }
