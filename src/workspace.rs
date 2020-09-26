@@ -213,7 +213,8 @@ impl Workspace {
     pub fn purge_all_build_dirs(&self) -> Result<(), Error> {
         let dir = self.builds_dir();
         if dir.exists() {
-            remove_dir_all(&dir).map_err(|error|crate::utils::improve_remove_dir_error(error, &dir))?;
+            remove_dir_all(&dir)
+                .map_err(|error| crate::utils::improve_remove_dir_error(error, &dir))?;
         }
         Ok(())
     }
@@ -236,7 +237,8 @@ impl Workspace {
 
         for path in &paths {
             if path.exists() {
-                remove_dir_all(&path).map_err(|error|crate::utils::improve_remove_dir_error(error, &path))?;
+                remove_dir_all(&path)
+                    .map_err(|error| crate::utils::improve_remove_dir_error(error, &path))?;
             }
         }
 

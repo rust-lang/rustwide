@@ -60,25 +60,45 @@ impl std::error::Error for DirRemoveError {}
 
 impl std::fmt::Display for DirRemoveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("failed to remove directory '{}' : {:?}",self.path, self.kind))
+        f.write_fmt(format_args!(
+            "failed to remove directory '{}' : {:?}",
+            self.path, self.kind
+        ))
     }
 }
 
 pub(crate) fn improve_remove_dir_error(error: std::io::Error, path: &Path) -> std::io::Error {
-    std::io::Error::new(error.kind(), DirRemoveError{kind: error.kind(),path: path.display().to_string()})
+    std::io::Error::new(
+        error.kind(),
+        DirRemoveError {
+            kind: error.kind(),
+            path: path.display().to_string(),
+        },
+    )
 }
 
 #[test]
 fn custom_remove_dir_error() {
-
     let path = "test/path".as_ref();
 
     let expected = "failed to remove directory 'test/path' : PermissionDenied";
-    let tested = format!("{}", improve_remove_dir_error(std::io::Error::from(std::io::ErrorKind::PermissionDenied), path));
+    let tested = format!(
+        "{}",
+        improve_remove_dir_error(
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+            path
+        )
+    );
     assert_eq!(expected, tested);
 
     let expected = "Custom { kind: PermissionDenied, error: DirRemoveError { kind: PermissionDenied, path: \"test/path\" } }";
-    let tested = format!("{:?}",improve_remove_dir_error(std::io::Error::from(std::io::ErrorKind::PermissionDenied), path));
+    let tested = format!(
+        "{:?}",
+        improve_remove_dir_error(
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+            path
+        )
+    );
     assert_eq!(expected, tested);
 }
 
