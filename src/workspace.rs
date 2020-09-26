@@ -214,7 +214,7 @@ impl Workspace {
         let dir = self.builds_dir();
         if dir.exists() {
             remove_dir_all(&dir)
-                .map_err(|error| crate::utils::improve_remove_dir_error(error, &dir))?;
+                .map_err(|error| crate::utils::improve_remove_error(error, &dir))?;
         }
         Ok(())
     }
@@ -238,7 +238,7 @@ impl Workspace {
         for path in &paths {
             if path.exists() {
                 remove_dir_all(&path)
-                    .map_err(|error| crate::utils::improve_remove_dir_error(error, &path))?;
+                    .map_err(|error| crate::utils::improve_remove_error(error, &path))?;
             }
         }
 

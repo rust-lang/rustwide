@@ -62,7 +62,8 @@ impl CrateTrait for CratesIOCrate {
     fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
         let path = self.cache_path(workspace);
         if path.exists() {
-            std::fs::remove_file(&path)?;
+            std::fs::remove_file(&path)
+                .map_err(|error| crate::utils::improve_remove_error(error, &path))?;
         }
         Ok(())
     }

@@ -122,7 +122,7 @@ impl CrateTrait for GitRepo {
         let path = self.cached_path(workspace);
         if path.exists() {
             remove_dir_all::remove_dir_all(&path)
-                .map_err(|error| crate::utils::improve_remove_dir_error(error, &path))?;
+                .map_err(|error| crate::utils::improve_remove_error(error, &path))?;
         }
         Ok(())
     }

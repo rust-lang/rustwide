@@ -70,7 +70,7 @@ impl Crate {
                 dest.display()
             );
             remove_dir_all(dest)
-                .map_err(|error| crate::utils::improve_remove_dir_error(error, dest))?;
+                .map_err(|error| crate::utils::improve_remove_error(error, dest))?;
         }
         self.as_trait().copy_source_to(workspace, dest)
     }

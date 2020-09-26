@@ -51,26 +51,26 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
 }
 
 #[derive(Debug)]
-struct DirRemoveError {
+struct RemoveError {
     kind: std::io::ErrorKind,
     path: String,
 }
 
-impl std::error::Error for DirRemoveError {}
+impl std::error::Error for RemoveError {}
 
-impl std::fmt::Display for DirRemoveError {
+impl std::fmt::Display for RemoveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "failed to remove directory '{}' : {:?}",
+            "failed to remove '{}' : {:?}",
             self.path, self.kind
         ))
     }
 }
 
-pub(crate) fn improve_remove_dir_error(error: std::io::Error, path: &Path) -> std::io::Error {
+pub(crate) fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
     std::io::Error::new(
         error.kind(),
-        DirRemoveError {
+        RemoveError {
             kind: error.kind(),
             path: path.display().to_string(),
         },
@@ -78,23 +78,23 @@ pub(crate) fn improve_remove_dir_error(error: std::io::Error, path: &Path) -> st
 }
 
 #[test]
-fn custom_remove_dir_error() {
+fn custom_remove_error() {
     let path = "test/path".as_ref();
 
-    let expected = "failed to remove directory 'test/path' : PermissionDenied";
+    let expected = "failed to remove 'test/path' : PermissionDenied";
     let tested = format!(
         "{}",
-        improve_remove_dir_error(
+        improve_remove_error(
             std::io::Error::from(std::io::ErrorKind::PermissionDenied),
             path
         )
     );
     assert_eq!(expected, tested);
 
-    let expected = "Custom { kind: PermissionDenied, error: DirRemoveError { kind: PermissionDenied, path: \"test/path\" } }";
+    let expected = "Custom { kind: PermissionDenied, error: RemoveError { kind: PermissionDenied, path: \"test/path\" } }";
     let tested = format!(
         "{:?}",
-        improve_remove_dir_error(
+        improve_remove_error(
             std::io::Error::from(std::io::ErrorKind::PermissionDenied),
             path
         )

@@ -73,8 +73,8 @@ impl<'a> Prepare<'a> {
     fn remove_cargo_config(&self) -> Result<(), Error> {
         let path = self.source_dir.join(".cargo").join("config");
         if path.exists() {
-            remove_file(path.clone())?;
-            info!("removed {}", path.as_path().display());
+            remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, &path))?;
+            info!("removed {}", path.display());
         }
         Ok(())
     }
