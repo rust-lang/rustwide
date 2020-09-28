@@ -18,26 +18,26 @@ unstable = []
 unstable-toolchain-ci = []
 
 [dependencies]
+base64 = "0.12.0"
 failure = "0.1.3"
+flate2 = "1"
+fs2 = "0.4.3"
 futures-util = "0.3.5"
+getrandom = { version = "0.1.12", features = ["std"] }
+lazy_static = "1.0.0"
 log = "0.4.6"
-tokio = { version = "0.2.21", features = ["process", "time"] }
+percent-encoding = "2.1.0"
+remove_dir_all = "0.5.2"
+reqwest = { version = "0.10.4", features = ["blocking"] }
+scopeguard = "1.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-scopeguard = "1.0.0"
-lazy_static = "1.0.0"
-tempfile = "3.0.0"
-reqwest = { version = "0.10.4", features = ["blocking"] }
-flate2 = "1"
 tar = "0.4.0"
-percent-encoding = "2.1.0"
-walkdir = "2.2"
-toml = "0.5"
-fs2 = "0.4.3"
-remove_dir_all = "0.5.2"
-base64 = "0.12.0"
-getrandom = { version = "0.1.12", features = ["std"] }
+tempfile = "3.0.0"
 thiserror = "1.0.20"
+tokio = { version = "0.2.21", features = ["process", "time"] }
+toml = "0.5"
+walkdir = "2.2"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.11.0"
