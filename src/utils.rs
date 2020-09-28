@@ -77,19 +77,24 @@ pub(crate) fn improve_remove_error(error: std::io::Error, path: &Path) -> std::i
     )
 }
 
-#[test]
-fn custom_remove_error() {
-    let path = "test/path".as_ref();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let expected = "failed to remove 'test/path' : PermissionDenied";
-    let tested = format!(
-        "{}",
-        improve_remove_error(
-            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
-            path
-        )
-    );
-    assert_eq!(expected, tested);
+    #[test]
+    fn custom_remove_error() {
+        let path = "test/path".as_ref();
+
+        let expected = "failed to remove 'test/path' : PermissionDenied";
+        let tested = format!(
+            "{}",
+            improve_remove_error(
+                std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+                path
+            )
+        );
+        assert_eq!(expected, tested);
+    }
 }
 
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
