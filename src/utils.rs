@@ -53,7 +53,7 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
 #[derive(Debug)]
 struct RemoveError {
     kind: std::io::ErrorKind,
-    path: String,
+    path: PathBuf,
 }
 
 impl std::error::Error for RemoveError {}
@@ -62,7 +62,8 @@ impl std::fmt::Display for RemoveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "failed to remove '{}' : {:?}",
-            self.path, self.kind
+            self.path.display(),
+            self.kind
         ))
     }
 }
@@ -72,7 +73,7 @@ pub(crate) fn improve_remove_error(error: std::io::Error, path: &Path) -> std::i
         error.kind(),
         RemoveError {
             kind: error.kind(),
-            path: path.display().to_string(),
+            path: path.to_path_buf(),
         },
     )
 }
