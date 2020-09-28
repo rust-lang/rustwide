@@ -90,16 +90,6 @@ fn custom_remove_error() {
         )
     );
     assert_eq!(expected, tested);
-
-    let expected = "Custom { kind: PermissionDenied, error: RemoveError { kind: PermissionDenied, path: \"test/path\" } }";
-    let tested = format!(
-        "{:?}",
-        improve_remove_error(
-            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
-            path
-        )
-    );
-    assert_eq!(expected, tested);
 }
 
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
