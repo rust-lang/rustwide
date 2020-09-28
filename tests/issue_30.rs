@@ -1,6 +1,6 @@
 use failure::Error;
+use fs_err as fs;
 use rustwide::cmd::Command;
-use std::fs;
 
 mod utils;
 

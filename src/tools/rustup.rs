@@ -3,8 +3,9 @@ use crate::toolchain::MAIN_TOOLCHAIN_NAME;
 use crate::tools::{Tool, RUSTUP};
 use crate::workspace::Workspace;
 use failure::{Error, ResultExt};
+use fs_err as fs;
+use fs_err::File;
 use std::env::consts::EXE_SUFFIX;
-use std::fs::{self, File};
 use std::io;
 use tempfile::tempdir;
 

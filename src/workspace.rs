@@ -135,7 +135,7 @@ impl WorkspaceBuilder {
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
     pub fn init(self) -> Result<Workspace, Error> {
-        std::fs::create_dir_all(&self.path).with_context(|_| {
+        fs_err::create_dir_all(&self.path).with_context(|_| {
             format!(
                 "failed to create workspace directory: {}",
                 self.path.display()
@@ -226,7 +226,7 @@ impl Workspace {
             self.cargo_home().join("registry").join("cache"),
         ];
 
-        for index in std::fs::read_dir(self.cargo_home().join("registry").join("index"))? {
+        for index in fs_err::read_dir(self.cargo_home().join("registry").join("index"))? {
             let index = index?;
             if index.file_type()?.is_dir() {
                 paths.push(index.path().join(".cache"));

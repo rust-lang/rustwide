@@ -61,15 +61,15 @@ pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<(), Error> {
     let new_mode = perms.mode() | executable_mode_for(&path)?;
     perms.set_mode(new_mode);
 
-    ::std::fs::set_permissions(path, perms)?;
+    ::fs_err::set_permissions(path, perms)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::CurrentUser;
+    use fs_err::File;
     use nix::unistd::{Gid, Uid};
-    use std::fs::File;
     use std::os::unix::process::ExitStatusExt;
     use std::process::Command;
 

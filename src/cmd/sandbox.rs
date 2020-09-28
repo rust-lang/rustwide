@@ -227,7 +227,7 @@ impl SandboxBuilder {
         let mut args: Vec<String> = vec!["create".into()];
 
         for mount in &self.mounts {
-            std::fs::create_dir_all(&mount.host_path)?;
+            fs_err::create_dir_all(&mount.host_path)?;
 
             // On Windows, we mount paths containing a colon which don't work with `-v`, but on
             // Linux we need the Z flag, which doesn't work with `--mount`, for SELinux relabeling.

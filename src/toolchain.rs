@@ -466,7 +466,7 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
     let update_hashes = rustup_home.join("update-hashes");
 
     let mut result = Vec::new();
-    for entry in std::fs::read_dir(&rustup_home.join("toolchains"))? {
+    for entry in fs_err::read_dir(&rustup_home.join("toolchains"))? {
         let entry = entry?;
         let name = entry
             .file_name()
@@ -533,30 +533,30 @@ mod tests {
         let rustup_home = tempfile::tempdir()?;
 
         // Create a fake rustup-installed toolchain
-        std::fs::create_dir_all(rustup_home.path().join("toolchains").join(DIST_NAME))?;
-        std::fs::create_dir_all(rustup_home.path().join("update-hashes"))?;
-        std::fs::write(
+        fs_err::create_dir_all(rustup_home.path().join("toolchains").join(DIST_NAME))?;
+        fs_err::create_dir_all(rustup_home.path().join("update-hashes"))?;
+        fs_err::write(
             rustup_home.path().join("update-hashes").join(DIST_NAME),
             &[],
         )?;
 
         // Create a fake symlinked toolchain
         #[cfg(unix)]
-        std::os::unix::fs::symlink(
+        fs_err::os::unix::fs::symlink(
             "/dev/null",
             rustup_home.path().join("toolchains").join(LINK_NAME),
         )?;
         #[cfg(windows)]
-        std::os::windows::fs::symlink_file(
+        fs_err::os::windows::fs::symlink_file(
             "NUL",
             rustup_home.path().join("toolchains").join(LINK_NAME),
         )?;
 
         // Create a standard CI toolchain
-        std::fs::create_dir_all(rustup_home.path().join("toolchains").join(CI_SHA))?;
+        fs_err::create_dir_all(rustup_home.path().join("toolchains").join(CI_SHA))?;
 
         // Create an alt CI toolchain
-        std::fs::create_dir_all(
+        fs_err::create_dir_all(
             rustup_home
                 .path()
                 .join("toolchains")

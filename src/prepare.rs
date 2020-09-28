@@ -72,7 +72,7 @@ impl<'a> Prepare<'a> {
     fn remove_cargo_config(&self) -> Result<(), Error> {
         let path = self.source_dir.join(".cargo").join("config");
         if path.exists() {
-            crate::utils::remove_file(&path)?;
+            fs_err::remove_file(&path)?;
             info!("removed {}", path.display());
         }
         Ok(())
@@ -165,7 +165,7 @@ impl<'a> TomlTweaker<'a> {
         cargo_toml: &'a Path,
         patches: &[CratePatch],
     ) -> Result<Self, Error> {
-        let toml_content = ::std::fs::read_to_string(cargo_toml)
+        let toml_content = ::fs_err::read_to_string(cargo_toml)
             .with_context(|_| PrepareError::MissingCargoToml)?;
         let table: Table =
             toml::from_str(&toml_content).with_context(|_| PrepareError::InvalidCargoTomlSyntax)?;
@@ -355,7 +355,7 @@ impl<'a> TomlTweaker<'a> {
 
     pub fn save(self, output_file: &Path) -> Result<(), Error> {
         let crate_name = self.krate.to_string();
-        ::std::fs::write(output_file, Value::Table(self.table).to_string().as_bytes())?;
+        ::fs_err::write(output_file, Value::Table(self.table).to_string().as_bytes())?;
         info!(
             "tweaked toml for {} written to {}",
             crate_name,

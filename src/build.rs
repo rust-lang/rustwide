@@ -151,7 +151,7 @@ impl BuildDirectory {
         let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
         prepare.prepare()?;
 
-        std::fs::create_dir_all(self.target_dir())?;
+        fs_err::create_dir_all(self.target_dir())?;
         let res = f(&Build {
             dir: self,
             toolchain,

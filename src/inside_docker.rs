@@ -53,7 +53,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> Result<Option<String>
     let mut probe_content = [0u8; 64];
     getrandom(&mut probe_content)?;
     let probe_content = base64::encode(&probe_content[..]);
-    std::fs::write(&probe_path, probe_content.as_bytes())?;
+    fs_err::write(&probe_path, probe_content.as_bytes())?;
 
     // Check if the probe exists on any of the currently running containers.
     let out = Command::new(workspace, "docker")

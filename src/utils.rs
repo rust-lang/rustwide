@@ -1,7 +1,7 @@
 use failure::Error;
 use fs2::FileExt;
+use fs_err::OpenOptions;
 use log::warn;
-use std::fs::OpenOptions;
 use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
 
 pub(crate) fn file_lock<T>(
@@ -16,16 +16,16 @@ pub(crate) fn file_lock<T>(
         .open(path)?;
 
     let mut message_displayed = false;
-    while let Err(err) = file.try_lock_exclusive() {
+    while let Err(err) = file.file().try_lock_exclusive() {
         if !message_displayed && err.kind() == fs2::lock_contended_error().kind() {
             warn!("blocking on other processes finishing to {}", msg);
             message_displayed = true;
         }
-        file.lock_exclusive()?;
+        file.file().lock_exclusive()?;
     }
 
     let res = std::panic::catch_unwind(f);
-    let _ = file.unlock();
+    let _ = file.file().unlock();
 
     match res {
         Ok(res) => res,
@@ -48,10 +48,6 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
     };
 
     Some(ret)
-}
-
-pub(crate) fn remove_file(path: &Path) -> std::io::Result<()> {
-    std::fs::remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, &path))
 }
 
 pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {
@@ -108,7 +104,7 @@ mod tests {
 }
 
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
-    let mut p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let mut p = fs_err::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
 
     // `fs::canonicalize` returns an extended-length path on Windows. Such paths not supported by
     // many programs, including rustup. We strip the `\\?\` prefix of the canonicalized path, but

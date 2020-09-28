@@ -1,7 +1,7 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
 use failure::{bail, Error};
-use std::fs::File;
+use fs_err::File;
 use std::path::Path;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess};

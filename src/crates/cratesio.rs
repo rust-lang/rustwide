@@ -2,8 +2,8 @@ use super::CrateTrait;
 use crate::Workspace;
 use failure::Error;
 use flate2::read::GzDecoder;
+use fs_err::File;
 use log::info;
-use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use tar::Archive;
@@ -42,7 +42,7 @@ impl CrateTrait for CratesIOCrate {
 
         info!("fetching crate {} {}...", self.name, self.version);
         if let Some(parent) = local.parent() {
-            std::fs::create_dir_all(parent)?;
+            fs_err::create_dir_all(parent)?;
         }
         let remote = format!(
             "{0}/{1}/{1}-{2}.crate",
@@ -61,7 +61,7 @@ impl CrateTrait for CratesIOCrate {
     fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
         let path = self.cache_path(workspace);
         if path.exists() {
-            crate::utils::remove_file(&path)?;
+            fs_err::remove_file(&path)?;
         }
         Ok(())
     }
@@ -111,7 +111,7 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
         components.next();
         let full_path = path.join(&components.as_path());
         if let Some(parent) = full_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            fs_err::create_dir_all(parent)?;
         }
         entry.unpack(&full_path)?;
     }

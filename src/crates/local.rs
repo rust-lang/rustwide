@@ -64,10 +64,10 @@ fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
                 info!("ignoring top-level target directory {}", path.display());
                 entries.skip_current_dir();
             } else {
-                std::fs::create_dir_all(dest.join(path))?;
+                fs_err::create_dir_all(dest.join(path))?;
             }
         } else {
-            std::fs::copy(src.join(path), dest.join(path))?;
+            fs_err::copy(src.join(path), dest.join(path))?;
         }
     }
     Ok(())
@@ -83,15 +83,15 @@ mod tests {
         let tmp_dest = tempfile::tempdir()?;
 
         // Create some files in the src dir
-        std::fs::create_dir(tmp_src.path().join("dir"))?;
-        std::fs::write(tmp_src.path().join("foo"), b"Hello world")?;
-        std::fs::write(tmp_src.path().join("dir").join("bar"), b"Rustwide")?;
+        fs_err::create_dir(tmp_src.path().join("dir"))?;
+        fs_err::write(tmp_src.path().join("foo"), b"Hello world")?;
+        fs_err::write(tmp_src.path().join("dir").join("bar"), b"Rustwide")?;
 
         super::copy_dir(tmp_src.path(), tmp_dest.path())?;
 
-        assert_eq!(std::fs::read(tmp_dest.path().join("foo"))?, b"Hello world");
+        assert_eq!(fs_err::read(tmp_dest.path().join("foo"))?, b"Hello world");
         assert_eq!(
-            std::fs::read(tmp_dest.path().join("dir").join("bar"))?,
+            fs_err::read(tmp_dest.path().join("dir").join("bar"))?,
             b"Rustwide"
         );
 
@@ -101,8 +101,8 @@ mod tests {
     #[test]
     fn test_no_copy_target() -> Result<(), Error> {
         let (src, dest) = (tempfile::tempdir()?, tempfile::tempdir()?);
-        std::fs::create_dir(src.path().join("target"))?;
-        std::fs::write(
+        fs_err::create_dir(src.path().join("target"))?;
+        fs_err::write(
             src.path().join("target").join("a.out"),
             b"this is not actually an ELF file",
         )?;
@@ -117,7 +117,9 @@ mod tests {
 
     #[test]
     fn test_copy_symlinks() -> Result<(), Error> {
-        use std::{fs, os, path::Path};
+        use fs_err as fs;
+        use fs_err::os;
+        use std::path::Path;
 
         let tmp_src = tempfile::tempdir()?;
         let tmp_dest = tempfile::tempdir()?;
@@ -145,7 +147,7 @@ mod tests {
         println!("{} should cause copy to fail", bad_link.display());
         assert_copy_err_has_filename();
 
-        crate::utils::remove_file(&bad_link)?;
+        fs_err::remove_file(&bad_link)?;
         // make sure it works without that link
         super::copy_dir(tmp_src.path(), tmp_dest.path())?;
 
