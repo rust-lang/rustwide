@@ -2,7 +2,6 @@ use crate::cmd::Command;
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
 use failure::{Error, Fail, ResultExt};
 use log::info;
-use std::fs::remove_file;
 use std::path::Path;
 use toml::{
     value::{Array, Table},
@@ -73,7 +72,7 @@ impl<'a> Prepare<'a> {
     fn remove_cargo_config(&self) -> Result<(), Error> {
         let path = self.source_dir.join(".cargo").join("config");
         if path.exists() {
-            remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, &path))?;
+            crate::utils::remove_file(&path)?;
             info!("removed {}", path.display());
         }
         Ok(())

@@ -3,7 +3,6 @@ use crate::Workspace;
 use failure::Error;
 use flate2::read::GzDecoder;
 use log::info;
-use remove_dir_all::remove_dir_all;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
@@ -62,8 +61,7 @@ impl CrateTrait for CratesIOCrate {
     fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
         let path = self.cache_path(workspace);
         if path.exists() {
-            std::fs::remove_file(&path)
-                .map_err(|error| crate::utils::improve_remove_error(error, &path))?;
+            crate::utils::remove_file(&path)?;
         }
         Ok(())
     }
@@ -80,7 +78,7 @@ impl CrateTrait for CratesIOCrate {
             dest.display()
         );
         if let Err(err) = unpack_without_first_dir(&mut tar, dest) {
-            let _ = remove_dir_all(dest);
+            let _ = crate::utils::remove_dir_all(dest);
             Err(err
                 .context(format!(
                     "unable to download {} version {}",

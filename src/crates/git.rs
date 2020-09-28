@@ -121,8 +121,7 @@ impl CrateTrait for GitRepo {
     fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
         let path = self.cached_path(workspace);
         if path.exists() {
-            remove_dir_all::remove_dir_all(&path)
-                .map_err(|error| crate::utils::improve_remove_error(error, &path))?;
+            crate::utils::remove_dir_all(&path)?;
         }
         Ok(())
     }

@@ -50,6 +50,15 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
     Some(ret)
 }
 
+pub(crate) fn remove_file(path: &Path) -> std::io::Result<()> {
+    std::fs::remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, &path))
+}
+
+pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {
+    remove_dir_all::remove_dir_all(path)
+        .map_err(|error| crate::utils::improve_remove_error(error, path))
+}
+
 #[derive(Debug)]
 struct RemoveError {
     kind: std::io::ErrorKind,
@@ -68,7 +77,7 @@ impl std::fmt::Display for RemoveError {
     }
 }
 
-pub(crate) fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
+fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
     std::io::Error::new(
         error.kind(),
         RemoveError {
