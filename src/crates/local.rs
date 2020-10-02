@@ -145,7 +145,7 @@ mod tests {
         println!("{} should cause copy to fail", bad_link.display());
         assert_copy_err_has_filename();
 
-        fs::remove_file(&bad_link)?;
+        crate::utils::remove_file(&bad_link)?;
         // make sure it works without that link
         super::copy_dir(tmp_src.path(), tmp_dest.path())?;
 

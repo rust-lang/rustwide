@@ -50,6 +50,63 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
     Some(ret)
 }
 
+pub(crate) fn remove_file(path: &Path) -> std::io::Result<()> {
+    std::fs::remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, &path))
+}
+
+pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {
+    remove_dir_all::remove_dir_all(path)
+        .map_err(|error| crate::utils::improve_remove_error(error, path))
+}
+
+#[derive(Debug)]
+struct RemoveError {
+    kind: std::io::ErrorKind,
+    path: PathBuf,
+}
+
+impl std::error::Error for RemoveError {}
+
+impl std::fmt::Display for RemoveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "failed to remove '{}' : {:?}",
+            self.path.display(),
+            self.kind
+        ))
+    }
+}
+
+fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
+    std::io::Error::new(
+        error.kind(),
+        RemoveError {
+            kind: error.kind(),
+            path: path.to_path_buf(),
+        },
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_remove_error() {
+        let path = "test/path".as_ref();
+
+        let expected = "failed to remove 'test/path' : PermissionDenied";
+        let tested = format!(
+            "{}",
+            improve_remove_error(
+                std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+                path
+            )
+        );
+        assert_eq!(expected, tested);
+    }
+}
+
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
 

@@ -4,7 +4,6 @@ use crate::inside_docker::CurrentContainer;
 use crate::Toolchain;
 use failure::{Error, ResultExt};
 use log::info;
-use remove_dir_all::remove_dir_all;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -213,7 +212,7 @@ impl Workspace {
     pub fn purge_all_build_dirs(&self) -> Result<(), Error> {
         let dir = self.builds_dir();
         if dir.exists() {
-            remove_dir_all(&dir)?;
+            crate::utils::remove_dir_all(&dir)?;
         }
         Ok(())
     }
@@ -236,7 +235,7 @@ impl Workspace {
 
         for path in &paths {
             if path.exists() {
-                remove_dir_all(&path)?;
+                crate::utils::remove_dir_all(&path)?;
             }
         }
 
