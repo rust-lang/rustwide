@@ -38,6 +38,7 @@ remove_dir_all = "0.5.2"
 base64 = "0.12.0"
 getrandom = { version = "0.1.12", features = ["std"] }
 thiserror = "1.0.20"
+git2 = "0.13.12"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.11.0"
