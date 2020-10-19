@@ -102,7 +102,7 @@ pub enum Registry {
 impl Registry {
     fn cache_folder(&self) -> String {
         match self {
-            Registry::CratesIo => "cratesios-sources".into(),
+            Registry::CratesIo => "cratesio-sources".into(),
             Registry::Alternative(alt) => format!("{}-sources", alt.index()),
         }
     }
