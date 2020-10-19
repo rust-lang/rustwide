@@ -90,11 +90,7 @@ impl AlternativeRegistry {
     }
 
     fn index_folder(&self) -> String {
-        // https://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits
-        self.registry_index.as_str().replace(
-            &['/', '\\', '<', '>', '|', '?', '*', '"', ':', '.'][..],
-            &"-",
-        )
+        crate::utils::escape_path(self.registry_index.as_bytes())
     }
 }
 
