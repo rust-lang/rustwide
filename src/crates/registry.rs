@@ -10,12 +10,12 @@ use tar::Archive;
 
 static CRATES_ROOT: &str = "https://static.crates.io/crates";
 
-pub struct AlternativeRegistry {
+pub(crate) struct AlternativeRegistry {
     registry_index: String,
 }
 
 impl AlternativeRegistry {
-    pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
+    pub(crate) fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
         AlternativeRegistry {
             registry_index: registry_index.into(),
         }
@@ -30,7 +30,7 @@ impl AlternativeRegistry {
     }
 }
 
-pub enum Registry {
+pub(crate) enum Registry {
     CratesIo,
     Alternative(AlternativeRegistry),
 }
