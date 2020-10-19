@@ -10,6 +10,58 @@ use tar::Archive;
 
 static CRATES_ROOT: &str = "https://static.crates.io/crates";
 
+pub struct AlternativeRegistry {
+    registry_index: String,
+}
+
+impl AlternativeRegistry {
+    pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
+        AlternativeRegistry {
+            registry_index: registry_index.into(),
+        }
+    }
+
+    fn index(&self) -> &str {
+        self.registry_index.as_str()
+    }
+
+    fn index_folder(&self) -> String {
+        crate::utils::escape_path(self.registry_index.as_bytes())
+    }
+}
+
+pub enum Registry {
+    CratesIo,
+    Alternative(AlternativeRegistry),
+}
+
+impl Registry {
+    fn cache_folder(&self) -> String {
+        match self {
+            Registry::CratesIo => "cratesio-sources".into(),
+            Registry::Alternative(alt) => format!("{}-sources", alt.index_folder()),
+        }
+    }
+
+    fn name(&self) -> String {
+        match self {
+            Registry::CratesIo => "crates.io".into(),
+            Registry::Alternative(alt) => alt.index().to_string(),
+        }
+    }
+}
+
+pub(super) struct RegistryCrate {
+    registry: Registry,
+    name: String,
+    version: String,
+}
+
+#[derive(serde::Deserialize)]
+struct IndexConfig {
+    dl: String,
+}
+
 impl RegistryCrate {
     pub(super) fn new(registry: Registry, name: &str, version: &str) -> Self {
         RegistryCrate {
@@ -67,58 +119,6 @@ impl RegistryCrate {
             }
         }
     }
-}
-
-#[derive(serde::Deserialize)]
-struct IndexConfig {
-    dl: String,
-}
-
-pub struct AlternativeRegistry {
-    registry_index: String,
-}
-
-impl AlternativeRegistry {
-    pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
-        AlternativeRegistry {
-            registry_index: registry_index.into(),
-        }
-    }
-
-    fn index(&self) -> &str {
-        self.registry_index.as_str()
-    }
-
-    fn index_folder(&self) -> String {
-        crate::utils::escape_path(self.registry_index.as_bytes())
-    }
-}
-
-pub enum Registry {
-    CratesIo,
-    Alternative(AlternativeRegistry),
-}
-
-impl Registry {
-    fn cache_folder(&self) -> String {
-        match self {
-            Registry::CratesIo => "cratesio-sources".into(),
-            Registry::Alternative(alt) => format!("{}-sources", alt.index()),
-        }
-    }
-
-    fn name(&self) -> String {
-        match self {
-            Registry::CratesIo => "crates.io".into(),
-            Registry::Alternative(_alt) => todo!(),
-        }
-    }
-}
-
-pub(super) struct RegistryCrate {
-    registry: Registry,
-    name: String,
-    version: String,
 }
 
 impl CrateTrait for RegistryCrate {

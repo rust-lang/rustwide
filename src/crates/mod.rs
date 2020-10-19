@@ -14,7 +14,7 @@ trait CrateTrait: std::fmt::Display {
 }
 
 enum CrateType {
-    CratesIO(registry::RegistryCrate),
+    Registry(registry::RegistryCrate),
     Git(git::GitRepo),
     Local(local::Local),
 }
@@ -25,7 +25,7 @@ pub struct Crate(CrateType);
 impl Crate {
     /// Load a create from specified registry.
     pub fn registry(registry_index: &str, name: &str, version: &str) -> Self {
-        Crate(CrateType::CratesIO(registry::RegistryCrate::new(
+        Crate(CrateType::Registry(registry::RegistryCrate::new(
             registry::Registry::Alternative(registry::AlternativeRegistry::new(registry_index)),
             name,
             version,
@@ -34,7 +34,7 @@ impl Crate {
 
     /// Load a crate from the [crates.io registry](https://crates.io).
     pub fn crates_io(name: &str, version: &str) -> Self {
-        Crate(CrateType::CratesIO(registry::RegistryCrate::new(
+        Crate(CrateType::Registry(registry::RegistryCrate::new(
             registry::Registry::CratesIo,
             name,
             version,
@@ -86,7 +86,7 @@ impl Crate {
 
     fn as_trait(&self) -> &dyn CrateTrait {
         match &self.0 {
-            CrateType::CratesIO(krate) => krate,
+            CrateType::Registry(krate) => krate,
             CrateType::Git(repo) => repo,
             CrateType::Local(local) => local,
         }
