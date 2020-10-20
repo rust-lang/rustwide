@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `Crate::registry` for alternative registries.
+
 ### Changed
 
 - allow workspaces by having validate_manifest now use `metadata --no-deps` instead of deprecated `read-manifest`

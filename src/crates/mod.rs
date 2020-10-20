@@ -1,6 +1,6 @@
-mod cratesio;
 mod git;
 mod local;
+mod registry;
 
 use crate::Workspace;
 use failure::Error;
@@ -14,7 +14,7 @@ trait CrateTrait: std::fmt::Display {
 }
 
 enum CrateType {
-    CratesIO(cratesio::CratesIOCrate),
+    Registry(registry::RegistryCrate),
     Git(git::GitRepo),
     Local(local::Local),
 }
@@ -23,10 +23,21 @@ enum CrateType {
 pub struct Crate(CrateType);
 
 impl Crate {
+    /// Load a crate from specified registry.
+    pub fn registry(registry_index: &str, name: &str, version: &str) -> Self {
+        Crate(CrateType::Registry(registry::RegistryCrate::new(
+            registry::Registry::Alternative(registry::AlternativeRegistry::new(registry_index)),
+            name,
+            version,
+        )))
+    }
+
     /// Load a crate from the [crates.io registry](https://crates.io).
     pub fn crates_io(name: &str, version: &str) -> Self {
-        Crate(CrateType::CratesIO(cratesio::CratesIOCrate::new(
-            name, version,
+        Crate(CrateType::Registry(registry::RegistryCrate::new(
+            registry::Registry::CratesIo,
+            name,
+            version,
         )))
     }
 
@@ -75,7 +86,7 @@ impl Crate {
 
     fn as_trait(&self) -> &dyn CrateTrait {
         match &self.0 {
-            CrateType::CratesIO(krate) => krate,
+            CrateType::Registry(krate) => krate,
             CrateType::Git(repo) => repo,
             CrateType::Local(local) => local,
         }

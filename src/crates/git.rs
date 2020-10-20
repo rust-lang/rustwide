@@ -4,20 +4,7 @@ use crate::prepare::PrepareError;
 use crate::Workspace;
 use failure::{Error, ResultExt};
 use log::{info, warn};
-use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
 use std::path::{Path, PathBuf};
-
-const ENCODE_SET: AsciiSet = CONTROLS
-    .add(b'/')
-    .add(b'\\')
-    .add(b'<')
-    .add(b'>')
-    .add(b':')
-    .add(b'"')
-    .add(b'|')
-    .add(b'?')
-    .add(b'*')
-    .add(b' ');
 
 pub(super) struct GitRepo {
     url: String,
@@ -54,7 +41,7 @@ impl GitRepo {
         workspace
             .cache_dir()
             .join("git-repos")
-            .join(percent_encode(self.url.as_bytes(), &ENCODE_SET).to_string())
+            .join(crate::utils::escape_path(self.url.as_bytes()))
     }
 
     fn suppress_password_prompt_args(&self, workspace: &Workspace) -> Vec<String> {

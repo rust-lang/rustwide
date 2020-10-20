@@ -1,8 +1,25 @@
 use failure::Error;
 use fs2::FileExt;
 use log::warn;
+use percent_encoding::{AsciiSet, CONTROLS};
 use std::fs::OpenOptions;
 use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
+
+const ENCODE_SET: AsciiSet = CONTROLS
+    .add(b'/')
+    .add(b'\\')
+    .add(b'<')
+    .add(b'>')
+    .add(b':')
+    .add(b'"')
+    .add(b'|')
+    .add(b'?')
+    .add(b'*')
+    .add(b' ');
+
+pub(crate) fn escape_path(unescaped: &[u8]) -> String {
+    percent_encoding::percent_encode(unescaped, &ENCODE_SET).to_string()
+}
 
 pub(crate) fn file_lock<T>(
     path: &Path,
