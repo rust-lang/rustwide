@@ -5,16 +5,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.11.0] - 2020-10-30
+
 ### Added
 
-- New method `Crate::registry` for alternative registries.
+- New method `Crate::registry` to use crates from alternative registries.
 
 ### Changed
 
-- allow workspaces by having validate_manifest now use `metadata --no-deps` instead of deprecated `read-manifest`
-  therefor no longer failing on workspaces and TomlTweaker no longer removing the workspace table from `Cargo.toml`
+- Allow workspaces by having `validate_manifest` use `metadata --no-deps`
+  instead of deprecated `read-manifest`, therefor no longer failing on
+  workspaces and `TomlTweaker` no longer removing the workspace table from
+  `Cargo.toml`.
 - `Command` now warns when it is not used.
-- remove directory/file error now mentions path
+- Errors while removing directories or files now mentions the path that caused
+  the error to happen.
 
 ## [0.10.0] - 2020-08-08
 
@@ -213,6 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.11.0]: https://github.com/rust-lang/rustwide/releases/tag/0.11.0
 [0.10.0]: https://github.com/rust-lang/rustwide/releases/tag/0.10.0
 [0.9.0]: https://github.com/rust-lang/rustwide/releases/tag/0.9.0
 [0.8.0]: https://github.com/rust-lang/rustwide/releases/tag/0.8.0
