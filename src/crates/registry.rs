@@ -134,12 +134,12 @@ impl CrateTrait for RegistryCrate {
             std::fs::create_dir_all(parent)?;
         }
 
-        let mut resp = workspace
+        workspace
             .http_client()
             .get(&self.fetch_url(workspace)?)
             .send()?
-            .error_for_status()?;
-        resp.copy_to(&mut BufWriter::new(File::create(&local)?))?;
+            .error_for_status()?
+            .write_to(&mut BufWriter::new(File::create(&local)?))?;
 
         Ok(())
     }
