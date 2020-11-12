@@ -149,15 +149,12 @@ impl WorkspaceBuilder {
                 SandboxImage::remote(DEFAULT_SANDBOX_IMAGE)?
             };
 
-            let mut headers = reqwest::header::HeaderMap::new();
-            headers.insert(reqwest::header::USER_AGENT, self.user_agent.parse()?);
-            let http = reqwest::blocking::ClientBuilder::new()
-                .default_headers(headers)
-                .build()?;
+            let mut agent = attohttpc::Session::new();
+            agent.header(http::header::USER_AGENT, self.user_agent);
 
             let mut ws = Workspace {
                 inner: Arc::new(WorkspaceInner {
-                    http,
+                    http: agent,
                     path: self.path,
                     sandbox_image,
                     command_timeout: self.command_timeout,
@@ -180,7 +177,7 @@ impl WorkspaceBuilder {
 }
 
 struct WorkspaceInner {
-    http: reqwest::blocking::Client,
+    http: attohttpc::Session,
     path: PathBuf,
     sandbox_image: SandboxImage,
     command_timeout: Option<Duration>,
@@ -266,7 +263,7 @@ impl Workspace {
         crate::toolchain::list_installed_toolchains(&self.rustup_home())
     }
 
-    pub(crate) fn http_client(&self) -> &reqwest::blocking::Client {
+    pub(crate) fn http_client(&self) -> &attohttpc::Session {
         &self.inner.http
     }
 
