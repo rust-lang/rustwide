@@ -12,6 +12,22 @@ pub struct SandboxImage {
     name: String,
 }
 
+#[derive(serde::Deserialize)]
+struct DockerManifest {
+    config: DockerManifestConfig,
+    layers: Vec<DockerManifestLayer>,
+}
+
+#[derive(serde::Deserialize)]
+struct DockerManifestConfig {
+    digest: String,
+}
+
+#[derive(serde::Deserialize)]
+struct DockerManifestLayer {
+    size: usize,
+}
+
 impl SandboxImage {
     /// Load a local image present in the host machine.
     ///
@@ -27,11 +43,33 @@ impl SandboxImage {
     ///
     /// This will access the network to download the image from the registry. If pulling fails an
     /// error will be returned instead.
-    pub fn remote(name: &str) -> Result<Self, CommandError> {
+    pub fn remote(name: &str, size_limit: Option<usize>) -> Result<Self, CommandError> {
         let mut image = SandboxImage { name: name.into() };
+        let digest = if let Some(size_limit) = size_limit {
+            let out = Command::new_workspaceless("docker")
+                .args(&["manifest", "inspect", name])
+                .run_capture()?
+                .stdout_lines()
+                .join("\n");
+            let m: DockerManifest = serde_json::from_str(&out)
+                .map_err(CommandError::InvalidDockerManifestInspectOutput)?;
+            let size = m.layers.iter().fold(0, |acc, l| acc + l.size);
+            if size > size_limit {
+                return Err(CommandError::SandboxImageTooLarge(size));
+            }
+            Some(m.config.digest)
+        } else {
+            None
+        };
         info!("pulling image {} from Docker Hub", name);
         Command::new_workspaceless("docker")
-            .args(&["pull", &name])
+            .args(&[
+                "pull",
+                &digest.map_or(name.to_string(), |digest| {
+                    let name = name.split(':').next().unwrap();
+                    format!("{}@{}", name, digest)
+                }),
+            ])
             .run()
             .map_err(|e| CommandError::SandboxImagePullFailed(Box::new(e)))?;
         if let Some(name_with_hash) = image.get_name_with_hash() {
@@ -146,6 +184,7 @@ pub struct SandboxBuilder {
     user: Option<String>,
     cmd: Vec<String>,
     enable_networking: bool,
+    image: Option<String>,
 }
 
 impl SandboxBuilder {
@@ -160,6 +199,7 @@ impl SandboxBuilder {
             user: None,
             cmd: Vec::new(),
             enable_networking: true,
+            image: None,
         }
     }
 
@@ -200,6 +240,14 @@ impl SandboxBuilder {
     /// By default networking is enabled.
     pub fn enable_networking(mut self, enable: bool) -> Self {
         self.enable_networking = enable;
+        self
+    }
+
+    /// Override the image used for this sandbox.
+    ///
+    /// By default rustwide will use the image configured with [`WorkspaceBuilder::sandbox_image`].
+    pub fn image(mut self, image: SandboxImage) -> Self {
+        self.image = Some(image.name);
         self
     }
 
@@ -274,7 +322,11 @@ impl SandboxBuilder {
             args.push("--isolation=process".into());
         }
 
-        args.push(workspace.sandbox_image().name.clone());
+        if let Some(image) = self.image {
+            args.push(image);
+        } else {
+            args.push(workspace.sandbox_image().name.clone());
+        }
 
         for arg in self.cmd {
             args.push(arg);

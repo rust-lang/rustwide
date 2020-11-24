@@ -146,7 +146,7 @@ impl WorkspaceBuilder {
             let sandbox_image = if let Some(img) = self.sandbox_image {
                 img
             } else {
-                SandboxImage::remote(DEFAULT_SANDBOX_IMAGE)?
+                SandboxImage::remote(DEFAULT_SANDBOX_IMAGE, None)?
             };
 
             let mut agent = attohttpc::Session::new();
