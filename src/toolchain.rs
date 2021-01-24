@@ -399,7 +399,7 @@ impl Toolchain {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn cargo<'a>(&'a self) -> impl Runnable + 'a {
+    pub fn cargo(&self) -> impl Runnable + '_ {
         RustupProxy {
             toolchain: self,
             name: "cargo",
@@ -423,7 +423,7 @@ impl Toolchain {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn rustc<'a>(&'a self) -> impl Runnable + 'a {
+    pub fn rustc(&self) -> impl Runnable + '_ {
         RustupProxy {
             toolchain: self,
             name: "rustc",
