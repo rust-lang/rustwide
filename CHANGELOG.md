@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.11.1] - 2021-01-25
+
 ### Changed
 
 * Updated tokio dependency to 1.0.
@@ -222,6 +224,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.11.1]: https://github.com/rust-lang/rustwide/releases/tag/0.11.1
 [0.11.0]: https://github.com/rust-lang/rustwide/releases/tag/0.11.0
 [0.10.0]: https://github.com/rust-lang/rustwide/releases/tag/0.10.0
 [0.9.0]: https://github.com/rust-lang/rustwide/releases/tag/0.9.0
