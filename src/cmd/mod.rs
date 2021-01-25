@@ -24,9 +24,9 @@ use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command as AsyncCommand,
     runtime::Runtime,
-    stream::StreamExt,
     time,
 };
+use tokio_stream::{wrappers::LinesStream, StreamExt};
 
 lazy_static::lazy_static! {
     // TODO: Migrate to asynchronous code and remove runtime
@@ -480,7 +480,6 @@ impl<'w, 'pl> Command<'w, 'pl> {
             }
 
             let out = RUNTIME
-                .handle()
                 .block_on(log_command(
                     cmd,
                     self.process_lines,
@@ -574,13 +573,11 @@ async fn log_command(
     };
 
     let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
-    let child_id = child.id();
+    let child_id = child.id().unwrap();
 
-    let stdout = BufReader::new(child.stdout.take().unwrap())
-        .lines()
+    let stdout = LinesStream::new(BufReader::new(child.stdout.take().unwrap()).lines())
         .map(|line| (OutputKind::Stdout, line));
-    let stderr = BufReader::new(child.stderr.take().unwrap())
-        .lines()
+    let stderr = LinesStream::new(BufReader::new(child.stderr.take().unwrap()).lines())
         .map(|line| (OutputKind::Stderr, line));
 
     let start = Instant::now();
@@ -642,7 +639,7 @@ async fn log_command(
             },
         );
 
-    let child = time::timeout(timeout, child).map(move |result| {
+    let child = time::timeout(timeout, child.wait()).map(move |result| {
         match result {
             // If the timeout elapses, kill the process
             Err(_timeout) => Err(match native::kill_process(child_id) {
