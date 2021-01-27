@@ -197,7 +197,6 @@ impl<'a> TomlTweaker<'a> {
         self.remove_missing_items("test");
         self.remove_parent_workspaces();
         self.remove_unwanted_cargo_features();
-        self.remove_dependencies();
         self.apply_patches();
 
         info!("finished tweaking {}", self.krate);
@@ -284,21 +283,6 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    fn remove_dependencies(&mut self) {
-        let krate = self.krate.to_string();
-
-        Self::remove_dependencies_from_table(&mut self.table, &krate);
-
-        // Tweak target-specific dependencies
-        if let Some(&mut Value::Table(ref mut targets)) = self.table.get_mut("target") {
-            for (_, target) in targets.iter_mut() {
-                if let Value::Table(ref mut target_table) = *target {
-                    Self::remove_dependencies_from_table(target_table, &krate);
-                }
-            }
-        }
-    }
-
     fn apply_patches(&mut self) {
         if !self.patches.is_empty() {
             let mut patch_table = self.table.get_mut("patch");
@@ -331,24 +315,6 @@ impl<'a> TomlTweaker<'a> {
                     .as_table_mut()
                     .unwrap()
                     .insert(patch.name, Value::Table(table));
-            }
-        }
-    }
-
-    // This is not a method to avoid borrow checker problems
-    fn remove_dependencies_from_table(table: &mut Table, krate: &str) {
-        // Convert path dependencies to registry dependencies
-        for section in &["dependencies", "dev-dependencies", "build-dependencies"] {
-            if let Some(&mut Value::Table(ref mut deps)) = table.get_mut(*section) {
-                // Iterate through the "name = { ... }", removing any "path"
-                // keys in the dependency definition
-                for (dep_name, v) in deps.iter_mut() {
-                    if let Value::Table(ref mut dep_props) = *v {
-                        if dep_props.remove("path").is_some() {
-                            info!("removed path dependency {} from {}", dep_name, krate);
-                        }
-                    }
-                }
             }
         }
     }
@@ -400,15 +366,6 @@ mod tests {
             [package]
             name = "foo"
             version = "1.0"
-
-            [dependencies]
-            bar = "1.0"
-
-            [dev-dependencies]
-            baz = "1.0"
-
-            [target."cfg(unix)".dependencies]
-            quux = "1.0"
         };
 
         let result = toml.clone();
@@ -434,15 +391,6 @@ mod tests {
             publish-lockfile = true
             default-run = "foo"
 
-            [dependencies]
-            bar = { version = "1.0", path = "../bar" }
-
-            [dev-dependencies]
-            baz = { version = "1.0", path = "../baz" }
-
-            [target."cfg(unix)".dependencies]
-            quux = { version = "1.0", path = "../quux" }
-
             [workspace]
             members = []
         };
@@ -453,15 +401,6 @@ mod tests {
             [package]
             name = "foo"
             version = "1.0"
-
-            [dependencies]
-            bar = { version = "1.0" }
-
-            [dev-dependencies]
-            baz = { version = "1.0" }
-
-            [target."cfg(unix)".dependencies]
-            quux = { version = "1.0" }
 
             [workspace]
             members = []

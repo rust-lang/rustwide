@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Path dependencies are no longer removed from `Cargo.toml` during the prepare
+  step.
+
 ## [0.11.1] - 2021-01-25
 
 ### Changed
