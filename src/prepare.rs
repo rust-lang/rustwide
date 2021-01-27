@@ -96,6 +96,7 @@ impl<'a> Prepare<'a> {
         }
 
         let mut yanked_deps = false;
+        let mut missing_deps = false;
         let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
             "generate-lockfile",
             "--manifest-path",
@@ -111,12 +112,19 @@ impl<'a> Prepare<'a> {
             .process_lines(&mut |line, _| {
                 if line.contains("failed to select a version for the requirement") {
                     yanked_deps = true;
+                } else if line.contains("failed to load source for dependency")
+                    || line.contains("no matching package named")
+                {
+                    missing_deps = true;
                 }
             })
             .run();
         match res {
             Err(_) if yanked_deps => {
                 return Err(PrepareError::YankedDependencies.into());
+            }
+            Err(_) if missing_deps => {
+                return Err(PrepareError::MissingDependencies.into());
             }
             other => other?,
         }
@@ -349,6 +357,9 @@ pub enum PrepareError {
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
     #[fail(display = "the crate depends on yanked dependencies")]
     YankedDependencies,
+    /// Some of the dependencies do not exist anymore.
+    #[fail(display = "the crate depends on missing dependencies")]
+    MissingDependencies,
 }
 
 #[cfg(test)]

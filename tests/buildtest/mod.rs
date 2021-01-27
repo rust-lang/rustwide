@@ -131,3 +131,15 @@ test_prepare_error!(
 );
 
 test_prepare_error!(test_yanked_deps, "yanked-deps", YankedDependencies);
+
+test_prepare_error!(
+    test_missing_deps_git,
+    "missing-deps-git",
+    MissingDependencies
+);
+
+test_prepare_error!(
+    test_missing_deps_registry,
+    "missing-deps-registry",
+    MissingDependencies
+);
