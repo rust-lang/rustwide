@@ -139,6 +139,12 @@ test_prepare_error!(
 );
 
 test_prepare_error!(
+    test_missing_deps_git_locked,
+    "missing-deps-git-locked",
+    MissingDependencies
+);
+
+test_prepare_error!(
     test_missing_deps_registry,
     "missing-deps-registry",
     MissingDependencies

@@ -134,6 +134,7 @@ impl<'a> Prepare<'a> {
 
     fn fetch_deps(&mut self) -> Result<(), Error> {
         let mut outdated_lockfile = false;
+        let mut missing_deps = false;
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["fetch", "--locked", "--manifest-path", "Cargo.toml"])
             .cd(&self.source_dir)
@@ -142,21 +143,23 @@ impl<'a> Prepare<'a> {
                     "Cargo.lock needs to be updated but --locked was passed to prevent this",
                 ) {
                     outdated_lockfile = true;
+                } else if line.contains("failed to load source for dependency") {
+                    missing_deps = true;
                 }
             })
             .run();
         match res {
-            Ok(_) => {}
+            Ok(_) => Ok(()),
             Err(_) if outdated_lockfile && !self.lockfile_captured => {
                 info!("the lockfile is outdated, regenerating it");
                 // Force-update the lockfile and recursively call this function to fetch
                 // dependencies again.
                 self.capture_lockfile(true)?;
-                return self.fetch_deps();
+                self.fetch_deps()
             }
-            err => return err.map_err(|e| e.into()),
+            Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
+            err => err.map_err(|e| e.into()),
         }
-        Ok(())
     }
 }
 
