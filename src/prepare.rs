@@ -96,6 +96,7 @@ impl<'a> Prepare<'a> {
         }
 
         let mut yanked_deps = false;
+        let mut missing_deps = false;
         let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
             "generate-lockfile",
             "--manifest-path",
@@ -111,12 +112,19 @@ impl<'a> Prepare<'a> {
             .process_lines(&mut |line, _| {
                 if line.contains("failed to select a version for the requirement") {
                     yanked_deps = true;
+                } else if line.contains("failed to load source for dependency")
+                    || line.contains("no matching package named")
+                {
+                    missing_deps = true;
                 }
             })
             .run();
         match res {
             Err(_) if yanked_deps => {
                 return Err(PrepareError::YankedDependencies.into());
+            }
+            Err(_) if missing_deps => {
+                return Err(PrepareError::MissingDependencies.into());
             }
             other => other?,
         }
@@ -126,6 +134,7 @@ impl<'a> Prepare<'a> {
 
     fn fetch_deps(&mut self) -> Result<(), Error> {
         let mut outdated_lockfile = false;
+        let mut missing_deps = false;
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["fetch", "--locked", "--manifest-path", "Cargo.toml"])
             .cd(&self.source_dir)
@@ -134,21 +143,23 @@ impl<'a> Prepare<'a> {
                     "Cargo.lock needs to be updated but --locked was passed to prevent this",
                 ) {
                     outdated_lockfile = true;
+                } else if line.contains("failed to load source for dependency") {
+                    missing_deps = true;
                 }
             })
             .run();
         match res {
-            Ok(_) => {}
+            Ok(_) => Ok(()),
             Err(_) if outdated_lockfile && !self.lockfile_captured => {
                 info!("the lockfile is outdated, regenerating it");
                 // Force-update the lockfile and recursively call this function to fetch
                 // dependencies again.
                 self.capture_lockfile(true)?;
-                return self.fetch_deps();
+                self.fetch_deps()
             }
-            err => return err.map_err(|e| e.into()),
+            Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
+            err => err.map_err(|e| e.into()),
         }
-        Ok(())
     }
 }
 
@@ -197,7 +208,6 @@ impl<'a> TomlTweaker<'a> {
         self.remove_missing_items("test");
         self.remove_parent_workspaces();
         self.remove_unwanted_cargo_features();
-        self.remove_dependencies();
         self.apply_patches();
 
         info!("finished tweaking {}", self.krate);
@@ -284,21 +294,6 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    fn remove_dependencies(&mut self) {
-        let krate = self.krate.to_string();
-
-        Self::remove_dependencies_from_table(&mut self.table, &krate);
-
-        // Tweak target-specific dependencies
-        if let Some(&mut Value::Table(ref mut targets)) = self.table.get_mut("target") {
-            for (_, target) in targets.iter_mut() {
-                if let Value::Table(ref mut target_table) = *target {
-                    Self::remove_dependencies_from_table(target_table, &krate);
-                }
-            }
-        }
-    }
-
     fn apply_patches(&mut self) {
         if !self.patches.is_empty() {
             let mut patch_table = self.table.get_mut("patch");
@@ -335,24 +330,6 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    // This is not a method to avoid borrow checker problems
-    fn remove_dependencies_from_table(table: &mut Table, krate: &str) {
-        // Convert path dependencies to registry dependencies
-        for section in &["dependencies", "dev-dependencies", "build-dependencies"] {
-            if let Some(&mut Value::Table(ref mut deps)) = table.get_mut(*section) {
-                // Iterate through the "name = { ... }", removing any "path"
-                // keys in the dependency definition
-                for (dep_name, v) in deps.iter_mut() {
-                    if let Value::Table(ref mut dep_props) = *v {
-                        if dep_props.remove("path").is_some() {
-                            info!("removed path dependency {} from {}", dep_name, krate);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     pub fn save(self, output_file: &Path) -> Result<(), Error> {
         let crate_name = self.krate.to_string();
         ::std::fs::write(output_file, Value::Table(self.table).to_string().as_bytes())?;
@@ -383,6 +360,9 @@ pub enum PrepareError {
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
     #[fail(display = "the crate depends on yanked dependencies")]
     YankedDependencies,
+    /// Some of the dependencies do not exist anymore.
+    #[fail(display = "the crate depends on missing dependencies")]
+    MissingDependencies,
 }
 
 #[cfg(test)]
@@ -400,15 +380,6 @@ mod tests {
             [package]
             name = "foo"
             version = "1.0"
-
-            [dependencies]
-            bar = "1.0"
-
-            [dev-dependencies]
-            baz = "1.0"
-
-            [target."cfg(unix)".dependencies]
-            quux = "1.0"
         };
 
         let result = toml.clone();
@@ -434,15 +405,6 @@ mod tests {
             publish-lockfile = true
             default-run = "foo"
 
-            [dependencies]
-            bar = { version = "1.0", path = "../bar" }
-
-            [dev-dependencies]
-            baz = { version = "1.0", path = "../baz" }
-
-            [target."cfg(unix)".dependencies]
-            quux = { version = "1.0", path = "../quux" }
-
             [workspace]
             members = []
         };
@@ -453,15 +415,6 @@ mod tests {
             [package]
             name = "foo"
             version = "1.0"
-
-            [dependencies]
-            bar = { version = "1.0" }
-
-            [dev-dependencies]
-            baz = { version = "1.0" }
-
-            [target."cfg(unix)".dependencies]
-            quux = { version = "1.0" }
 
             [workspace]
             members = []
