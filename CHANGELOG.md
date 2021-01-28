@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.12.0] - 2021-01-28
+
 ### Added
 
 - New variant `PrepareError::MissingDependencies`, returned during the prepare
@@ -234,6 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.12.0]: https://github.com/rust-lang/rustwide/releases/tag/0.12.0
 [0.11.1]: https://github.com/rust-lang/rustwide/releases/tag/0.11.1
 [0.11.0]: https://github.com/rust-lang/rustwide/releases/tag/0.11.0
 [0.10.0]: https://github.com/rust-lang/rustwide/releases/tag/0.10.0
