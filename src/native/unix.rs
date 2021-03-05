@@ -25,6 +25,7 @@ pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)] // the API is intentionally the same as `windows::current_user`
 pub(crate) fn current_user() -> Option<CurrentUser> {
     Some(CurrentUser {
         user_id: Uid::effective().into(),

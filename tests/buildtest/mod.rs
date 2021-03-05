@@ -38,7 +38,7 @@ fn test_process_lines() {
                     .process_lines(&mut |line: &str, actions: &mut ProcessLinesActions| {
                         if line.contains("Hello, world again!") {
                             ex = true;
-                            actions.replace_with_lines(line.split(","));
+                            actions.replace_with_lines(line.split(','));
                         } else if line.contains("Hello, world!") {
                             actions.remove_line();
                         }

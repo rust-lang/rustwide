@@ -29,7 +29,7 @@ impl Tool for Rustup {
             return Ok(false);
         }
 
-        Ok(crate::native::is_executable(path)?)
+        crate::native::is_executable(path)
     }
 
     fn install(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
