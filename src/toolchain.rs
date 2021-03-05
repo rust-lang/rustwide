@@ -400,10 +400,7 @@ impl Toolchain {
     /// # }
     /// ```
     pub fn cargo(&self) -> impl Runnable + '_ {
-        RustupProxy {
-            toolchain: self,
-            name: "cargo",
-        }
+        self.rustup_binary("cargo")
     }
 
     /// Return a runnable object configured to run `rustc` with this toolchain. This method is
@@ -424,9 +421,29 @@ impl Toolchain {
     /// # }
     /// ```
     pub fn rustc(&self) -> impl Runnable + '_ {
+        self.rustup_binary("rustc")
+    }
+
+    /// Return a runnable object configured to run `name` with this toolchain. This method is
+    /// intended to be used with [`rustwide::cmd::Command`](cmd/struct.Command.html).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// let toolchain = Toolchain::dist("beta");
+    /// Command::new(&workspace, toolchain.rustup_binary("rustdoc"))
+    ///     .args(&["hello.rs"])
+    ///     .run()?;
+    /// # Ok(())
+    /// # }
+    pub fn rustup_binary(&self, name: &'static str) -> impl Runnable + '_ {
         RustupProxy {
             toolchain: self,
-            name: "rustc",
+            name,
         }
     }
 
