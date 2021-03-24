@@ -28,7 +28,7 @@ pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace, Error> {
 fn init_logs() {
     let env = env_logger::Builder::new()
         .filter_module("rustwide", LevelFilter::Info)
-        .default_format_timestamp(false)
+        .format_timestamp(None)
         .is_test(true)
         .build();
     rustwide::logging::init_with(env);
