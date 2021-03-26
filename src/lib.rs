@@ -1,5 +1,6 @@
 #![warn(missing_docs)]
 #![allow(clippy::new_without_default)]
+#![allow(clippy::upper_case_acronyms)]
 #![cfg_attr(docs_rs, feature(doc_cfg))]
 
 //! Rustwide is a library to execute your code on the Rust ecosystem, powering projects like

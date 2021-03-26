@@ -1,4 +1,3 @@
-use env_logger;
 use rustwide::{cmd::SandboxBuilder, Crate, Toolchain, WorkspaceBuilder};
 use std::error::Error;
 use std::path::Path;

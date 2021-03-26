@@ -317,6 +317,7 @@ impl Workspace {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_wraps)] // hopefully we could actually catch the error here at some point
     fn update_cratesio_registry(&self) -> Result<(), Error> {
         // This nop cargo command is to update the registry so we don't have to do it for each
         // crate.  using `install` is a temporary solution until

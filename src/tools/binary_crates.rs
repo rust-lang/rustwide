@@ -44,7 +44,7 @@ impl Tool for BinaryCrate {
             return Ok(false);
         }
 
-        Ok(crate::native::is_executable(path)?)
+        crate::native::is_executable(path)
     }
 
     fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<(), Error> {

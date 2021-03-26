@@ -54,13 +54,13 @@ mod test {
     fn test_replace() {
         let mut actions = ProcessLinesActions::new();
 
-        actions.replace_with_lines("ipsum".split("\n"));
+        actions.replace_with_lines("ipsum".split('\n'));
         assert_eq!(
             actions.take_lines(),
             InnerState::Replaced(vec!["ipsum".to_string()])
         );
 
-        actions.replace_with_lines("lorem ipsum dolor".split(" "));
+        actions.replace_with_lines("lorem ipsum dolor".split(' '));
         assert_eq!(
             actions.take_lines(),
             InnerState::Replaced(vec![

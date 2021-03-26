@@ -356,7 +356,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// is by default) the output will be also logged. You can disable this behavior by calling the
     /// [`log_output`](struct.Command.html#method.log_output) method.
     pub fn run_capture(self) -> Result<ProcessOutput, CommandError> {
-        Ok(self.run_inner(true)?)
+        self.run_inner(true)
     }
 
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
@@ -371,8 +371,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 }
             };
 
-            let mut cmd = Vec::new();
-            cmd.push(binary.to_string_lossy().as_ref().to_string());
+            let mut cmd = vec![binary.to_string_lossy().as_ref().to_string()];
 
             for arg in self.args {
                 cmd.push(arg.to_string_lossy().to_string());
