@@ -236,6 +236,10 @@ impl Workspace {
             }
         }
 
+        for toolchain in self.installed_toolchains()? {
+            toolchain.uninstall(self)?;
+        }
+
         Ok(())
     }
 
