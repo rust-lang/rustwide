@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 
-static DOCKER_IMAGE_TAG: &str = "rustops/crates-build-env";
+static DOCKER_IMAGE_TAG: &str = "ghcr.io/rust-lang/crates-build-env/linux-micro";
 static DOCKER_SOCKET: &str = "/var/run/docker.sock";
 static CONTAINER_PREFIX: &str = "/outside";
 

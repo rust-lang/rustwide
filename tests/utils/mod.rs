@@ -1,6 +1,6 @@
 use failure::Error;
 use log::LevelFilter;
-use rustwide::{Workspace, WorkspaceBuilder};
+use rustwide::{cmd::SandboxImage, Workspace, WorkspaceBuilder};
 use std::path::{Path, PathBuf};
 
 static USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";
@@ -20,6 +20,13 @@ pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace, Error> {
 
     if std::env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {
         builder = builder.running_inside_docker(true);
+    }
+
+    // Use the micro image when running tests on Linux, speeding them up.
+    if cfg!(target_os = "linux") {
+        builder = builder.sandbox_image(SandboxImage::remote(
+            "ghcr.io/rust-lang/crates-build-env/linux-micro",
+        )?);
     }
 
     builder.init()
