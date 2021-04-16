@@ -12,7 +12,7 @@ use std::time::Duration;
 static DEFAULT_SANDBOX_IMAGE: &str = "rustops/crates-build-env-windows";
 
 #[cfg(not(windows))]
-static DEFAULT_SANDBOX_IMAGE: &str = "rustops/crates-build-env";
+static DEFAULT_SANDBOX_IMAGE: &str = "ghcr.io/rust-lang/crates-build-env/linux";
 
 const DEFAULT_COMMAND_TIMEOUT: Option<Duration> = Some(Duration::from_secs(15 * 60));
 const DEFAULT_COMMAND_NO_OUTPUT_TIMEOUT: Option<Duration> = None;
@@ -53,11 +53,11 @@ impl WorkspaceBuilder {
 
     /// Override the image used for sandboxes.
     ///
-    /// By default rustwide will use the [rustops/crates-build-env] image on Linux systems, and
-    /// [rustops/crates-build-env-windows] on Windows systems. Those images contain dependencies to
-    /// build a large amount of crates.
+    /// By default rustwide will use the [ghcr.io/rust-lang/crates-build-env/linux-micro] image on
+    /// Linux systems, and [rustops/crates-build-env-windows] on Windows systems. Those images
+    /// contain dependencies to build a large amount of crates.
     ///
-    /// [rustops/crates-build-env]: https://hub.docker.com/r/rustops/crates-build-env
+    /// [ghcr.io/rust-lang/crates-build-env/linux-micro]: https://github.com/orgs/rust-lang/packages/container/package/crates-build-env/linux-micro
     /// [rustops/crates-build-env-windows]: https://hub.docker.com/r/rustops/crates-build-env-windows
     pub fn sandbox_image(mut self, image: SandboxImage) -> Self {
         self.sandbox_image = Some(image);
