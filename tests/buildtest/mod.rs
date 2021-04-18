@@ -83,14 +83,18 @@ fn test_sandbox_oom() {
 }
 
 #[test]
-fn test_cargo_config() {
+fn test_override_files() {
     runner::run("cargo-config", |run| {
         run.build(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
-                build.cargo().args(&["run"]).run()?;
+                build.cargo().args(&["--version"]).run()?;
                 Ok(())
             })?;
+            let output = storage.to_string();
+            assert!(output.contains("cargo 1."));
+            assert!(!output.contains("1.0.0"));
+            build.cargo().args(&["run"]).run()?;
             Ok(())
         })?;
         Ok(())
