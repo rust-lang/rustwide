@@ -38,7 +38,7 @@ impl<'a> Prepare<'a> {
     pub(crate) fn prepare(&mut self) -> Result<(), Error> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
         self.validate_manifest()?;
-        self.remove_cargo_config()?;
+        self.remove_override_files()?;
         self.tweak_toml()?;
         self.capture_lockfile(false)?;
         self.fetch_deps()?;
@@ -69,11 +69,19 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn remove_cargo_config(&self) -> Result<(), Error> {
-        let path = self.source_dir.join(".cargo").join("config");
-        if path.exists() {
-            crate::utils::remove_file(&path)?;
-            info!("removed {}", path.display());
+    fn remove_override_files(&self) -> Result<(), Error> {
+        let paths = [
+            &Path::new(".cargo").join("config"),
+            &Path::new(".cargo").join("config.toml"),
+            Path::new("rust-toolchain"),
+            Path::new("rust-toolchain.toml"),
+        ];
+        for path in &paths {
+            let path = self.source_dir.join(path);
+            if path.exists() {
+                crate::utils::remove_file(&path)?;
+                info!("removed {}", path.display());
+            }
         }
         Ok(())
     }

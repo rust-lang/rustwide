@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [ghcr-linux]: https://github.com/orgs/rust-lang/packages/container/package/crates-build-env/linux
 
+### Fixed
+
+- Rustwide now removes `.cargo/config.toml`, `rust-toolchain`, and `rust-toolchain.toml` before running a build.
+
 ## [0.12.0] - 2021-01-28
 
 ### Added
