@@ -78,18 +78,22 @@ pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {
 
 #[derive(Debug)]
 struct RemoveError {
-    kind: std::io::ErrorKind,
+    underlying: std::io::Error,
     path: PathBuf,
 }
 
-impl std::error::Error for RemoveError {}
+impl std::error::Error for RemoveError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.underlying)
+    }
+}
 
 impl std::fmt::Display for RemoveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "failed to remove '{}' : {:?}",
             self.path.display(),
-            self.kind
+            self.underlying
         ))
     }
 }
@@ -98,7 +102,7 @@ fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
     std::io::Error::new(
         error.kind(),
         RemoveError {
-            kind: error.kind(),
+            underlying: error,
             path: path.to_path_buf(),
         },
     )
@@ -112,7 +116,7 @@ mod tests {
     fn custom_remove_error() {
         let path = "test/path".as_ref();
 
-        let expected = "failed to remove 'test/path' : PermissionDenied";
+        let expected = "failed to remove 'test/path' : Kind(PermissionDenied)";
         let tested = format!(
             "{}",
             improve_remove_error(
