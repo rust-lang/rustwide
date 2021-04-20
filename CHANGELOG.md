@@ -5,19 +5,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.13.0] - 2021-04-20
+
 ### Added
 
-- New method `Toolchain::rustup_binary` to allow running arbitrary binaries managed by rustup. Before, only `rustc` and `cargo` could be run.
+- New method `Toolchain::rustup_binary` to allow running arbitrary binaries
+  managed by rustup. Before, only `rustc` and `cargo` could be run.
 
 ### Changed
 
-- The default sandbox image is now fetched from [GitHub Container Registry][ghcr-linux].
+- The default sandbox image is now fetched from [GitHub Container
+  Registry][ghcr-linux].
+- Rustwide now removes `.cargo/config.toml`, `rust-toolchain`, and
+  `rust-toolchain.toml` before running a build.
 
 [ghcr-linux]: https://github.com/orgs/rust-lang/packages/container/package/crates-build-env/linux
-
-### Fixed
-
-- Rustwide now removes `.cargo/config.toml`, `rust-toolchain`, and `rust-toolchain.toml` before running a build.
 
 ## [0.12.0] - 2021-01-28
 
@@ -250,6 +252,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.13.0]: https://github.com/rust-lang/rustwide/releases/tag/0.13.0
 [0.12.0]: https://github.com/rust-lang/rustwide/releases/tag/0.12.0
 [0.11.1]: https://github.com/rust-lang/rustwide/releases/tag/0.11.1
 [0.11.0]: https://github.com/rust-lang/rustwide/releases/tag/0.11.0
