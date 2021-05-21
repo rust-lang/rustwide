@@ -13,7 +13,6 @@ pub(crate) struct Prepare<'a> {
     toolchain: &'a Toolchain,
     krate: &'a Crate,
     source_dir: &'a Path,
-    lockfile_captured: bool,
     patches: Vec<CratePatch>,
 }
 
@@ -30,7 +29,6 @@ impl<'a> Prepare<'a> {
             toolchain,
             krate,
             source_dir,
-            lockfile_captured: false,
             patches,
         }
     }
@@ -40,7 +38,7 @@ impl<'a> Prepare<'a> {
         self.validate_manifest()?;
         self.remove_override_files()?;
         self.tweak_toml()?;
-        self.capture_lockfile(false)?;
+        self.capture_lockfile()?;
         self.fetch_deps()?;
 
         Ok(())
@@ -94,8 +92,8 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn capture_lockfile(&mut self, force: bool) -> Result<(), Error> {
-        if !force && self.source_dir.join("Cargo.lock").exists() {
+    fn capture_lockfile(&mut self) -> Result<(), Error> {
+        if self.source_dir.join("Cargo.lock").exists() {
             info!(
                 "crate {} already has a lockfile, it will not be regenerated",
                 self.krate
@@ -136,7 +134,6 @@ impl<'a> Prepare<'a> {
             }
             other => other?,
         }
-        self.lockfile_captured = true;
         Ok(())
     }
 
@@ -153,13 +150,6 @@ impl<'a> Prepare<'a> {
             .run();
         match res {
             Ok(_) => Ok(()),
-            Err(_) if !self.lockfile_captured => {
-                info!("the lockfile is outdated, regenerating it");
-                // Force-update the lockfile and recursively call this function to fetch
-                // dependencies again.
-                self.capture_lockfile(true)?;
-                self.fetch_deps()
-            }
             Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
             err => err.map_err(|e| e.into()),
         }
