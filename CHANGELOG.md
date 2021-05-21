@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.13.1] - 2021-05-21
+
 ### Changed
 
 - The `--locked` flag is not used anymore during `cargo fetch`.
@@ -256,6 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.13.1]: https://github.com/rust-lang/rustwide/releases/tag/0.13.1
 [0.13.0]: https://github.com/rust-lang/rustwide/releases/tag/0.13.0
 [0.12.0]: https://github.com/rust-lang/rustwide/releases/tag/0.12.0
 [0.11.1]: https://github.com/rust-lang/rustwide/releases/tag/0.11.1
