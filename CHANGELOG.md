@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- The `--locked` flag is not used anymore during `cargo fetch`.
+
 ## [0.13.0] - 2021-04-20
 
 ### Added
