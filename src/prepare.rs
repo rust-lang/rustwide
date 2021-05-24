@@ -312,13 +312,24 @@ impl<'a> TomlTweaker<'a> {
             };
 
             for patch in self.patches.iter().cloned() {
-                let mut table = Table::new();
-                table.insert("git".into(), Value::String(patch.uri));
-                table.insert("branch".into(), Value::String(patch.branch));
+                let (name, table) = match patch {
+                    CratePatch::Git(patch) => {
+                        let mut table = Table::new();
+                        table.insert("git".into(), Value::String(patch.uri));
+                        table.insert("branch".into(), Value::String(patch.branch));
+                        (patch.name, table)
+                    }
+                    CratePatch::Path(patch) => {
+                        let mut table = Table::new();
+                        table.insert("path".into(), Value::String(patch.path.clone()));
+                        (patch.name, table)
+                    }
+                };
+
                 cratesio_table
                     .as_table_mut()
                     .unwrap()
-                    .insert(patch.name, Value::Table(table));
+                    .insert(name, Value::Table(table));
             }
         }
     }
@@ -361,7 +372,7 @@ pub enum PrepareError {
 #[cfg(test)]
 mod tests {
     use super::TomlTweaker;
-    use crate::build::CratePatch;
+    use crate::build::{CratePatch, GitCratePatch, PathCratePatch};
     use crate::crates::Crate;
     use toml::{self, Value};
 
@@ -459,14 +470,21 @@ mod tests {
 
             [patch.crates-io]
             quux = { git = "https://git.example.com/quux", branch = "dev" }
+            baz = { path = "/path/to/baz" }
         };
 
         let krate = Crate::local("/dev/null".as_ref());
-        let patches = vec![CratePatch {
-            name: "quux".into(),
-            uri: "https://git.example.com/quux".into(),
-            branch: "dev".into(),
-        }];
+        let patches = vec![
+            CratePatch::Git(GitCratePatch {
+                name: "quux".into(),
+                uri: "https://git.example.com/quux".into(),
+                branch: "dev".into(),
+            }),
+            CratePatch::Path(PathCratePatch {
+                name: "baz".into(),
+                path: "/path/to/baz".into(),
+            }),
+        ];
         let mut tweaker =
             TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
         tweaker.tweak();
