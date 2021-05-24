@@ -73,7 +73,8 @@ impl Crate {
         }
     }
 
-    pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
+    /// Copy this crate's source to `dest`. If `dest` already exists, it will be replaced.
+    pub fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
         if dest.exists() {
             info!(
                 "crate source directory {} already exists, cleaning it up",

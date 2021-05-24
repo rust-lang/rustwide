@@ -100,6 +100,14 @@ pub enum CommandError {
     #[error("invalid output of `docker inspect`: {0}")]
     InvalidDockerInspectOutput(#[source] serde_json::Error),
 
+    /// The data received from the `docker manifest inspect` command is not valid.
+    #[error("invalid output from `docker manifest inspect`: {0}")]
+    InvalidDockerManifestInspectOutput(#[source] serde_json::Error),
+
+    /// The remote image is larger than the specified size limit.
+    #[error("sandbox image is too large: {0}")]
+    SandboxImageTooLarge(usize),
+
     /// An I/O error occured while executing the command.
     #[error(transparent)]
     IO(#[from] std::io::Error),
