@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `Toolchain::is_needed_by_rustwide` for checking if a toolchain
+  is needed by rustwide itself (for installing tools).
+
 ## [0.13.1] - 2021-05-21
 
 ### Changed
