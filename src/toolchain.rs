@@ -178,6 +178,25 @@ impl Toolchain {
         }),
     };
 
+    /// Returns whether or not this toolchain is needed by rustwide itself.
+    ///
+    /// This toolchain is used for doing things like installing tools.
+    ///
+    /// ```rust
+    /// # use rustwide::Toolchain;
+    /// let tc = Toolchain::dist("stable-x86_64-unknown-linux-gnu");
+    /// assert!(tc.is_needed_by_rustwide());
+    /// let tc = Toolchain::dist("nightly-x86_64-unknown-linux-gnu");
+    /// assert!(!tc.is_needed_by_rustwide());
+    /// ```
+    pub fn is_needed_by_rustwide(&self) -> bool {
+        match &self.inner {
+            ToolchainInner::Dist(dist) => dist.name.starts_with(MAIN_TOOLCHAIN_NAME),
+            #[cfg(feature = "unstable-toolchain-ci")]
+            _ => false,
+        }
+    }
+
     /// Create a new dist toolchain.
     ///
     /// Dist toolchains are all the toolchains available through rustup and distributed from
