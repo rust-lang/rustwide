@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.14.0] - 2021-08-19
+
 ### Added
 
 - New method `Toolchain::is_needed_by_rustwide` for checking if a toolchain
@@ -263,6 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.14.0]: https://github.com/rust-lang/rustwide/releases/tag/0.14.0
 [0.13.1]: https://github.com/rust-lang/rustwide/releases/tag/0.13.1
 [0.13.0]: https://github.com/rust-lang/rustwide/releases/tag/0.13.0
 [0.12.0]: https://github.com/rust-lang/rustwide/releases/tag/0.12.0
