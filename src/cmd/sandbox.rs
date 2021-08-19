@@ -31,7 +31,7 @@ impl SandboxImage {
         let mut image = SandboxImage { name: name.into() };
         info!("pulling image {} from Docker Hub", name);
         Command::new_workspaceless("docker")
-            .args(&["pull", &name])
+            .args(&["pull", name])
             .run()
             .map_err(|e| CommandError::SandboxImagePullFailed(Box::new(e)))?;
         if let Some(name_with_hash) = image.get_name_with_hash() {

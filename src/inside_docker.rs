@@ -65,7 +65,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> Result<Option<String>
         info!("probing container id {}", id);
 
         let res = Command::new(workspace, "docker")
-            .args(&["exec", &id, "cat", probe_path_str])
+            .args(&["exec", id, "cat", probe_path_str])
             .log_output(false)
             .log_command(false)
             .run_capture();

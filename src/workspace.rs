@@ -232,7 +232,7 @@ impl Workspace {
 
         for path in &paths {
             if path.exists() {
-                crate::utils::remove_dir_all(&path)?;
+                crate::utils::remove_dir_all(path)?;
             }
         }
 

@@ -50,7 +50,7 @@ fn executable_mode_for(path: &Path) -> Result<u32, Error> {
 pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool, Error> {
     let path = path.as_ref();
 
-    let expected_mode = executable_mode_for(&path)?;
+    let expected_mode = executable_mode_for(path)?;
     Ok(path.metadata()?.mode() & expected_mode == expected_mode)
 }
 
@@ -59,7 +59,7 @@ pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<(), Error> {
 
     // Set the executable and readable bits on the file
     let mut perms = path.metadata()?.permissions();
-    let new_mode = perms.mode() | executable_mode_for(&path)?;
+    let new_mode = perms.mode() | executable_mode_for(path)?;
     perms.set_mode(new_mode);
 
     ::std::fs::set_permissions(path, perms)?;

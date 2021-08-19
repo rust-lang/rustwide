@@ -86,7 +86,7 @@ impl<'a> Prepare<'a> {
 
     fn tweak_toml(&self) -> Result<(), Error> {
         let path = self.source_dir.join("Cargo.toml");
-        let mut tweaker = TomlTweaker::new(&self.krate, &path, &self.patches)?;
+        let mut tweaker = TomlTweaker::new(self.krate, &path, &self.patches)?;
         tweaker.tweak();
         tweaker.save(&path)?;
         Ok(())
