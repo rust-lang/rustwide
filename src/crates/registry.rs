@@ -55,6 +55,7 @@ pub(super) struct RegistryCrate {
     registry: Registry,
     name: String,
     version: String,
+    key: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -63,11 +64,12 @@ struct IndexConfig {
 }
 
 impl RegistryCrate {
-    pub(super) fn new(registry: Registry, name: &str, version: &str) -> Self {
+    pub(super) fn new(registry: Registry, name: &str, version: &str, key: Option<String>) -> Self {
         RegistryCrate {
             registry,
             name: name.into(),
             version: version.into(),
+            key: key.map(Into::into),
         }
     }
 
@@ -92,7 +94,27 @@ impl RegistryCrate {
                     .join(alt.index_folder());
                 if !index_path.exists() {
                     let url = alt.index();
-                    git2::Repository::clone(url, index_path.clone())
+                    let mut fo = git2::FetchOptions::new();
+                    if let Some(key) = self.key.as_deref() {
+                        fo.remote_callbacks({
+                            let mut callbacks = git2::RemoteCallbacks::new();
+                            callbacks.credentials(
+                                move |_url, username_from_url, _allowed_types| {
+                                    git2::Cred::ssh_key_from_memory(
+                                        username_from_url.unwrap(),
+                                        None,
+                                        key,
+                                        None,
+                                    )
+                                },
+                            );
+                            callbacks
+                        });
+                    }
+
+                    git2::build::RepoBuilder::new()
+                        .fetch_options(fo)
+                        .clone(url, &index_path)
                         .with_context(|_| format!("unable to update_index at {}", url))?;
                     info!("cloned registry index");
                 }

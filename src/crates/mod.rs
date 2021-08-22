@@ -24,11 +24,12 @@ pub struct Crate(CrateType);
 
 impl Crate {
     /// Load a crate from specified registry.
-    pub fn registry(registry_index: &str, name: &str, version: &str) -> Self {
+    pub fn registry(registry_index: &str, name: &str, version: &str, key: Option<String>) -> Self {
         Crate(CrateType::Registry(registry::RegistryCrate::new(
             registry::Registry::Alternative(registry::AlternativeRegistry::new(registry_index)),
             name,
             version,
+            key,
         )))
     }
 
@@ -38,6 +39,7 @@ impl Crate {
             registry::Registry::CratesIo,
             name,
             version,
+            None,
         )))
     }
 
