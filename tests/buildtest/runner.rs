@@ -1,5 +1,5 @@
 use failure::Error;
-use rustwide::{cmd::SandboxBuilder, Build, Crate, Toolchain, Workspace};
+use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
 use std::path::Path;
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Error>) {
@@ -38,11 +38,19 @@ impl Runner {
     pub(crate) fn build<T>(
         &self,
         sandbox: SandboxBuilder,
-        f: impl FnOnce(&Build) -> Result<T, Error>,
+        f: impl FnOnce(BuildBuilder) -> Result<T, Error>,
     ) -> Result<T, Error> {
         let mut dir = self.workspace.build_dir(&self.crate_name);
         dir.purge()?;
-        dir.build(&self.toolchain, &self.krate, sandbox).run(f)
+        f(dir.build(&self.toolchain, &self.krate, sandbox))
+    }
+
+    pub(crate) fn run<T>(
+        &self,
+        sandbox: SandboxBuilder,
+        f: impl FnOnce(&Build) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        self.build(sandbox, |builder| builder.run(f))
     }
 }
 
@@ -51,7 +59,7 @@ macro_rules! test_prepare_error {
         #[test]
         fn $name() {
             runner::run($krate, |run| {
-                let res = run.build(
+                let res = run.run(
                     rustwide::cmd::SandboxBuilder::new().enable_networking(false),
                     |_| Ok(()),
                 );
