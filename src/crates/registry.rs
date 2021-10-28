@@ -10,15 +10,24 @@ use tar::Archive;
 
 static CRATES_ROOT: &str = "https://static.crates.io/crates";
 
-pub(crate) struct AlternativeRegistry {
+/// A type for alternative registry as described in rust-lang/rfcs#2141
+pub struct AlternativeRegistry {
     registry_index: String,
+    key: Option<String>,
 }
 
 impl AlternativeRegistry {
-    pub(crate) fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
+    /// Registry for specified registry index
+    pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
         AlternativeRegistry {
             registry_index: registry_index.into(),
+            key: None,
         }
+    }
+
+    /// Specify private ssh key for registry authentication.
+    pub fn authenticate_with_ssh_key(&mut self, key: String) {
+        self.key = Some(key);
     }
 
     fn index(&self) -> &str {
@@ -55,7 +64,6 @@ pub(super) struct RegistryCrate {
     registry: Registry,
     name: String,
     version: String,
-    key: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -64,12 +72,11 @@ struct IndexConfig {
 }
 
 impl RegistryCrate {
-    pub(super) fn new(registry: Registry, name: &str, version: &str, key: Option<String>) -> Self {
+    pub(super) fn new(registry: Registry, name: &str, version: &str) -> Self {
         RegistryCrate {
             registry,
             name: name.into(),
             version: version.into(),
-            key: key.map(Into::into),
         }
     }
 
@@ -95,7 +102,7 @@ impl RegistryCrate {
                 if !index_path.exists() {
                     let url = alt.index();
                     let mut fo = git2::FetchOptions::new();
-                    if let Some(key) = self.key.as_deref() {
+                    if let Some(key) = alt.key.as_deref() {
                         fo.remote_callbacks({
                             let mut callbacks = git2::RemoteCallbacks::new();
                             callbacks.credentials(
