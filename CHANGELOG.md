@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `BuildBuilder::patch_with_path()` for path-based patching (as compared to git-based).
+
 ## [0.14.0] - 2021-08-19
 
 ### Added
