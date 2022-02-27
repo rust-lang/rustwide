@@ -109,7 +109,7 @@ pub enum CommandError {
 #[derive(Debug, thiserror::Error)]
 #[cfg_attr(unix, error(
     "failed to kill the process with PID {pid}{}",
-    .errno.map(|e| format!(": {}", e.desc())).unwrap_or_else(String::new)
+    .errno.map(|e| format!(": {}", e.desc())).unwrap_or_default()
 ))]
 #[cfg_attr(not(unix), error("failed to kill the process with PID {pid}"))]
 pub struct KillFailedError {
