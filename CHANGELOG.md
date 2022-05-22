@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.15.0] - 2022-05-22
+
 ### Added
 
 - New method `BuildBuilder::patch_with_path()` for path-based patching (as
@@ -277,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.15.0]: https://github.com/rust-lang/rustwide/releases/tag/0.15.0
 [0.14.0]: https://github.com/rust-lang/rustwide/releases/tag/0.14.0
 [0.13.1]: https://github.com/rust-lang/rustwide/releases/tag/0.13.1
 [0.13.0]: https://github.com/rust-lang/rustwide/releases/tag/0.13.0
