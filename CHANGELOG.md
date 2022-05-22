@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New method `BuildBuilder::patch_with_path()` for path-based patching (as compared to git-based).
+- New method `BuildBuilder::patch_with_path()` for path-based patching (as
+  compared to git-based).
+- New struct `AlternativeRegistry` to configure how an alternative registry can
+  be accessed.
+
+### Changed
+
+- **BREAKING**: `Crate::registry` now requires an `AlternativeRegistry` rather
+  than the registry URL as string.
 
 ## [0.14.0] - 2021-08-19
 
