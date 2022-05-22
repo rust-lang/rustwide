@@ -10,15 +10,24 @@ use tar::Archive;
 
 static CRATES_ROOT: &str = "https://static.crates.io/crates";
 
-pub(crate) struct AlternativeRegistry {
+/// A type for alternative registry as described in rust-lang/rfcs#2141
+pub struct AlternativeRegistry {
     registry_index: String,
+    key: Option<String>,
 }
 
 impl AlternativeRegistry {
-    pub(crate) fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
+    /// Registry for specified registry index
+    pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
         AlternativeRegistry {
             registry_index: registry_index.into(),
+            key: None,
         }
+    }
+
+    /// Specify private ssh key for registry authentication.
+    pub fn authenticate_with_ssh_key(&mut self, key: String) {
+        self.key = Some(key);
     }
 
     fn index(&self) -> &str {
@@ -92,7 +101,27 @@ impl RegistryCrate {
                     .join(alt.index_folder());
                 if !index_path.exists() {
                     let url = alt.index();
-                    git2::Repository::clone(url, index_path.clone())
+                    let mut fo = git2::FetchOptions::new();
+                    if let Some(key) = alt.key.as_deref() {
+                        fo.remote_callbacks({
+                            let mut callbacks = git2::RemoteCallbacks::new();
+                            callbacks.credentials(
+                                move |_url, username_from_url, _allowed_types| {
+                                    git2::Cred::ssh_key_from_memory(
+                                        username_from_url.unwrap(),
+                                        None,
+                                        key,
+                                        None,
+                                    )
+                                },
+                            );
+                            callbacks
+                        });
+                    }
+
+                    git2::build::RepoBuilder::new()
+                        .fetch_options(fo)
+                        .clone(url, &index_path)
                         .with_context(|_| format!("unable to update_index at {}", url))?;
                     info!("cloned registry index");
                 }

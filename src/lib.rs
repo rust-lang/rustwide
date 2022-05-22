@@ -37,7 +37,7 @@ mod utils;
 mod workspace;
 
 pub use crate::build::{Build, BuildBuilder, BuildDirectory};
-pub use crate::crates::Crate;
+pub use crate::crates::{AlternativeRegistry, Crate};
 pub use crate::prepare::PrepareError;
 pub use crate::toolchain::Toolchain;
 pub use crate::workspace::{Workspace, WorkspaceBuilder};

@@ -7,6 +7,8 @@ use failure::Error;
 use log::info;
 use std::path::Path;
 
+pub use registry::AlternativeRegistry;
+
 trait CrateTrait: std::fmt::Display {
     fn fetch(&self, workspace: &Workspace) -> Result<(), Error>;
     fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error>;
@@ -24,9 +26,9 @@ pub struct Crate(CrateType);
 
 impl Crate {
     /// Load a crate from specified registry.
-    pub fn registry(registry_index: &str, name: &str, version: &str) -> Self {
+    pub fn registry(registry: AlternativeRegistry, name: &str, version: &str) -> Self {
         Crate(CrateType::Registry(registry::RegistryCrate::new(
-            registry::Registry::Alternative(registry::AlternativeRegistry::new(registry_index)),
+            registry::Registry::Alternative(registry),
             name,
             version,
         )))
