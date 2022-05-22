@@ -15,6 +15,12 @@ fn test_hello_world() {
     execute("buildtest::test_hello_world").unwrap();
 }
 
+#[test]
+#[cfg(unix)]
+fn test_path_based_patch() {
+    execute("buildtest::path_based_patch").unwrap();
+}
+
 fn execute(test: &str) -> Result<(), Error> {
     // The current working directory is mounted in the container to /outside.
     // The binary to execute is remapped to be prefixed by /outside instead of the current

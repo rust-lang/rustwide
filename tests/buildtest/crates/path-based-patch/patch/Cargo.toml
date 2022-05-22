@@ -1,0 +1,9 @@
+[package]
+name = "empty-library"
+version = "1.0.1"
+authors = ["Pietro Albini <pietro@pietroalbini.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

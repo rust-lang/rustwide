@@ -9,7 +9,7 @@ mod inside_docker;
 #[test]
 fn test_hello_world() {
     runner::run("hello-world", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
                 build.cargo().args(&["run"]).run()?;
@@ -27,9 +27,33 @@ fn test_hello_world() {
 }
 
 #[test]
+fn path_based_patch() {
+    runner::run("path-based-patch", |run| {
+        run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+            builder
+                .patch_with_path("empty-library", "./patch")
+                .run(move |build| {
+                    let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+                    rustwide::logging::capture(&storage, || -> Result<_, Error> {
+                        build.cargo().args(&["run"]).run()?;
+                        Ok(())
+                    })?;
+
+                    assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
+                    assert!(storage
+                        .to_string()
+                        .contains("[stdout] This is coming from the patch!\n"));
+                    Ok(())
+                })
+        })?;
+        Ok(())
+    });
+}
+
+#[test]
 fn test_process_lines() {
     runner::run("process-lines", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             let mut ex = false;
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
@@ -64,7 +88,7 @@ fn test_sandbox_oom() {
     use rustwide::cmd::CommandError;
 
     runner::run("out-of-memory", |run| {
-        let res = run.build(
+        let res = run.run(
             SandboxBuilder::new()
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
@@ -85,7 +109,7 @@ fn test_sandbox_oom() {
 #[test]
 fn test_override_files() {
     runner::run("cargo-config", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
                 build.cargo().args(&["--version"]).run()?;
@@ -104,7 +128,7 @@ fn test_override_files() {
 #[test]
 fn test_cargo_workspace() {
     runner::run("cargo-workspace", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> Result<_, Error> {
                 build.cargo().args(&["run"]).run()?;

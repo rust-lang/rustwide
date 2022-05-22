@@ -6,10 +6,22 @@ use std::path::PathBuf;
 use std::vec::Vec;
 
 #[derive(Clone)]
-pub(crate) struct CratePatch {
+pub(crate) enum CratePatch {
+    Git(GitCratePatch),
+    Path(PathCratePatch),
+}
+
+#[derive(Clone)]
+pub(crate) struct GitCratePatch {
     pub(crate) name: String,
     pub(crate) uri: String,
     pub(crate) branch: String,
+}
+
+#[derive(Clone)]
+pub(crate) struct PathCratePatch {
+    pub(crate) name: String,
+    pub(crate) path: String,
 }
 
 /// Directory in the [`Workspace`](struct.Workspace.html) where builds can be executed.
@@ -32,7 +44,7 @@ pub struct BuildBuilder<'a> {
 }
 
 impl<'a> BuildBuilder<'a> {
-    /// Add a patch to this build.
+    /// Add a git-based patch to this build.
     /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
     /// # Example
     ///
@@ -54,11 +66,45 @@ impl<'a> BuildBuilder<'a> {
     /// # Ok(())
     /// # }
     pub fn patch_with_git(mut self, name: &str, uri: &str, branch: &str) -> Self {
-        self.patches.push(CratePatch {
+        self.patches.push(CratePatch::Git(GitCratePatch {
             name: name.into(),
             uri: uri.into(),
             branch: branch.into(),
-        });
+        }));
+        self
+    }
+
+    /// Add a path-based patch to this build.
+    /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::{MountKind, SandboxBuilder}};
+    /// # use std::{error::Error, path::{Path, PathBuf}};
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::dist("");
+    /// # let krate = Crate::local("".as_ref());
+    /// # let manifest_dir = "/path/to/bar";
+    /// let sandbox = SandboxBuilder::new().mount(
+    ///     Path::new(manifest_dir),
+    ///     Path::new("/patch/bar"),
+    ///     MountKind::ReadOnly,
+    /// );
+    /// let mut build_dir = workspace.build_dir("foo");
+    /// build_dir.build(&toolchain, &krate, sandbox)
+    ///     .patch_with_path("bar", "/patch/bar")
+    ///     .run(|build| {
+    ///         build.cargo().args(&["test", "--all"]).run()?;
+    ///         Ok(())
+    ///     })?;
+    /// # Ok(())
+    /// # }
+    pub fn patch_with_path(mut self, name: &str, path: &str) -> Self {
+        self.patches.push(CratePatch::Path(PathCratePatch {
+            name: name.into(),
+            path: path.into(),
+        }));
         self
     }
 
