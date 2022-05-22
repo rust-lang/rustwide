@@ -26,8 +26,8 @@ impl AlternativeRegistry {
     }
 
     /// Specify private ssh key for registry authentication.
-    pub fn authenticate_with_ssh_key(&mut self, key: String) {
-        self.key = Some(key);
+    pub fn authenticate_with_ssh_key(&mut self, key: impl Into<String>) {
+        self.key = Some(key.into());
     }
 
     fn index(&self) -> &str {
