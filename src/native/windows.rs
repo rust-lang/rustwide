@@ -11,7 +11,7 @@ pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
 
     unsafe {
         let handle = OpenProcess(PROCESS_TERMINATE, 0, id);
-        if handle == 0 {
+        if handle == 0 || handle == -1 {
             return error;
         }
         if TerminateProcess(handle, 101) == 0 {
