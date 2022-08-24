@@ -3,16 +3,15 @@ use crate::cmd::KillFailedError;
 use failure::{bail, Error};
 use std::fs::File;
 use std::path::Path;
-use winapi::um::handleapi::CloseHandle;
-use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess};
-use winapi::um::winnt::PROCESS_TERMINATE;
+use windows_sys::Win32::Foundation::CloseHandle;
+use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
 
 pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
     let error = Err(KillFailedError { pid: id });
 
     unsafe {
         let handle = OpenProcess(PROCESS_TERMINATE, 0, id);
-        if handle.is_null() {
+        if handle == 0 || handle == -1 {
             return error;
         }
         if TerminateProcess(handle, 101) == 0 {
