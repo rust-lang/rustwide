@@ -16,11 +16,7 @@ pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
         Ok(()) => Ok(()),
         Err(err) => Err(KillFailedError {
             pid: id,
-            errno: if let nix::Error::Sys(errno) = err {
-                Some(errno)
-            } else {
-                None
-            },
+            errno: Some(err),
         }),
     }
 }

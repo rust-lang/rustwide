@@ -42,7 +42,7 @@ thiserror = "1.0.20"
 git2 = "0.14.0"
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.20.0"
+nix = "0.25.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = {version = "0.36.1", features = ["Win32_Foundation", "Win32_System_Threading"]}
