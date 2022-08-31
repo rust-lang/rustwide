@@ -189,6 +189,7 @@ impl<'a, B: Runnable> Runnable for &'a B {
 ///
 /// [std]: https://doc.rust-lang.org/std/process/struct.Command.html
 #[must_use = "call `.run()` to run the command"]
+#[allow(clippy::type_complexity)]
 pub struct Command<'w, 'pl> {
     workspace: Option<&'w Workspace>,
     sandbox: Option<SandboxBuilder>,
@@ -383,7 +384,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
             };
 
             builder = builder
-                .mount(&source_dir, &*container_dirs::WORK_DIR, MountKind::ReadOnly)
+                .mount(&source_dir, &container_dirs::WORK_DIR, MountKind::ReadOnly)
                 .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
                 .workdir(container_dirs::WORK_DIR.to_str().unwrap())
                 .cmd(cmd);
@@ -402,12 +403,12 @@ impl<'w, 'pl> Command<'w, 'pl> {
             builder = builder
                 .mount(
                     &workspace.cargo_home(),
-                    &*container_dirs::CARGO_HOME,
+                    &container_dirs::CARGO_HOME,
                     MountKind::ReadOnly,
                 )
                 .mount(
                     &workspace.rustup_home(),
-                    &*container_dirs::RUSTUP_HOME,
+                    &container_dirs::RUSTUP_HOME,
                     MountKind::ReadOnly,
                 )
                 .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
@@ -549,6 +550,7 @@ impl OutputKind {
     }
 }
 
+#[allow(clippy::type_complexity)]
 async fn log_command(
     mut cmd: AsyncCommand,
     mut process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
