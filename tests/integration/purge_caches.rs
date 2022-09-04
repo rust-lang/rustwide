@@ -59,15 +59,14 @@ fn should_compare(base: &Path, path: &Path) -> bool {
     };
 
     let components = components.iter().map(|c| c.as_str()).collect::<Vec<_>>();
-    match components.as_slice() {
+    !matches!(
+        components.as_slice(),
         // The indexes could be updated during the build. The index is not considered a cache
         // though, so it's fine to ignore it during the comparison.
-        ["cargo-home", "registry", "index", _, ".git", ..] => false,
-        ["cargo-home", "registry", "index", _, ".cargo-index-lock"] => false,
-        ["cargo-home", "registry", "index", _, ".last-updated"] => false,
-
-        _ => true,
-    }
+        ["cargo-home", "registry", "index", _, ".git", ..]
+            | ["cargo-home", "registry", "index", _, ".cargo-index-lock"]
+            | ["cargo-home", "registry", "index", _, ".last-updated"]
+    )
 }
 
 #[derive(Debug, PartialEq, Eq)]

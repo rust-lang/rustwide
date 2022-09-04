@@ -281,7 +281,7 @@ impl SandboxBuilder {
         }
 
         let out = Command::new(workspace, "docker")
-            .args(&*args)
+            .args(&args)
             .run_capture()?;
         Ok(Container {
             id: out.stdout_lines()[0].clone(),
@@ -290,6 +290,7 @@ impl SandboxBuilder {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::type_complexity)]
     pub(super) fn run(
         self,
         workspace: &Workspace,
@@ -365,6 +366,7 @@ impl Container<'_> {
         Ok(data.pop().unwrap())
     }
 
+    #[allow(clippy::type_complexity)]
     fn run(
         &self,
         timeout: Option<Duration>,

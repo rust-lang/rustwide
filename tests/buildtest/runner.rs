@@ -25,7 +25,7 @@ impl Runner {
         );
         Ok(Runner {
             crate_name: if std::env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {
-                format!("{}-inside-docker", crate_name.to_string())
+                format!("{}-inside-docker", crate_name)
             } else {
                 crate_name.to_string()
             },
