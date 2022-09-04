@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.15.1] - 2022-09-04
+
+### Changed
+
+* Updated `nix` dependency to 0.25.
+* Replaced `winapi` dependency with `windows-sys`.
+
 ## [0.15.0] - 2022-05-22
 
 ### Added
@@ -279,6 +286,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.15.1]: https://github.com/rust-lang/rustwide/releases/tag/0.15.1
 [0.15.0]: https://github.com/rust-lang/rustwide/releases/tag/0.15.0
 [0.14.0]: https://github.com/rust-lang/rustwide/releases/tag/0.14.0
 [0.13.1]: https://github.com/rust-lang/rustwide/releases/tag/0.13.1
