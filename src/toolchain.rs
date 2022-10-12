@@ -541,7 +541,7 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
             #[cfg(feature = "unstable-toolchain-ci")]
             {
                 let (sha, alt) = if name.ends_with("-alt") {
-                    ((&name[..name.len() - 4]).to_string(), true)
+                    ((name[..name.len() - 4]).to_string(), true)
                 } else {
                     (name, false)
                 };
