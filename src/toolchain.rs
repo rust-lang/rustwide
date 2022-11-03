@@ -315,23 +315,48 @@ impl Toolchain {
             RustupAction::Remove => ("remove", "removing"),
         };
 
-        let thing = thing.to_string();
-        let action = action.to_string();
+        let toolchain_name = self.rustup_name();
+        info!("{log_action_ing} {thing} {name} for toolchain {toolchain_name}");
 
         #[cfg(feature = "unstable-toolchain-ci")]
-        if let ToolchainInner::CI { .. } = self.inner {
-            failure::bail!(
-                "{} {} on CI toolchains is not supported yet",
-                log_action_ing,
-                thing
-            );
+        if let ToolchainInner::CI(ci) = &self.inner {
+            if let RustupAction::Remove = action {
+                failure::bail!("removing {thing} on CI toolchains is not supported yet");
+            }
+
+            let mut args = Vec::with_capacity(6);
+            if ci.alt {
+                args.push("--alt");
+            }
+            args.extend([
+                // `-f` is required otherwise rustup-toolchain-install-master will early return
+                // because the toolchain (but not the new component) is already installed.
+                "-f",
+                match thing {
+                    RustupThing::Target => "--targets",
+                    RustupThing::Component => "--component",
+                },
+                name,
+                // We have to pass `--` otherwise the sha is interpreted as a target name.
+                "--",
+                &ci.sha,
+            ]);
+
+            Command::new(workspace, &RUSTUP_TOOLCHAIN_INSTALL_MASTER)
+                .args(&args)
+                .run()
+                .with_context(|_| {
+                    format!(
+                        "unable to {log_action} {thing} {name} for CI toolchain {toolchain_name} \
+                            via rustup-toolchain-install-master"
+                    )
+                })?;
+
+            return Ok(());
         }
 
-        let toolchain_name = self.rustup_name();
-        info!(
-            "{} {} {} for toolchain {}",
-            log_action_ing, thing, name, toolchain_name
-        );
+        let thing = thing.to_string();
+        let action = action.to_string();
 
         Command::new(workspace, &RUSTUP)
             .args(&[
@@ -344,8 +369,7 @@ impl Toolchain {
             .run()
             .with_context(|_| {
                 format!(
-                    "unable to {} {} {} for toolchain {} via rustup",
-                    log_action, thing, name, toolchain_name,
+                    "unable to {log_action} {thing} {name} for toolchain {toolchain_name} via rustup"
                 )
             })?;
         Ok(())
@@ -517,7 +541,7 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
             #[cfg(feature = "unstable-toolchain-ci")]
             {
                 let (sha, alt) = if name.ends_with("-alt") {
-                    ((&name[..name.len() - 4]).to_string(), true)
+                    ((name[..name.len() - 4]).to_string(), true)
                 } else {
                     (name, false)
                 };

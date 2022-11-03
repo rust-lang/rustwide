@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.15.2] - 2022-10-13
+
+### Changed
+
+* CI toolchains can now install additional targets and components.
+
 ## [0.15.1] - 2022-09-04
 
 ### Changed
@@ -286,6 +292,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.15.2]: https://github.com/rust-lang/rustwide/releases/tag/0.15.2
 [0.15.1]: https://github.com/rust-lang/rustwide/releases/tag/0.15.1
 [0.15.0]: https://github.com/rust-lang/rustwide/releases/tag/0.15.0
 [0.14.0]: https://github.com/rust-lang/rustwide/releases/tag/0.14.0
