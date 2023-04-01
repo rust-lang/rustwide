@@ -374,7 +374,6 @@ mod tests {
     use super::TomlTweaker;
     use crate::build::{CratePatch, GitCratePatch, PathCratePatch};
     use crate::crates::Crate;
-    use toml::{self, Value};
 
     #[test]
     fn test_tweak_table_noop() {
@@ -390,11 +389,10 @@ mod tests {
 
         let krate = Crate::local("/dev/null".as_ref());
         let patches: Vec<CratePatch> = Vec::new();
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 
     #[test]
@@ -426,11 +424,10 @@ mod tests {
 
         let krate = Crate::local("/dev/null".as_ref());
         let patches: Vec<CratePatch> = Vec::new();
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 
     #[test]
@@ -485,10 +482,9 @@ mod tests {
                 path: "/path/to/baz".into(),
             }),
         ];
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 }
