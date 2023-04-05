@@ -44,7 +44,7 @@ impl Tool for Rustup {
         );
         let mut resp = workspace
             .http_client()
-            .get(&url)
+            .get(url)
             .send()?
             .error_for_status()?;
 

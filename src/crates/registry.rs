@@ -165,7 +165,7 @@ impl CrateTrait for RegistryCrate {
 
         workspace
             .http_client()
-            .get(&self.fetch_url(workspace)?)
+            .get(self.fetch_url(workspace)?)
             .send()?
             .error_for_status()?
             .write_to(&mut BufWriter::new(File::create(&local)?))?;
@@ -230,7 +230,7 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
         let mut components = relpath.components();
         // Throw away the first path component
         components.next();
-        let full_path = path.join(&components.as_path());
+        let full_path = path.join(components.as_path());
         if let Some(parent) = full_path.parent() {
             std::fs::create_dir_all(parent)?;
         }

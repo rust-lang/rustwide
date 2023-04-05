@@ -141,7 +141,7 @@ impl<'a> Prepare<'a> {
         let mut missing_deps = false;
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["fetch", "--manifest-path", "Cargo.toml"])
-            .cd(&self.source_dir)
+            .cd(self.source_dir)
             .process_lines(&mut |line, _| {
                 if line.contains("failed to load source for dependency") {
                     missing_deps = true;
@@ -386,15 +386,13 @@ mod tests {
             version = "1.0"
         };
 
-        let result = toml.clone();
-
         let krate = Crate::local("/dev/null".as_ref());
         let patches: Vec<CratePatch> = Vec::new();
         let mut tweaker =
             TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(Value::Table(tweaker.table), toml);
     }
 
     #[test]
