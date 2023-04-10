@@ -68,7 +68,7 @@ fn strip_verbatim_from_prefix(prefix: &PrefixComponent<'_>) -> Option<PathBuf> {
 }
 
 pub(crate) fn remove_file(path: &Path) -> std::io::Result<()> {
-    std::fs::remove_file(&path).map_err(|error| crate::utils::improve_remove_error(error, path))
+    std::fs::remove_file(path).map_err(|error| crate::utils::improve_remove_error(error, path))
 }
 
 pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {

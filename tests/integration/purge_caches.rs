@@ -21,7 +21,7 @@ fn test_purge_caches() -> Result<(), Error> {
     let start_contents = WorkspaceContents::collect(&workspace_path)?;
 
     let crates = vec![
-        Crate::crates_io("lazy_static", "1.0.0"),
+        Crate::crates_io("lazy_static", "1.4.0"),
         Crate::git("https://github.com/pietroalbini/git-credential-null"),
     ];
 

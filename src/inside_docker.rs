@@ -69,7 +69,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> Result<Option<String>
             .log_output(false)
             .log_command(false)
             .run_capture();
-        if let Ok(&[ref probed]) = res.as_ref().map(|out| out.stdout_lines()) {
+        if let Ok([probed]) = res.as_ref().map(|out| out.stdout_lines()) {
             if *probed == probe_content {
                 info!("probe successful, this is container ID {}", id);
                 return Ok(Some(id.clone()));

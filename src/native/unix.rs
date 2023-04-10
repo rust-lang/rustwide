@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_kill_process() {
         // Try to kill a sleep command
-        let mut cmd = Command::new("sleep").args(&["2"]).spawn().unwrap();
+        let mut cmd = Command::new("sleep").args(["2"]).spawn().unwrap();
         super::kill_process(cmd.id()).unwrap();
 
         // Ensure it was killed with SIGKILL
