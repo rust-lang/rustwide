@@ -595,10 +595,7 @@ mod tests {
         // Create a fake rustup-installed toolchain
         std::fs::create_dir_all(rustup_home.path().join("toolchains").join(DIST_NAME))?;
         std::fs::create_dir_all(rustup_home.path().join("update-hashes"))?;
-        std::fs::write(
-            rustup_home.path().join("update-hashes").join(DIST_NAME),
-            &[],
-        )?;
+        std::fs::write(rustup_home.path().join("update-hashes").join(DIST_NAME), [])?;
 
         // Create a fake symlinked toolchain
         #[cfg(unix)]

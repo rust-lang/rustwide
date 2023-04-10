@@ -240,7 +240,7 @@ impl SandboxBuilder {
             }
         }
 
-        for &(ref var, ref value) in &self.env {
+        for (var, value) in &self.env {
             args.push("-e".into());
             args.push(format! {"{}={}", var, value})
         }

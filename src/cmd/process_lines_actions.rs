@@ -1,16 +1,12 @@
 use std::default::Default;
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Default)]
 pub(super) enum InnerState {
     Removed,
+    #[default]
     Original,
     Replaced(Vec<String>),
-}
-
-impl Default for InnerState {
-    fn default() -> Self {
-        InnerState::Original
-    }
 }
 
 /// Represents actions that are available while reading live output from a process.

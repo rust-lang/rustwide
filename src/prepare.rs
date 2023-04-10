@@ -141,7 +141,7 @@ impl<'a> Prepare<'a> {
         let mut missing_deps = false;
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["fetch", "--manifest-path", "Cargo.toml"])
-            .cd(&self.source_dir)
+            .cd(self.source_dir)
             .process_lines(&mut |line, _| {
                 if line.contains("failed to load source for dependency") {
                     missing_deps = true;

@@ -465,7 +465,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                     crate::utils::normalize_path(rustup_home.as_ref()),
                 );
             }
-            for &(ref k, ref v) in &self.env {
+            for (k, v) in &self.env {
                 cmd.env(k, v);
             }
 

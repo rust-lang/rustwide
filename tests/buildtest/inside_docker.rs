@@ -43,7 +43,7 @@ fn execute(test: &str) -> Result<(), Error> {
         .arg("-v")
         .arg(docker_sock)
         .arg("-w")
-        .arg(&container_prefix)
+        .arg(container_prefix)
         .arg("-e")
         .arg("RUST_BACKTRACE=1")
         .arg("-e")
