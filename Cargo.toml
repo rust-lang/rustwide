@@ -49,4 +49,5 @@ windows-sys = {version = "0.36.1", features = ["Win32_Foundation", "Win32_System
 
 [dev-dependencies]
 env_logger = "0.8"
+rand = "0.8.5"
 tiny_http = "0.8.0"
