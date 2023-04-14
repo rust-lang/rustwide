@@ -8,6 +8,7 @@ use std::process::Command;
 static DOCKER_IMAGE_TAG: &str = "ghcr.io/rust-lang/crates-build-env/linux-micro";
 static DOCKER_SOCKET: &str = "/var/run/docker.sock";
 static CONTAINER_PREFIX: &str = "/outside";
+static TARGET_PREFIX: &str = "/target";
 
 #[test]
 #[cfg(unix)]
@@ -26,20 +27,28 @@ fn execute(test: &str) -> Result<(), Error> {
     // The binary to execute is remapped to be prefixed by /outside instead of the current
     // directory.
     let current_dir = std::fs::canonicalize(".")?;
+    let target_parent_dir = match option_env!("CARGO_TARGET_DIR") {
+        Some(t) => Path::new(t).parent().unwrap(),
+        None => &current_dir,
+    };
     let current_exe = std::env::current_exe().unwrap();
     let container_prefix = Path::new(CONTAINER_PREFIX);
-    let container_exe = container_prefix.join(
+    let target_prefix = Path::new(TARGET_PREFIX);
+    let container_exe = target_prefix.join(
         current_exe
-            .strip_prefix(&current_dir)
-            .with_context(|_| "the working directory is not a parent of the test binary")?,
+            .strip_prefix(&target_parent_dir)
+            .with_context(|_| "could not determine cargo target dir")?,
     );
-    let mount = os_string!(&current_dir, ":", &container_prefix);
+    let src_mount = os_string!(&current_dir, ":", &container_prefix);
+    let target_mount = os_string!(&target_parent_dir, ":", &target_prefix);
     let docker_sock = os_string!(DOCKER_SOCKET, ":", DOCKER_SOCKET);
 
     Command::new("docker")
         .arg("run")
         .arg("-v")
-        .arg(mount)
+        .arg(src_mount)
+        .arg("-v")
+        .arg(target_mount)
         .arg("-v")
         .arg(docker_sock)
         .arg("-w")
