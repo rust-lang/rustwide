@@ -1,4 +1,5 @@
 use failure::Error;
+use rand::{distributions::Alphanumeric, Rng};
 use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
 use std::path::Path;
 
@@ -40,7 +41,16 @@ impl Runner {
         sandbox: SandboxBuilder,
         f: impl FnOnce(BuildBuilder) -> Result<T, Error>,
     ) -> Result<T, Error> {
-        let mut dir = self.workspace.build_dir(&self.crate_name);
+        // Use a random string at the end to avoid conflicts if multiple tests use the same source crate.
+        let suffix: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(10)
+            .map(char::from)
+            .collect();
+
+        let mut dir = self
+            .workspace
+            .build_dir(&format!("{}-{suffix}", &self.crate_name));
         dir.purge()?;
         f(dir.build(&self.toolchain, &self.krate, sandbox))
     }

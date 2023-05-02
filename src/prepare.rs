@@ -138,21 +138,40 @@ impl<'a> Prepare<'a> {
     }
 
     fn fetch_deps(&mut self) -> Result<(), Error> {
-        let mut missing_deps = false;
-        let res = Command::new(self.workspace, self.toolchain.cargo())
-            .args(&["fetch", "--manifest-path", "Cargo.toml"])
-            .cd(self.source_dir)
-            .process_lines(&mut |line, _| {
-                if line.contains("failed to load source for dependency") {
-                    missing_deps = true;
-                }
-            })
-            .run();
-        match res {
-            Ok(_) => Ok(()),
-            Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
-            err => err.map_err(|e| e.into()),
-        }
+        fetch_deps(self.workspace, self.toolchain, self.source_dir, &[])
+    }
+}
+
+pub(crate) fn fetch_deps(
+    workspace: &Workspace,
+    toolchain: &Toolchain,
+    source_dir: &Path,
+    fetch_build_std_targets: &[&str],
+) -> Result<(), Error> {
+    let mut missing_deps = false;
+    let mut cmd = Command::new(workspace, toolchain.cargo())
+        .args(&["fetch", "--manifest-path", "Cargo.toml"])
+        .cd(source_dir);
+    // Pass `-Zbuild-std` in case a build in the sandbox wants to use it;
+    // build-std has to have the source for libstd's dependencies available.
+    if !fetch_build_std_targets.is_empty() {
+        toolchain.add_component(workspace, "rust-src")?;
+        cmd = cmd.args(&["-Zbuild-std"]).env("RUSTC_BOOTSTRAP", "1");
+    }
+    for target in fetch_build_std_targets {
+        cmd = cmd.args(&["--target", target]);
+    }
+    let res = cmd
+        .process_lines(&mut |line, _| {
+            if line.contains("failed to load source for dependency") {
+                missing_deps = true;
+            }
+        })
+        .run();
+    match res {
+        Ok(_) => Ok(()),
+        Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
+        err => err.map_err(|e| e.into()),
     }
 }
 

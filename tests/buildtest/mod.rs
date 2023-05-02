@@ -27,6 +27,37 @@ fn test_hello_world() {
 }
 
 #[test]
+#[cfg(feature = "unstable")]
+fn test_fetch_build_std() {
+    use std::path::Path;
+
+    let target_file = Path::new(env!("OUT_DIR")).join("target");
+    let target = std::fs::read_to_string(target_file).unwrap();
+
+    runner::run("hello-world", |run| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+            build.fetch_build_std_dependencies(&vec![target.as_str()])?;
+            let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+                build
+                    .cargo()
+                    .env("RUSTC_BOOTSTRAP", "1")
+                    .args(&["run", "-Zbuild-std", "--target", &target])
+                    .run()?;
+                Ok(())
+            })?;
+
+            assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
+            assert!(storage
+                .to_string()
+                .contains("[stdout] Hello, world again!\n"));
+            Ok(())
+        })?;
+        Ok(())
+    });
+}
+
+#[test]
 fn path_based_patch() {
     runner::run("path-based-patch", |run| {
         run.build(SandboxBuilder::new().enable_networking(false), |builder| {

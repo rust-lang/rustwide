@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `Build::fetch_build_std_dependencies` for using `-Zbuild-std` within the sandbox when
+  networking is disabled. Previously, this would try to fetch the standard library sources, which
+  would error when networking was blocked.
+
 ## [0.15.2] - 2022-11-08
 
 ### Changed

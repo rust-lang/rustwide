@@ -314,4 +314,20 @@ impl<'ws> Build<'ws> {
     pub fn host_target_dir(&self) -> PathBuf {
         self.dir.target_dir()
     }
+
+    /// Pre-fetching the dependencies for `-Z build-std` outside the sandbox.
+    ///
+    /// When this function is called, it is possible to use `-Zbuild-std` inside
+    /// the sandbox to build the standard library from source even when
+    /// networking is disabled.
+    #[cfg(any(feature = "unstable", doc))]
+    #[cfg_attr(docs_rs, doc(cfg(feature = "unstable")))]
+    pub fn fetch_build_std_dependencies(&self, targets: &[&str]) -> Result<(), Error> {
+        crate::prepare::fetch_deps(
+            &self.dir.workspace,
+            self.toolchain,
+            &self.host_source_dir(),
+            targets,
+        )
+    }
 }
