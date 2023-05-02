@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.16.0] - 2023-05-02
+
 ### Added
 
 - New method `Build::fetch_build_std_dependencies` for using `-Zbuild-std` within the sandbox when
@@ -298,6 +300,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of Rustwide, extracted from Crater.
 
+[0.16.0]: https://github.com/rust-lang/rustwide/releases/tag/0.16.0
 [0.15.2]: https://github.com/rust-lang/rustwide/releases/tag/0.15.2
 [0.15.1]: https://github.com/rust-lang/rustwide/releases/tag/0.15.1
 [0.15.0]: https://github.com/rust-lang/rustwide/releases/tag/0.15.0
