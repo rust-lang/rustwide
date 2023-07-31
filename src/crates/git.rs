@@ -2,7 +2,7 @@ use super::CrateTrait;
 use crate::cmd::{Command, ProcessLinesActions};
 use crate::prepare::PrepareError;
 use crate::Workspace;
-use failure::{Error, ResultExt};
+use anyhow::{Context as _, Result};
 use log::{info, warn};
 use std::path::{Path, PathBuf};
 
@@ -63,7 +63,7 @@ impl GitRepo {
 }
 
 impl CrateTrait for GitRepo {
-    fn fetch(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn fetch(&self, workspace: &Workspace) -> Result<()> {
         // The credential helper that suppresses the password prompt shows this message when a
         // repository requires authentication:
         //
@@ -86,7 +86,7 @@ impl CrateTrait for GitRepo {
                 .cd(&path)
                 .process_lines(&mut detect_private_repositories)
                 .run()
-                .with_context(|_| format!("failed to update {}", self.url))
+                .with_context(|| format!("failed to update {}", self.url))
         } else {
             info!("cloning repository {}", self.url);
             Command::new(workspace, "git")
@@ -95,7 +95,7 @@ impl CrateTrait for GitRepo {
                 .args(&[&path])
                 .process_lines(&mut detect_private_repositories)
                 .run()
-                .with_context(|_| format!("failed to clone {}", self.url))
+                .with_context(|| format!("failed to clone {}", self.url))
         };
 
         if private_repository && res.is_err() {
@@ -105,7 +105,7 @@ impl CrateTrait for GitRepo {
         }
     }
 
-    fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn purge_from_cache(&self, workspace: &Workspace) -> Result<()> {
         let path = self.cached_path(workspace);
         if path.exists() {
             crate::utils::remove_dir_all(&path)?;
@@ -113,12 +113,12 @@ impl CrateTrait for GitRepo {
         Ok(())
     }
 
-    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
+    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<()> {
         Command::new(workspace, "git")
             .args(&["clone"])
             .args(&[self.cached_path(workspace).as_path(), dest])
             .run()
-            .with_context(|_| format!("failed to checkout {}", self.url))?;
+            .with_context(|| format!("failed to checkout {}", self.url))?;
         Ok(())
     }
 }

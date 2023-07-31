@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Result;
 use rustwide::cmd::SandboxBuilder;
 use rustwide::{Crate, Toolchain};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 const WORKSPACE_NAME: &str = "purge-caches";
 
 #[test]
-fn test_purge_caches() -> Result<(), Error> {
+fn test_purge_caches() -> Result<()> {
     let workspace_path = crate::utils::workspace_path(WORKSPACE_NAME);
     let workspace = crate::utils::init_named_workspace(WORKSPACE_NAME)?;
 
@@ -76,7 +76,7 @@ struct WorkspaceContents {
 }
 
 impl WorkspaceContents {
-    fn collect(path: &Path) -> Result<Self, Error> {
+    fn collect(path: &Path) -> Result<Self> {
         let mut files = HashMap::new();
 
         for entry in walkdir::WalkDir::new(path)

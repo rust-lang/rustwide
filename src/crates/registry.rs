@@ -1,6 +1,6 @@
 use super::CrateTrait;
 use crate::Workspace;
-use failure::{Error, ResultExt};
+use anyhow::{Context as _, Result};
 use flate2::read::GzDecoder;
 use log::info;
 use std::fs::File;
@@ -88,7 +88,7 @@ impl RegistryCrate {
             .join(format!("{}-{}.crate", self.name, self.version))
     }
 
-    fn fetch_url(&self, workspace: &Workspace) -> Result<String, Error> {
+    fn fetch_url(&self, workspace: &Workspace) -> Result<String> {
         match &self.registry {
             Registry::CratesIo => Ok(format!(
                 "{0}/{1}/{1}-{2}.crate",
@@ -122,7 +122,7 @@ impl RegistryCrate {
                     git2::build::RepoBuilder::new()
                         .fetch_options(fo)
                         .clone(url, &index_path)
-                        .with_context(|_| format!("unable to update_index at {}", url))?;
+                        .with_context(|| format!("unable to update_index at {}", url))?;
                     info!("cloned registry index");
                 }
                 let config = std::fs::read_to_string(index_path.join("config.json"))?;
@@ -151,7 +151,7 @@ impl RegistryCrate {
 }
 
 impl CrateTrait for RegistryCrate {
-    fn fetch(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn fetch(&self, workspace: &Workspace) -> Result<()> {
         let local = self.cache_path(workspace);
         if local.exists() {
             info!("crate {} {} is already in cache", self.name, self.version);
@@ -173,7 +173,7 @@ impl CrateTrait for RegistryCrate {
         Ok(())
     }
 
-    fn purge_from_cache(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn purge_from_cache(&self, workspace: &Workspace) -> Result<()> {
         let path = self.cache_path(workspace);
         if path.exists() {
             crate::utils::remove_file(&path)?;
@@ -181,7 +181,7 @@ impl CrateTrait for RegistryCrate {
         Ok(())
     }
 
-    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<(), Error> {
+    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<()> {
         let cached = self.cache_path(workspace);
         let mut file = File::open(cached)?;
         let mut tar = Archive::new(GzDecoder::new(BufReader::new(&mut file)));
@@ -194,12 +194,10 @@ impl CrateTrait for RegistryCrate {
         );
         if let Err(err) = unpack_without_first_dir(&mut tar, dest) {
             let _ = crate::utils::remove_dir_all(dest);
-            Err(err
-                .context(format!(
-                    "unable to download {} version {}",
-                    self.name, self.version
-                ))
-                .into())
+            Err(err.context(format!(
+                "unable to download {} version {}",
+                self.name, self.version
+            )))
         } else {
             Ok(())
         }
@@ -218,7 +216,7 @@ impl std::fmt::Display for RegistryCrate {
     }
 }
 
-fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> Result<(), Error> {
+fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> Result<()> {
     let entries = archive.entries()?;
     for entry in entries {
         let mut entry = entry?;

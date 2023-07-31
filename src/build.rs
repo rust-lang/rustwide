@@ -1,7 +1,7 @@
 use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
 use crate::prepare::Prepare;
 use crate::{Crate, Toolchain, Workspace};
-use failure::Error;
+use anyhow::Result;
 use std::path::PathBuf;
 use std::vec::Vec;
 
@@ -131,7 +131,7 @@ impl<'a> BuildBuilder<'a> {
     /// })?;
     /// # Ok(())
     /// # }
-    pub fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(self, f: F) -> Result<R, Error> {
+    pub fn run<R, F: FnOnce(&Build) -> Result<R>>(self, f: F) -> Result<R> {
         self.build_dir
             .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
@@ -181,14 +181,14 @@ impl BuildDirectory {
         }
     }
 
-    pub(crate) fn run<R, F: FnOnce(&Build) -> Result<R, Error>>(
+    pub(crate) fn run<R, F: FnOnce(&Build) -> Result<R>>(
         &mut self,
         toolchain: &Toolchain,
         krate: &Crate,
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
         f: F,
-    ) -> Result<R, Error> {
+    ) -> Result<R> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
             crate::utils::remove_dir_all(&source_dir)?;
@@ -209,7 +209,7 @@ impl BuildDirectory {
     }
 
     /// Remove all the contents of the build directory, freeing disk space.
-    pub fn purge(&mut self) -> Result<(), Error> {
+    pub fn purge(&mut self) -> Result<()> {
         let build_dir = self.build_dir();
         if build_dir.exists() {
             crate::utils::remove_dir_all(&build_dir)?;
@@ -322,7 +322,7 @@ impl<'ws> Build<'ws> {
     /// networking is disabled.
     #[cfg(any(feature = "unstable", doc))]
     #[cfg_attr(docs_rs, doc(cfg(feature = "unstable")))]
-    pub fn fetch_build_std_dependencies(&self, targets: &[&str]) -> Result<(), Error> {
+    pub fn fetch_build_std_dependencies(&self, targets: &[&str]) -> Result<()> {
         crate::prepare::fetch_deps(
             &self.dir.workspace,
             self.toolchain,
