@@ -2,7 +2,7 @@ use crate::cmd::{Binary, Command, Runnable};
 use crate::toolchain::MAIN_TOOLCHAIN_NAME;
 use crate::tools::{Tool, RUSTUP};
 use crate::workspace::Workspace;
-use failure::{Error, ResultExt};
+use anyhow::{Context as _, Result};
 use std::env::consts::EXE_SUFFIX;
 use std::fs::{self, File};
 use std::io;
@@ -23,7 +23,7 @@ impl Tool for Rustup {
         "rustup"
     }
 
-    fn is_installed(&self, workspace: &Workspace) -> Result<bool, Error> {
+    fn is_installed(&self, workspace: &Workspace) -> Result<bool> {
         let path = self.binary_path(workspace);
         if !path.is_file() {
             return Ok(false);
@@ -32,7 +32,7 @@ impl Tool for Rustup {
         crate::native::is_executable(path)
     }
 
-    fn install(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
+    fn install(&self, workspace: &Workspace, _fast_install: bool) -> Result<()> {
         fs::create_dir_all(workspace.cargo_home())?;
         fs::create_dir_all(workspace.rustup_home())?;
 
@@ -68,20 +68,20 @@ impl Tool for Rustup {
             .env("RUSTUP_HOME", workspace.rustup_home())
             .env("CARGO_HOME", workspace.cargo_home())
             .run()
-            .with_context(|_| "unable to install rustup")?;
+            .context("unable to install rustup")?;
 
         Ok(())
     }
 
-    fn update(&self, workspace: &Workspace, _fast_install: bool) -> Result<(), Error> {
+    fn update(&self, workspace: &Workspace, _fast_install: bool) -> Result<()> {
         Command::new(workspace, &RUSTUP)
             .args(&["self", "update"])
             .run()
-            .with_context(|_| "failed to update rustup")?;
+            .context("failed to update rustup")?;
         Command::new(workspace, &RUSTUP)
             .args(&["update", MAIN_TOOLCHAIN_NAME])
             .run()
-            .with_context(|_| format!("failed to update main toolchain {}", MAIN_TOOLCHAIN_NAME))?;
+            .with_context(|| format!("failed to update main toolchain {}", MAIN_TOOLCHAIN_NAME))?;
         Ok(())
     }
 }

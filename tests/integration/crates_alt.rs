@@ -1,10 +1,10 @@
-use failure::Error;
+use anyhow::Result;
 use rustwide::{AlternativeRegistry, Crate};
 
 const INDEX_URL: &str = "https://github.com/rust-lang/staging.crates.io-index";
 
 #[test]
-fn test_fetch() -> Result<(), Error> {
+fn test_fetch() -> Result<()> {
     let workspace = crate::utils::init_workspace()?;
 
     let alt = AlternativeRegistry::new(INDEX_URL);

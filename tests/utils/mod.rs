@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Result;
 use log::LevelFilter;
 use rustwide::{cmd::SandboxImage, Workspace, WorkspaceBuilder};
 use std::path::{Path, PathBuf};
@@ -9,11 +9,11 @@ pub(crate) fn workspace_path(name: &str) -> PathBuf {
     Path::new(".workspaces").join(name)
 }
 
-pub(crate) fn init_workspace() -> Result<Workspace, Error> {
+pub(crate) fn init_workspace() -> Result<Workspace> {
     init_named_workspace("integration")
 }
 
-pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace, Error> {
+pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace> {
     init_logs();
     let workspace_path = workspace_path(name);
     let mut builder = WorkspaceBuilder::new(&workspace_path, USER_AGENT).fast_init(true);
