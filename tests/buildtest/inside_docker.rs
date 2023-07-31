@@ -1,6 +1,6 @@
 #![cfg_attr(windows, allow(unused))]
 
-use failure::{Error, ResultExt};
+use anyhow::{Context, Result};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -22,7 +22,7 @@ fn test_path_based_patch() {
     execute("buildtest::path_based_patch").unwrap();
 }
 
-fn execute(test: &str) -> Result<(), Error> {
+fn execute(test: &str) -> Result<()> {
     // The current working directory is mounted in the container to /outside.
     // The binary to execute is remapped to be prefixed by /outside instead of the current
     // directory.
@@ -37,7 +37,7 @@ fn execute(test: &str) -> Result<(), Error> {
     let container_exe = target_prefix.join(
         current_exe
             .strip_prefix(target_parent_dir)
-            .with_context(|_| "could not determine cargo target dir")?,
+            .context("could not determine cargo target dir")?,
     );
     let src_mount = os_string!(&current_dir, ":", &container_prefix);
     let target_mount = os_string!(&target_parent_dir, ":", &target_prefix);
@@ -69,13 +69,13 @@ fn execute(test: &str) -> Result<(), Error> {
 }
 
 trait CommandExt {
-    fn map_user_group(&mut self) -> Result<&mut Self, Error>;
-    fn assert(&mut self) -> Result<(), Error>;
+    fn map_user_group(&mut self) -> Result<&mut Self>;
+    fn assert(&mut self) -> Result<()>;
 }
 
 impl CommandExt for Command {
     #[cfg(unix)]
-    fn map_user_group(&mut self) -> Result<&mut Self, Error> {
+    fn map_user_group(&mut self) -> Result<&mut Self> {
         use std::os::unix::fs::MetadataExt;
         let gid = std::fs::metadata(DOCKER_SOCKET)?.gid();
         let uid = nix::unistd::Uid::effective();
@@ -85,11 +85,11 @@ impl CommandExt for Command {
     }
 
     #[cfg(windows)]
-    fn map_user_group(&mut self) -> Result<&mut Self, Error> {
+    fn map_user_group(&mut self) -> Result<&mut Self> {
         Ok(self)
     }
 
-    fn assert(&mut self) -> Result<(), Error> {
+    fn assert(&mut self) -> Result<()> {
         let out = self.output()?;
         if !out.status.success() {
             eprintln!("failed to execute command {:?}", self);
@@ -97,7 +97,7 @@ impl CommandExt for Command {
             std::io::stderr().lock().write_all(&out.stdout)?;
             eprintln!("stderr:");
             std::io::stderr().lock().write_all(&out.stderr)?;
-            failure::bail!("failed to execute command {:?}", self);
+            anyhow::bail!("failed to execute command {:?}", self);
         }
         Ok(())
     }

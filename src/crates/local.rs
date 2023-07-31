@@ -1,6 +1,6 @@
 use super::CrateTrait;
 use crate::Workspace;
-use failure::Error;
+use anyhow::Result;
 use log::info;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -16,17 +16,17 @@ impl Local {
 }
 
 impl CrateTrait for Local {
-    fn fetch(&self, _workspace: &Workspace) -> Result<(), Error> {
+    fn fetch(&self, _workspace: &Workspace) -> Result<()> {
         // There is no fetch to do for a local crate.
         Ok(())
     }
 
-    fn purge_from_cache(&self, _workspace: &Workspace) -> Result<(), Error> {
+    fn purge_from_cache(&self, _workspace: &Workspace) -> Result<()> {
         // There is no cache to purge for a local crate.
         Ok(())
     }
 
-    fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> Result<(), Error> {
+    fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> Result<()> {
         info!(
             "copying local crate from {} to {}",
             self.path.display(),
@@ -43,7 +43,7 @@ impl std::fmt::Display for Local {
     }
 }
 
-fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
+fn copy_dir(src: &Path, dest: &Path) -> Result<()> {
     let src = crate::utils::normalize_path(src);
     let dest = crate::utils::normalize_path(dest);
 
@@ -75,10 +75,10 @@ fn copy_dir(src: &Path, dest: &Path) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use failure::Error;
+    use anyhow::Result;
 
     #[test]
-    fn test_copy_dir() -> Result<(), Error> {
+    fn test_copy_dir() -> Result<()> {
         let tmp_src = tempfile::tempdir()?;
         let tmp_dest = tempfile::tempdir()?;
 
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_copy_target() -> Result<(), Error> {
+    fn test_no_copy_target() -> Result<()> {
         let (src, dest) = (tempfile::tempdir()?, tempfile::tempdir()?);
         std::fs::create_dir(src.path().join("target"))?;
         std::fs::write(
@@ -116,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_symlinks() -> Result<(), Error> {
+    fn test_copy_symlinks() -> Result<()> {
         use std::{fs, os, path::Path};
 
         let tmp_src = tempfile::tempdir()?;

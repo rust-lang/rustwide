@@ -1,6 +1,6 @@
 use crate::cmd::Command;
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
-use failure::{Error, Fail, ResultExt};
+use anyhow::{Context as _, Result};
 use log::info;
 use std::path::Path;
 use toml::{
@@ -33,7 +33,7 @@ impl<'a> Prepare<'a> {
         }
     }
 
-    pub(crate) fn prepare(&mut self) -> Result<(), Error> {
+    pub(crate) fn prepare(&mut self) -> Result<()> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
         self.validate_manifest()?;
         self.remove_override_files()?;
@@ -44,7 +44,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn validate_manifest(&self) -> Result<(), Error> {
+    fn validate_manifest(&self) -> Result<()> {
         info!(
             "validating manifest of {} on toolchain {}",
             self.krate, self.toolchain
@@ -67,7 +67,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn remove_override_files(&self) -> Result<(), Error> {
+    fn remove_override_files(&self) -> Result<()> {
         let paths = [
             &Path::new(".cargo").join("config"),
             &Path::new(".cargo").join("config.toml"),
@@ -84,7 +84,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn tweak_toml(&self) -> Result<(), Error> {
+    fn tweak_toml(&self) -> Result<()> {
         let path = self.source_dir.join("Cargo.toml");
         let mut tweaker = TomlTweaker::new(self.krate, &path, &self.patches)?;
         tweaker.tweak();
@@ -92,7 +92,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn capture_lockfile(&mut self) -> Result<(), Error> {
+    fn capture_lockfile(&mut self) -> Result<()> {
         if self.source_dir.join("Cargo.lock").exists() {
             info!(
                 "crate {} already has a lockfile, it will not be regenerated",
@@ -137,7 +137,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn fetch_deps(&mut self) -> Result<(), Error> {
+    fn fetch_deps(&mut self) -> Result<()> {
         fetch_deps(self.workspace, self.toolchain, self.source_dir, &[])
     }
 }
@@ -147,7 +147,7 @@ pub(crate) fn fetch_deps(
     toolchain: &Toolchain,
     source_dir: &Path,
     fetch_build_std_targets: &[&str],
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut missing_deps = false;
     let mut cmd = Command::new(workspace, toolchain.cargo())
         .args(&["fetch", "--manifest-path", "Cargo.toml"])
@@ -183,15 +183,11 @@ struct TomlTweaker<'a> {
 }
 
 impl<'a> TomlTweaker<'a> {
-    pub fn new(
-        krate: &'a Crate,
-        cargo_toml: &'a Path,
-        patches: &[CratePatch],
-    ) -> Result<Self, Error> {
-        let toml_content = ::std::fs::read_to_string(cargo_toml)
-            .with_context(|_| PrepareError::MissingCargoToml)?;
+    pub fn new(krate: &'a Crate, cargo_toml: &'a Path, patches: &[CratePatch]) -> Result<Self> {
+        let toml_content =
+            ::std::fs::read_to_string(cargo_toml).context(PrepareError::MissingCargoToml)?;
         let table: Table =
-            toml::from_str(&toml_content).with_context(|_| PrepareError::InvalidCargoTomlSyntax)?;
+            toml::from_str(&toml_content).context(PrepareError::InvalidCargoTomlSyntax)?;
 
         let dir = cargo_toml.parent();
 
@@ -353,7 +349,7 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    pub fn save(self, output_file: &Path) -> Result<(), Error> {
+    pub fn save(self, output_file: &Path) -> Result<()> {
         let crate_name = self.krate.to_string();
         ::std::fs::write(output_file, toml::to_string(&self.table)?.as_bytes())?;
         info!(
@@ -367,24 +363,24 @@ impl<'a> TomlTweaker<'a> {
 }
 
 /// Error happened while preparing a crate for a build.
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PrepareError {
     /// The git repository isn't publicly available.
-    #[fail(display = "can't fetch private git repositories")]
+    #[error("can't fetch private git repositories")]
     PrivateGitRepository,
     /// The crate doesn't have a `Cargo.toml` in its source code.
-    #[fail(display = "missing Cargo.toml")]
+    #[error("missing Cargo.toml")]
     MissingCargoToml,
     /// The crate's Cargo.toml is invalid, either due to a TOML syntax error in it or cargo
     /// rejecting it.
-    #[fail(display = "invalid Cargo.toml syntax")]
+    #[error("invalid Cargo.toml syntax")]
     InvalidCargoTomlSyntax,
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
-    #[fail(display = "the crate depends on yanked dependencies")]
+    #[error("the crate depends on yanked dependencies")]
     YankedDependencies,
     /// Some of the dependencies do not exist anymore.
-    #[fail(display = "the crate depends on missing dependencies")]
+    #[error("the crate depends on missing dependencies")]
     MissingDependencies,
 }
 

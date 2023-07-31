@@ -1,9 +1,9 @@
-use failure::Error;
+use anyhow::Result;
 use rand::{distributions::Alphanumeric, Rng};
 use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
 use std::path::Path;
 
-pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<(), Error>) {
+pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> Result<()>) {
     let mut runner = Runner::new(crate_name).unwrap();
     f(&mut runner).unwrap();
 }
@@ -16,7 +16,7 @@ pub(crate) struct Runner {
 }
 
 impl Runner {
-    fn new(crate_name: &str) -> Result<Self, Error> {
+    fn new(crate_name: &str) -> Result<Self> {
         let workspace = crate::utils::init_workspace()?;
         let krate = Crate::local(
             &Path::new("tests")
@@ -39,8 +39,8 @@ impl Runner {
     pub(crate) fn build<T>(
         &self,
         sandbox: SandboxBuilder,
-        f: impl FnOnce(BuildBuilder) -> Result<T, Error>,
-    ) -> Result<T, Error> {
+        f: impl FnOnce(BuildBuilder) -> Result<T>,
+    ) -> Result<T> {
         // Use a random string at the end to avoid conflicts if multiple tests use the same source crate.
         let suffix: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)
@@ -58,8 +58,8 @@ impl Runner {
     pub(crate) fn run<T>(
         &self,
         sandbox: SandboxBuilder,
-        f: impl FnOnce(&Build) -> Result<T, Error>,
-    ) -> Result<T, Error> {
+        f: impl FnOnce(&Build) -> Result<T>,
+    ) -> Result<T> {
         self.build(sandbox, |builder| builder.run(f))
     }
 }

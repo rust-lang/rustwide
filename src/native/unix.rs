@@ -1,6 +1,6 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
-use failure::Error;
+use anyhow::Result;
 use nix::{
     sys::signal::{kill, Signal},
     unistd::{Gid, Pid, Uid},
@@ -29,7 +29,7 @@ pub(crate) fn current_user() -> Option<CurrentUser> {
     })
 }
 
-fn executable_mode_for(path: &Path) -> Result<u32, Error> {
+fn executable_mode_for(path: &Path) -> Result<u32> {
     let metadata = path.metadata()?;
 
     let user = current_user().unwrap();
@@ -43,14 +43,14 @@ fn executable_mode_for(path: &Path) -> Result<u32, Error> {
     }
 }
 
-pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool, Error> {
+pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool> {
     let path = path.as_ref();
 
     let expected_mode = executable_mode_for(path)?;
     Ok(path.metadata()?.mode() & expected_mode == expected_mode)
 }
 
-pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<(), Error> {
+pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<()> {
     let path = path.as_ref();
 
     // Set the executable and readable bits on the file
