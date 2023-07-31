@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Result;
 use log::LevelFilter;
 use rustwide::cmd::{ProcessLinesActions, SandboxBuilder};
 
@@ -11,7 +11,7 @@ fn test_hello_world() {
     runner::run("hello-world", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+            rustwide::logging::capture(&storage, || -> Result<_> {
                 build.cargo().args(&["run"]).run()?;
                 Ok(())
             })?;
@@ -36,9 +36,9 @@ fn test_fetch_build_std() {
 
     runner::run("hello-world", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
-            build.fetch_build_std_dependencies(&vec![target.as_str()])?;
+            build.fetch_build_std_dependencies(&[target.as_str()])?;
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+            rustwide::logging::capture(&storage, || -> Result<_> {
                 build
                     .cargo()
                     .env("RUSTC_BOOTSTRAP", "1")
@@ -65,7 +65,7 @@ fn path_based_patch() {
                 .patch_with_path("empty-library", "./patch")
                 .run(move |build| {
                     let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-                    rustwide::logging::capture(&storage, || -> Result<_, Error> {
+                    rustwide::logging::capture(&storage, || -> Result<_> {
                         build.cargo().args(&["run"]).run()?;
                         Ok(())
                     })?;
@@ -87,7 +87,7 @@ fn test_process_lines() {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             let mut ex = false;
-            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+            rustwide::logging::capture(&storage, || -> Result<_> {
                 build
                     .cargo()
                     .process_lines(&mut |line: &str, actions: &mut ProcessLinesActions| {
@@ -142,7 +142,7 @@ fn test_override_files() {
     runner::run("cargo-config", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+            rustwide::logging::capture(&storage, || -> Result<_> {
                 build.cargo().args(&["--version"]).run()?;
                 Ok(())
             })?;
@@ -161,7 +161,7 @@ fn test_cargo_workspace() {
     runner::run("cargo-workspace", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
-            rustwide::logging::capture(&storage, || -> Result<_, Error> {
+            rustwide::logging::capture(&storage, || -> Result<_> {
                 build.cargo().args(&["run"]).run()?;
                 Ok(())
             })?;

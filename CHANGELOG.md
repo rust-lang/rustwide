@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING** migrated generic error return types from `failure::Error` to `anyhow::Error`.
+- **BREAKING** `prepare::PrepareError` is now based on `thiserror::Error`, and not `failure::Fail` any more.
+- **BREAKING** `toolchain::ToolchainError` is now based on `thiserror::Error`, and not `failure::Fail` any more.
 - Update `attohttpc` dependency to 0.28
 - Update `base64` dependency to 0.22
 - Update `env_logger` dependency to 0.11

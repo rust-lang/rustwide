@@ -5,7 +5,7 @@ use crate::tools::RUSTUP;
 #[cfg(feature = "unstable-toolchain-ci")]
 use crate::tools::RUSTUP_TOOLCHAIN_INSTALL_MASTER;
 use crate::Workspace;
-use failure::{Error, ResultExt};
+use anyhow::{anyhow, Context as _, Result};
 use log::info;
 use std::borrow::Cow;
 use std::path::Path;
@@ -13,18 +13,18 @@ use std::path::Path;
 pub(crate) const MAIN_TOOLCHAIN_NAME: &str = "stable";
 
 /// Error caused by methods in the `toolchain` moodule.
-#[derive(Debug, failure::Fail)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ToolchainError {
     /// The toolchain is not installed in the workspace, but the called method requires it to be
     /// present.  Use the [`Toolchain::Install`](struct.Toolchain.html#method.install) method to
     /// install it inside the workspace.
-    #[fail(display = "the toolchain is not installed")]
+    #[error("the toolchain is not installed")]
     NotInstalled,
     /// Not every method can be called with every kind of toolchain. If you receive this error
     /// please check the documentation of the method you're calling to see which toolchains can you
     /// use with it.
-    #[fail(display = "unsupported operation on this toolchain")]
+    #[error("unsupported operation on this toolchain")]
     UnsupportedOperation,
 }
 
@@ -40,7 +40,7 @@ impl DistToolchain {
         self.name.as_ref()
     }
 
-    fn init(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn init(&self, workspace: &Workspace) -> Result<()> {
         info!("installing toolchain {}", self.name());
         Command::new(workspace, &RUSTUP)
             .args(&[
@@ -51,7 +51,7 @@ impl DistToolchain {
                 workspace.rustup_profile(),
             ])
             .run()
-            .with_context(|_| format!("unable to install toolchain {} via rustup", self.name()))?;
+            .with_context(|| format!("unable to install toolchain {} via rustup", self.name()))?;
 
         Ok(())
     }
@@ -123,7 +123,7 @@ impl CiToolchain {
         self.alt
     }
 
-    fn init(&self, workspace: &Workspace) -> Result<(), Error> {
+    fn init(&self, workspace: &Workspace) -> Result<()> {
         if self.alt {
             info!("installing toolchain {}-alt", self.sha);
         } else {
@@ -138,7 +138,7 @@ impl CiToolchain {
         Command::new(workspace, &RUSTUP_TOOLCHAIN_INSTALL_MASTER)
             .args(&args)
             .run()
-            .with_context(|_| {
+            .with_context(|| {
                 format!(
                     "unable to install toolchain {} via rustup-toolchain-install-master",
                     self.sha
@@ -255,7 +255,7 @@ impl Toolchain {
     }
 
     /// Download and install the toolchain.
-    pub fn install(&self, workspace: &Workspace) -> Result<(), Error> {
+    pub fn install(&self, workspace: &Workspace) -> Result<()> {
         match &self.inner {
             ToolchainInner::Dist(dist) => dist.init(workspace)?,
             #[cfg(feature = "unstable-toolchain-ci")]
@@ -266,12 +266,12 @@ impl Toolchain {
     }
 
     /// Download and install a component for the toolchain.
-    pub fn add_component(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+    pub fn add_component(&self, workspace: &Workspace, name: &str) -> Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Component, name)
     }
 
     /// Remove a component already installed for the toolchain.
-    pub fn remove_component(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+    pub fn remove_component(&self, workspace: &Workspace, name: &str) -> Result<()> {
         self.change_rustup_thing(
             workspace,
             RustupAction::Remove,
@@ -284,7 +284,7 @@ impl Toolchain {
     ///
     /// If the toolchain is not installed in the workspace an error will be returned. This is only
     /// supported for dist toolchains.
-    pub fn add_target(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+    pub fn add_target(&self, workspace: &Workspace, name: &str) -> Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Target, name)
     }
 
@@ -292,14 +292,14 @@ impl Toolchain {
     ///
     /// If the toolchain is not installed in the workspace or the target is missing an error will
     /// be returned. This is only supported for dist toolchains.
-    pub fn remove_target(&self, workspace: &Workspace, name: &str) -> Result<(), Error> {
+    pub fn remove_target(&self, workspace: &Workspace, name: &str) -> Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Remove, RustupThing::Target, name)
     }
 
     /// Return a list of installed targets for this toolchain.
     ///
     /// If the toolchain is not installed an empty list is returned.
-    pub fn installed_targets(&self, workspace: &Workspace) -> Result<Vec<String>, Error> {
+    pub fn installed_targets(&self, workspace: &Workspace) -> Result<Vec<String>> {
         self.list_rustup_things(workspace, RustupThing::Target)
     }
 
@@ -309,7 +309,7 @@ impl Toolchain {
         action: RustupAction,
         thing: RustupThing,
         name: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let (log_action, log_action_ing) = match action {
             RustupAction::Add => ("add", "adding"),
             RustupAction::Remove => ("remove", "removing"),
@@ -321,7 +321,7 @@ impl Toolchain {
         #[cfg(feature = "unstable-toolchain-ci")]
         if let ToolchainInner::CI(ci) = &self.inner {
             if let RustupAction::Remove = action {
-                failure::bail!("removing {thing} on CI toolchains is not supported yet");
+                anyhow::bail!("removing {thing} on CI toolchains is not supported yet");
             }
 
             let mut args = Vec::with_capacity(6);
@@ -345,7 +345,7 @@ impl Toolchain {
             Command::new(workspace, &RUSTUP_TOOLCHAIN_INSTALL_MASTER)
                 .args(&args)
                 .run()
-                .with_context(|_| {
+                .with_context(|| {
                     format!(
                         "unable to {log_action} {thing} {name} for CI toolchain {toolchain_name} \
                             via rustup-toolchain-install-master"
@@ -367,7 +367,7 @@ impl Toolchain {
                 name,
             ])
             .run()
-            .with_context(|_| {
+            .with_context(|| {
                 format!(
                     "unable to {log_action} {thing} {name} for toolchain {toolchain_name} via rustup"
                 )
@@ -375,11 +375,7 @@ impl Toolchain {
         Ok(())
     }
 
-    fn list_rustup_things(
-        &self,
-        workspace: &Workspace,
-        thing: RustupThing,
-    ) -> Result<Vec<String>, Error> {
+    fn list_rustup_things(&self, workspace: &Workspace, thing: RustupThing) -> Result<Vec<String>> {
         let thing = thing.to_string();
         let name = if let Some(dist) = self.as_dist() {
             dist.name()
@@ -406,22 +402,20 @@ impl Toolchain {
                 .cloned()
                 .collect()),
             Err(_) if not_installed => Err(ToolchainError::NotInstalled.into()),
-            Err(err) => Err(Error::from(err)
-                .context(format!(
-                    "failed to read the list of installed {}s for {} with rustup",
-                    thing, name
-                ))
-                .into()),
+            Err(err) => Err(anyhow!(err).context(format!(
+                "failed to read the list of installed {}s for {} with rustup",
+                thing, name
+            ))),
         }
     }
 
     /// Remove the toolchain from the rustwide workspace, freeing up disk space.
-    pub fn uninstall(&self, workspace: &Workspace) -> Result<(), Error> {
+    pub fn uninstall(&self, workspace: &Workspace) -> Result<()> {
         let name = self.rustup_name();
         Command::new(workspace, &RUSTUP)
             .args(&["toolchain", "uninstall", &name])
             .run()
-            .with_context(|_| format!("unable to uninstall toolchain {} via rustup", name))?;
+            .with_context(|| format!("unable to uninstall toolchain {} via rustup", name))?;
         Ok(())
     }
 
@@ -522,7 +516,7 @@ impl Runnable for RustupProxy<'_> {
     }
 }
 
-pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolchain>, Error> {
+pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolchain>> {
     let update_hashes = rustup_home.join("update-hashes");
 
     let mut result = Vec::new();
@@ -531,7 +525,7 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
         let name = entry
             .file_name()
             .to_str()
-            .ok_or_else(|| failure::err_msg("non-utf8 toolchain name"))?
+            .ok_or_else(|| anyhow!("non-utf8 toolchain name"))?
             .to_string();
         // A toolchain installed by rustup has a corresponding file in $RUSTUP_HOME/update-hashes
         // A toolchain linked by rustup is just a symlink
@@ -555,10 +549,10 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
 #[cfg(test)]
 mod tests {
     use super::Toolchain;
-    use failure::Error;
+    use anyhow::Result;
 
     #[test]
-    fn test_dist_serde_repr() -> Result<(), Error> {
+    fn test_dist_serde_repr() -> Result<()> {
         const DIST: &str = r#"{"type": "dist", "name": "stable"}"#;
 
         assert_eq!(Toolchain::dist("stable"), serde_json::from_str(DIST)?);
@@ -568,7 +562,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "unstable-toolchain-ci")]
-    fn test_ci_serde_repr() -> Result<(), Error> {
+    fn test_ci_serde_repr() -> Result<()> {
         const CI_NORMAL: &str = r#"{"type": "ci", "sha": "0000000", "alt": false}"#;
         const CI_ALT: &str = r#"{"type": "ci", "sha": "0000000", "alt": true}"#;
 
@@ -585,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_installed() -> Result<(), Error> {
+    fn test_list_installed() -> Result<()> {
         const DIST_NAME: &str = "stable-x86_64-unknown-linux-gnu";
         const LINK_NAME: &str = "stage1";
         const CI_SHA: &str = "0000000000000000000000000000000000000000";

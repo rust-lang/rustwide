@@ -1,6 +1,6 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
-use failure::Error;
+use anyhow::{anyhow, Result};
 use std::fs::File;
 use std::path::Path;
 use windows_sys::Win32::Foundation::CloseHandle;
@@ -29,26 +29,26 @@ pub(crate) fn current_user() -> Option<CurrentUser> {
     None
 }
 
-fn path_ends_in_exe<P: AsRef<Path>>(path: P) -> Result<bool, Error> {
+fn path_ends_in_exe<P: AsRef<Path>>(path: P) -> Result<bool> {
     path.as_ref()
         .extension()
-        .ok_or_else(|| failure::format_err!("Unable to get `Path` extension"))
+        .ok_or_else(|| anyhow!("Unable to get `Path` extension"))
         .map(|ext| ext == "exe")
 }
 
 /// Check that the file exists and has `.exe` as its extension.
-pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool, Error> {
+pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool> {
     let path = path.as_ref();
     File::open(path)
         .map_err(Into::into)
         .and_then(|_| path_ends_in_exe(path))
 }
 
-pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<(), Error> {
+pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<()> {
     if is_executable(path)? {
         Ok(())
     } else {
-        failure::bail!("Downloaded binaries should be executable by default");
+        anyhow::bail!("Downloaded binaries should be executable by default");
     }
 }
 
