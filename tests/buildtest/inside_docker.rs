@@ -36,7 +36,7 @@ fn execute(test: &str) -> Result<(), Error> {
     let target_prefix = Path::new(TARGET_PREFIX);
     let container_exe = target_prefix.join(
         current_exe
-            .strip_prefix(&target_parent_dir)
+            .strip_prefix(target_parent_dir)
             .with_context(|_| "could not determine cargo target dir")?,
     );
     let src_mount = os_string!(&current_dir, ":", &container_prefix);

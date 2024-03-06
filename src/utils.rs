@@ -108,26 +108,6 @@ fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn custom_remove_error() {
-        let path = "test/path".as_ref();
-
-        let expected = "failed to remove 'test/path' : Kind(PermissionDenied)";
-        let tested = format!(
-            "{}",
-            improve_remove_error(
-                std::io::Error::from(std::io::ErrorKind::PermissionDenied),
-                path
-            )
-        );
-        assert_eq!(expected, tested);
-    }
-}
-
 pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     let mut p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
 
@@ -161,6 +141,26 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     }
 
     p
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_remove_error() {
+        let path = "test/path".as_ref();
+
+        let expected = "failed to remove 'test/path' : Kind(PermissionDenied)";
+        let tested = format!(
+            "{}",
+            improve_remove_error(
+                std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+                path
+            )
+        );
+        assert_eq!(expected, tested);
+    }
 }
 
 #[cfg(test)]
