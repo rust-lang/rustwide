@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- New method `LogStorage::set_max_line_length` to limit the logged line length when capturing
+  builds logs
+
 ## [0.16.0] - 2023-05-02
 
 ### Added
@@ -17,14 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-* CI toolchains can now install additional targets and components.
+- CI toolchains can now install additional targets and components.
 
 ## [0.15.1] - 2022-09-04
 
 ### Changed
 
-* Updated `nix` dependency to 0.25.
-* Replaced `winapi` dependency with `windows-sys`.
+- Updated `nix` dependency to 0.25.
+- Replaced `winapi` dependency with `windows-sys`.
 
 ## [0.15.0] - 2022-05-22
 
@@ -85,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-* Updated tokio dependency to 1.0.
+- Updated tokio dependency to 1.0.
 
 ## [0.11.0] - 2020-10-30
 
