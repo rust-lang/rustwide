@@ -23,7 +23,7 @@ impl GitRepo {
 
         match res {
             Ok(out) => {
-                if let Some(shaline) = out.stdout_lines().get(0) {
+                if let Some(shaline) = out.stdout_lines().first() {
                     if !shaline.is_empty() {
                         return Some(shaline.to_string());
                     }
