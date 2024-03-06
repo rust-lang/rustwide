@@ -113,6 +113,7 @@ pub struct LogStorage {
     min_level: LevelFilter,
     max_size: Option<usize>,
     max_lines: Option<usize>,
+    max_line_length: Option<usize>,
 }
 
 impl LogStorage {
@@ -127,12 +128,18 @@ impl LogStorage {
             min_level,
             max_size: None,
             max_lines: None,
+            max_line_length: None,
         }
     }
 
     /// Set the maximum amount of bytes stored in this struct before truncating the output.
     pub fn set_max_size(&mut self, size: usize) {
         self.max_size = Some(size);
+    }
+
+    /// Set the maximum amount of bytes per line before truncating the line.
+    pub fn set_max_line_length(&mut self, length: usize) {
+        self.max_line_length = Some(length);
     }
 
     /// Set the maximum amount of lines stored in this struct before truncating the output.
@@ -149,6 +156,7 @@ impl LogStorage {
             min_level: self.min_level,
             max_size: self.max_size,
             max_lines: self.max_lines,
+            max_line_length: self.max_line_length,
         }
     }
 }
@@ -176,7 +184,18 @@ impl SealedLog for LogStorage {
                 return;
             }
         }
-        let message = record.args().to_string();
+        let mut message = record.args().to_string();
+
+        if let Some(max_line_length) = self.max_line_length {
+            if message.len() > max_line_length {
+                let mut length = max_line_length - 3;
+                while !message.is_char_boundary(length) {
+                    length -= 1;
+                }
+                message = format!("{}...", &message[..length]);
+            }
+        }
+
         if let Some(max_size) = self.max_size {
             if inner.size + message.len() >= max_size {
                 inner.records.push(StoredRecord {
@@ -351,5 +370,29 @@ mod tests {
             .unwrap()
             .message
             .contains("too many lines"));
+    }
+
+    #[test]
+    fn test_too_long_line() {
+        logging::init();
+
+        let mut storage = LogStorage::new(LevelFilter::Info);
+        storage.set_max_line_length(5);
+        logging::capture(&storage, || {
+            info!("short");
+            info!("this is too long");
+            info!("a🧗"); // 4 bytes
+            info!("ab🧗"); // 6 bytes
+            info!("end");
+        });
+
+        let inner = storage.inner.lock().unwrap();
+        assert!(!inner.truncated);
+        assert_eq!(inner.records.len(), 5);
+        assert_eq!(inner.records[0].message, "short");
+        assert_eq!(inner.records[1].message, "th...");
+        assert_eq!(inner.records[2].message, "a🧗");
+        assert_eq!(inner.records[3].message, "ab...");
+        assert_eq!(inner.records[4].message, "end");
     }
 }
