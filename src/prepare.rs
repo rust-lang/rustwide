@@ -355,7 +355,7 @@ impl<'a> TomlTweaker<'a> {
 
     pub fn save(self, output_file: &Path) -> Result<(), Error> {
         let crate_name = self.krate.to_string();
-        ::std::fs::write(output_file, Value::Table(self.table).to_string().as_bytes())?;
+        ::std::fs::write(output_file, toml::to_string(&self.table)?.as_bytes())?;
         info!(
             "tweaked toml for {} written to {}",
             crate_name,
@@ -393,7 +393,7 @@ mod tests {
     use super::TomlTweaker;
     use crate::build::{CratePatch, GitCratePatch, PathCratePatch};
     use crate::crates::Crate;
-    use toml::{self, Value};
+    use toml::toml;
 
     #[test]
     fn test_tweak_table_noop() {
@@ -409,11 +409,10 @@ mod tests {
 
         let krate = Crate::local("/dev/null".as_ref());
         let patches: Vec<CratePatch> = Vec::new();
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 
     #[test]
@@ -445,11 +444,10 @@ mod tests {
 
         let krate = Crate::local("/dev/null".as_ref());
         let patches: Vec<CratePatch> = Vec::new();
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 
     #[test]
@@ -504,10 +502,9 @@ mod tests {
                 path: "/path/to/baz".into(),
             }),
         ];
-        let mut tweaker =
-            TomlTweaker::new_with_table(&krate, toml.as_table().unwrap().clone(), &patches);
+        let mut tweaker = TomlTweaker::new_with_table(&krate, toml, &patches);
         tweaker.tweak();
 
-        assert_eq!(Value::Table(tweaker.table), result);
+        assert_eq!(tweaker.table, result);
     }
 }
