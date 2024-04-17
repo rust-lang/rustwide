@@ -128,7 +128,11 @@ impl Repo {
     fn serve(&self) -> Result<String, Error> {
         let server =
             tiny_http::Server::http("localhost:0").map_err(|e| failure::err_msg(e.to_string()))?;
-        let port = server.server_addr().port();
+        let port = if let tiny_http::ListenAddr::IP(socket_addr) = server.server_addr() {
+            socket_addr.port()
+        } else {
+            failure::bail!("found a non-IP server address");
+        };
 
         let base = self.source.path().join(".git");
         let require_auth = self.require_auth;
