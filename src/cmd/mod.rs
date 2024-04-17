@@ -439,7 +439,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 }
             };
 
-            let mut cmd = AsyncCommand::new(&binary);
+            let mut cmd = AsyncCommand::new(binary);
             cmd.args(&self.args);
 
             if managed_by_rustwide {
