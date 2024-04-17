@@ -1,5 +1,6 @@
 use crate::cmd::Command;
 use crate::workspace::Workspace;
+use base64::{engine::general_purpose::STANDARD as b64, Engine};
 use failure::Error;
 use getrandom::getrandom;
 use log::info;
@@ -52,7 +53,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> Result<Option<String>
     let probe_path_str = probe_path.to_str().unwrap();
     let mut probe_content = [0u8; 64];
     getrandom(&mut probe_content)?;
-    let probe_content = base64::encode(&probe_content[..]);
+    let probe_content = b64.encode(&probe_content[..]);
     std::fs::write(&probe_path, probe_content.as_bytes())?;
 
     // Check if the probe exists on any of the currently running containers.

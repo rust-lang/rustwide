@@ -12,7 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- updated `toml` dependency to 0.8.
+- Update `attohttpc` dependency to 0.28
+- Update `base64` dependency to 0.22
+- Update `env_logger` dependency to 0.11
+- Update `git2` dependency to 0.19
+- Update `http ` dependency to 1.1
+- Update `nix` dependency to 0.29
+- Update `remove_dir_all` dependency to 0.8
+- Update `toml` dependency to 0.8.
+- Update `tiny_http` dependency to 0.12
+- Update `windows-sys` dependency to 0.52
 
 ## [0.16.0] - 2023-05-02
 
