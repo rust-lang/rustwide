@@ -20,10 +20,6 @@
 //! [crater]: https://github.com/rust-lang/crater
 //! [docsrs]: https://github.com/rust-lang/docs.rs
 
-#[cfg(test)]
-#[macro_use]
-extern crate toml;
-
 mod build;
 pub mod cmd;
 mod crates;

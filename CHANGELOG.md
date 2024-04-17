@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New method `LogStorage::set_max_line_length` to limit the logged line length when capturing
   builds logs
 
+### Changed
+
+- updated `toml` dependency to 0.8.
+
 ## [0.16.0] - 2023-05-02
 
 ### Added
