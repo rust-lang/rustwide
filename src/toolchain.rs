@@ -526,7 +526,7 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolch
     let update_hashes = rustup_home.join("update-hashes");
 
     let mut result = Vec::new();
-    for entry in std::fs::read_dir(&rustup_home.join("toolchains"))? {
+    for entry in std::fs::read_dir(rustup_home.join("toolchains"))? {
         let entry = entry?;
         let name = entry
             .file_name()
