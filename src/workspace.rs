@@ -4,6 +4,7 @@ use crate::inside_docker::CurrentContainer;
 use crate::Toolchain;
 use failure::{Error, ResultExt};
 use log::info;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -234,6 +235,11 @@ impl Workspace {
             if path.exists() {
                 crate::utils::remove_dir_all(path)?;
             }
+        }
+
+        let global_cache = self.cargo_home().join(".global-cache");
+        if global_cache.exists() {
+            fs::remove_file(global_cache)?;
         }
 
         Ok(())
