@@ -1,4 +1,3 @@
-use anyhow::Result;
 use fs2::FileExt;
 use log::warn;
 use percent_encoding::{AsciiSet, CONTROLS};
@@ -24,8 +23,8 @@ pub(crate) fn escape_path(unescaped: &[u8]) -> String {
 pub(crate) fn file_lock<T>(
     path: &Path,
     msg: &str,
-    f: impl FnOnce() -> Result<T> + std::panic::UnwindSafe,
-) -> Result<T> {
+    f: impl FnOnce() -> anyhow::Result<T> + std::panic::UnwindSafe,
+) -> anyhow::Result<T> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)

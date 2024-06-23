@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 const WORKSPACE_NAME: &str = "purge-caches";
 
 #[test]
-fn test_purge_caches() -> Result<()> {
+fn test_purge_caches() -> anyhow::Result<()> {
     let workspace_path = crate::utils::workspace_path(WORKSPACE_NAME);
     let workspace = crate::utils::init_named_workspace(WORKSPACE_NAME)?;
 
@@ -76,7 +76,7 @@ struct WorkspaceContents {
 }
 
 impl WorkspaceContents {
-    fn collect(path: &Path) -> Result<Self> {
+    fn collect(path: &Path) -> anyhow::Result<Self> {
         let mut files = HashMap::new();
 
         for entry in walkdir::WalkDir::new(path)

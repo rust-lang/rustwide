@@ -1,6 +1,5 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
-use anyhow::Result;
 use nix::{
     sys::signal::{kill, Signal},
     unistd::{Gid, Pid, Uid},
@@ -11,7 +10,7 @@ use std::path::Path;
 
 const EXECUTABLE_BITS: u32 = 0o5;
 
-pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
+pub(crate) fn kill_process(id: u32) -> anyhow::Result<(), KillFailedError> {
     match kill(Pid::from_raw(id as i32), Signal::SIGKILL) {
         Ok(()) => Ok(()),
         Err(err) => Err(KillFailedError {
@@ -29,7 +28,7 @@ pub(crate) fn current_user() -> Option<CurrentUser> {
     })
 }
 
-fn executable_mode_for(path: &Path) -> Result<u32> {
+fn executable_mode_for(path: &Path) -> anyhow::Result<u32> {
     let metadata = path.metadata()?;
 
     let user = current_user().unwrap();
@@ -43,14 +42,14 @@ fn executable_mode_for(path: &Path) -> Result<u32> {
     }
 }
 
-pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool> {
+pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
     let path = path.as_ref();
 
     let expected_mode = executable_mode_for(path)?;
     Ok(path.metadata()?.mode() & expected_mode == expected_mode)
 }
 
-pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<()> {
+pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
 
     // Set the executable and readable bits on the file

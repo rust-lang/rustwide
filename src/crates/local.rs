@@ -1,6 +1,5 @@
 use super::CrateTrait;
 use crate::Workspace;
-use anyhow::Result;
 use log::info;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -16,17 +15,17 @@ impl Local {
 }
 
 impl CrateTrait for Local {
-    fn fetch(&self, _workspace: &Workspace) -> Result<()> {
+    fn fetch(&self, _workspace: &Workspace) -> anyhow::Result<()> {
         // There is no fetch to do for a local crate.
         Ok(())
     }
 
-    fn purge_from_cache(&self, _workspace: &Workspace) -> Result<()> {
+    fn purge_from_cache(&self, _workspace: &Workspace) -> anyhow::Result<()> {
         // There is no cache to purge for a local crate.
         Ok(())
     }
 
-    fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> Result<()> {
+    fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         info!(
             "copying local crate from {} to {}",
             self.path.display(),
@@ -43,7 +42,7 @@ impl std::fmt::Display for Local {
     }
 }
 
-fn copy_dir(src: &Path, dest: &Path) -> Result<()> {
+fn copy_dir(src: &Path, dest: &Path) -> anyhow::Result<()> {
     let src = crate::utils::normalize_path(src);
     let dest = crate::utils::normalize_path(dest);
 
@@ -78,7 +77,7 @@ mod tests {
     use anyhow::Result;
 
     #[test]
-    fn test_copy_dir() -> Result<()> {
+    fn test_copy_dir() -> anyhow::Result<()> {
         let tmp_src = tempfile::tempdir()?;
         let tmp_dest = tempfile::tempdir()?;
 
@@ -99,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_copy_target() -> Result<()> {
+    fn test_no_copy_target() -> anyhow::Result<()> {
         let (src, dest) = (tempfile::tempdir()?, tempfile::tempdir()?);
         std::fs::create_dir(src.path().join("target"))?;
         std::fs::write(
@@ -116,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_symlinks() -> Result<()> {
+    fn test_copy_symlinks() -> anyhow::Result<()> {
         use std::{fs, os, path::Path};
 
         let tmp_src = tempfile::tempdir()?;

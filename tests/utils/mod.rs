@@ -9,11 +9,11 @@ pub(crate) fn workspace_path(name: &str) -> PathBuf {
     Path::new(".workspaces").join(name)
 }
 
-pub(crate) fn init_workspace() -> Result<Workspace> {
+pub(crate) fn init_workspace() -> anyhow::Result<Workspace> {
     init_named_workspace("integration")
 }
 
-pub(crate) fn init_named_workspace(name: &str) -> Result<Workspace> {
+pub(crate) fn init_named_workspace(name: &str) -> anyhow::Result<Workspace> {
     init_logs();
     let workspace_path = workspace_path(name);
     let mut builder = WorkspaceBuilder::new(&workspace_path, USER_AGENT).fast_init(true);
