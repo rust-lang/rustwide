@@ -3,16 +3,15 @@ mod local;
 mod registry;
 
 use crate::Workspace;
-use anyhow::Result;
 use log::info;
 use std::path::Path;
 
 pub use registry::AlternativeRegistry;
 
 trait CrateTrait: std::fmt::Display {
-    fn fetch(&self, workspace: &Workspace) -> Result<()>;
-    fn purge_from_cache(&self, workspace: &Workspace) -> Result<()>;
-    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<()>;
+    fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()>;
+    fn purge_from_cache(&self, workspace: &Workspace) -> anyhow::Result<()>;
+    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()>;
 }
 
 enum CrateType {
@@ -56,12 +55,12 @@ impl Crate {
 
     /// Fetch the crate's source code and cache it in the workspace. This method will reach out to
     /// the network for some crate types.
-    pub fn fetch(&self, workspace: &Workspace) -> Result<()> {
+    pub fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
         self.as_trait().fetch(workspace)
     }
 
     /// Remove the cached copy of this crate. The method will do nothing if the crate isn't cached.
-    pub fn purge_from_cache(&self, workspace: &Workspace) -> Result<()> {
+    pub fn purge_from_cache(&self, workspace: &Workspace) -> anyhow::Result<()> {
         self.as_trait().purge_from_cache(workspace)
     }
 
@@ -75,7 +74,7 @@ impl Crate {
         }
     }
 
-    pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<()> {
+    pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         if dest.exists() {
             info!(
                 "crate source directory {} already exists, cleaning it up",

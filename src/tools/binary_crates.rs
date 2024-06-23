@@ -1,7 +1,6 @@
 use crate::cmd::{Binary, Command, Runnable};
 use crate::tools::Tool;
 use crate::{Toolchain, Workspace};
-use anyhow::Result;
 use std::path::PathBuf;
 
 pub(crate) struct BinaryCrate {
@@ -38,7 +37,7 @@ impl Tool for BinaryCrate {
         self.binary
     }
 
-    fn is_installed(&self, workspace: &Workspace) -> Result<bool> {
+    fn is_installed(&self, workspace: &Workspace) -> anyhow::Result<bool> {
         let path = self.binary_path(workspace);
         if !path.is_file() {
             return Ok(false);
@@ -47,7 +46,7 @@ impl Tool for BinaryCrate {
         crate::native::is_executable(path)
     }
 
-    fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<()> {
+    fn install(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
         let mut cmd = Command::new(workspace, &Toolchain::MAIN.cargo())
             .args(&["install", self.crate_name])
             .timeout(None);
@@ -58,7 +57,7 @@ impl Tool for BinaryCrate {
         Ok(())
     }
 
-    fn update(&self, workspace: &Workspace, fast_install: bool) -> Result<()> {
+    fn update(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
         self.install(workspace, fast_install)
     }
 }

@@ -1,7 +1,6 @@
 use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
 use crate::prepare::Prepare;
 use crate::{Crate, Toolchain, Workspace};
-use anyhow::Result;
 use std::path::PathBuf;
 use std::vec::Vec;
 
@@ -51,7 +50,7 @@ impl<'a> BuildBuilder<'a> {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -81,7 +80,7 @@ impl<'a> BuildBuilder<'a> {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::{MountKind, SandboxBuilder}};
     /// # use std::{error::Error, path::{Path, PathBuf}};
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -119,7 +118,7 @@ impl<'a> BuildBuilder<'a> {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -131,7 +130,7 @@ impl<'a> BuildBuilder<'a> {
     /// })?;
     /// # Ok(())
     /// # }
-    pub fn run<R, F: FnOnce(&Build) -> Result<R>>(self, f: F) -> Result<R> {
+    pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(self, f: F) -> anyhow::Result<R> {
         self.build_dir
             .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
@@ -153,7 +152,7 @@ impl BuildDirectory {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -181,14 +180,14 @@ impl BuildDirectory {
         }
     }
 
-    pub(crate) fn run<R, F: FnOnce(&Build) -> Result<R>>(
+    pub(crate) fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
         &mut self,
         toolchain: &Toolchain,
         krate: &Crate,
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
         f: F,
-    ) -> Result<R> {
+    ) -> anyhow::Result<R> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
             crate::utils::remove_dir_all(&source_dir)?;
@@ -209,7 +208,7 @@ impl BuildDirectory {
     }
 
     /// Remove all the contents of the build directory, freeing disk space.
-    pub fn purge(&mut self) -> Result<()> {
+    pub fn purge(&mut self) -> anyhow::Result<()> {
         let build_dir = self.build_dir();
         if build_dir.exists() {
             crate::utils::remove_dir_all(&build_dir)?;
@@ -251,7 +250,7 @@ impl<'ws> Build<'ws> {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -288,7 +287,7 @@ impl<'ws> Build<'ws> {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// # let toolchain = Toolchain::dist("");
     /// # let krate = Crate::local("".as_ref());
@@ -322,7 +321,7 @@ impl<'ws> Build<'ws> {
     /// networking is disabled.
     #[cfg(any(feature = "unstable", doc))]
     #[cfg_attr(docs_rs, doc(cfg(feature = "unstable")))]
-    pub fn fetch_build_std_dependencies(&self, targets: &[&str]) -> Result<()> {
+    pub fn fetch_build_std_dependencies(&self, targets: &[&str]) -> anyhow::Result<()> {
         crate::prepare::fetch_deps(
             &self.dir.workspace,
             self.toolchain,

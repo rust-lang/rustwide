@@ -1,6 +1,5 @@
 use crate::cmd::Command;
 use crate::workspace::Workspace;
-use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as b64, Engine};
 use getrandom::getrandom;
 use log::info;
@@ -12,7 +11,7 @@ pub(crate) struct CurrentContainer {
 }
 
 impl CurrentContainer {
-    pub(crate) fn detect(workspace: &Workspace) -> Result<Option<Self>> {
+    pub(crate) fn detect(workspace: &Workspace) -> anyhow::Result<Option<Self>> {
         if let Some(id) = probe_container_id(workspace)? {
             info!("inspecting the current container");
             let inspect = Command::new(workspace, "docker")
@@ -45,7 +44,7 @@ impl CurrentContainer {
 /// This function uses a simpler but slower method to get the ID: a file with a random string is
 /// created in the temp directory, the list of all the containers is fetched from Docker and then
 /// `cat` is executed inside each of them to check whether they have the same random string.
-pub(crate) fn probe_container_id(workspace: &Workspace) -> Result<Option<String>> {
+pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option<String>> {
     info!("detecting the ID of the container where rustwide is running");
 
     // Create the probe on the current file system

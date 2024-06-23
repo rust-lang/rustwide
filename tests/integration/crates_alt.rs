@@ -4,7 +4,7 @@ use rustwide::{AlternativeRegistry, Crate};
 const INDEX_URL: &str = "https://github.com/rust-lang/staging.crates.io-index";
 
 #[test]
-fn test_fetch() -> Result<()> {
+fn test_fetch() -> anyhow::Result<()> {
     let workspace = crate::utils::init_workspace()?;
 
     let alt = AlternativeRegistry::new(INDEX_URL);

@@ -5,7 +5,7 @@ use crate::tools::RUSTUP;
 #[cfg(feature = "unstable-toolchain-ci")]
 use crate::tools::RUSTUP_TOOLCHAIN_INSTALL_MASTER;
 use crate::Workspace;
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{anyhow, Context as _};
 use log::info;
 use std::borrow::Cow;
 use std::path::Path;
@@ -40,7 +40,7 @@ impl DistToolchain {
         self.name.as_ref()
     }
 
-    fn init(&self, workspace: &Workspace) -> Result<()> {
+    fn init(&self, workspace: &Workspace) -> anyhow::Result<()> {
         info!("installing toolchain {}", self.name());
         Command::new(workspace, &RUSTUP)
             .args(&[
@@ -123,7 +123,7 @@ impl CiToolchain {
         self.alt
     }
 
-    fn init(&self, workspace: &Workspace) -> Result<()> {
+    fn init(&self, workspace: &Workspace) -> anyhow::Result<()> {
         if self.alt {
             info!("installing toolchain {}-alt", self.sha);
         } else {
@@ -255,7 +255,7 @@ impl Toolchain {
     }
 
     /// Download and install the toolchain.
-    pub fn install(&self, workspace: &Workspace) -> Result<()> {
+    pub fn install(&self, workspace: &Workspace) -> anyhow::Result<()> {
         match &self.inner {
             ToolchainInner::Dist(dist) => dist.init(workspace)?,
             #[cfg(feature = "unstable-toolchain-ci")]
@@ -266,12 +266,12 @@ impl Toolchain {
     }
 
     /// Download and install a component for the toolchain.
-    pub fn add_component(&self, workspace: &Workspace, name: &str) -> Result<()> {
+    pub fn add_component(&self, workspace: &Workspace, name: &str) -> anyhow::Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Component, name)
     }
 
     /// Remove a component already installed for the toolchain.
-    pub fn remove_component(&self, workspace: &Workspace, name: &str) -> Result<()> {
+    pub fn remove_component(&self, workspace: &Workspace, name: &str) -> anyhow::Result<()> {
         self.change_rustup_thing(
             workspace,
             RustupAction::Remove,
@@ -284,7 +284,7 @@ impl Toolchain {
     ///
     /// If the toolchain is not installed in the workspace an error will be returned. This is only
     /// supported for dist toolchains.
-    pub fn add_target(&self, workspace: &Workspace, name: &str) -> Result<()> {
+    pub fn add_target(&self, workspace: &Workspace, name: &str) -> anyhow::Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Add, RustupThing::Target, name)
     }
 
@@ -292,14 +292,14 @@ impl Toolchain {
     ///
     /// If the toolchain is not installed in the workspace or the target is missing an error will
     /// be returned. This is only supported for dist toolchains.
-    pub fn remove_target(&self, workspace: &Workspace, name: &str) -> Result<()> {
+    pub fn remove_target(&self, workspace: &Workspace, name: &str) -> anyhow::Result<()> {
         self.change_rustup_thing(workspace, RustupAction::Remove, RustupThing::Target, name)
     }
 
     /// Return a list of installed targets for this toolchain.
     ///
     /// If the toolchain is not installed an empty list is returned.
-    pub fn installed_targets(&self, workspace: &Workspace) -> Result<Vec<String>> {
+    pub fn installed_targets(&self, workspace: &Workspace) -> anyhow::Result<Vec<String>> {
         self.list_rustup_things(workspace, RustupThing::Target)
     }
 
@@ -309,7 +309,7 @@ impl Toolchain {
         action: RustupAction,
         thing: RustupThing,
         name: &str,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         let (log_action, log_action_ing) = match action {
             RustupAction::Add => ("add", "adding"),
             RustupAction::Remove => ("remove", "removing"),
@@ -375,7 +375,11 @@ impl Toolchain {
         Ok(())
     }
 
-    fn list_rustup_things(&self, workspace: &Workspace, thing: RustupThing) -> Result<Vec<String>> {
+    fn list_rustup_things(
+        &self,
+        workspace: &Workspace,
+        thing: RustupThing,
+    ) -> anyhow::Result<Vec<String>> {
         let thing = thing.to_string();
         let name = if let Some(dist) = self.as_dist() {
             dist.name()
@@ -410,7 +414,7 @@ impl Toolchain {
     }
 
     /// Remove the toolchain from the rustwide workspace, freeing up disk space.
-    pub fn uninstall(&self, workspace: &Workspace) -> Result<()> {
+    pub fn uninstall(&self, workspace: &Workspace) -> anyhow::Result<()> {
         let name = self.rustup_name();
         Command::new(workspace, &RUSTUP)
             .args(&["toolchain", "uninstall", &name])
@@ -427,7 +431,7 @@ impl Toolchain {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// let toolchain = Toolchain::dist("beta");
     /// Command::new(&workspace, toolchain.cargo())
@@ -448,7 +452,7 @@ impl Toolchain {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// let toolchain = Toolchain::dist("beta");
     /// Command::new(&workspace, toolchain.rustc())
@@ -469,7 +473,7 @@ impl Toolchain {
     /// ```no_run
     /// # use rustwide::{WorkspaceBuilder, Toolchain, cmd::Command};
     /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
     /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
     /// let toolchain = Toolchain::dist("beta");
     /// Command::new(&workspace, toolchain.rustup_binary("rustdoc"))
@@ -516,7 +520,7 @@ impl Runnable for RustupProxy<'_> {
     }
 }
 
-pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> Result<Vec<Toolchain>> {
+pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> anyhow::Result<Vec<Toolchain>> {
     let update_hashes = rustup_home.join("update-hashes");
 
     let mut result = Vec::new();
@@ -552,7 +556,7 @@ mod tests {
     use anyhow::Result;
 
     #[test]
-    fn test_dist_serde_repr() -> Result<()> {
+    fn test_dist_serde_repr() -> anyhow::Result<()> {
         const DIST: &str = r#"{"type": "dist", "name": "stable"}"#;
 
         assert_eq!(Toolchain::dist("stable"), serde_json::from_str(DIST)?);
@@ -562,7 +566,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "unstable-toolchain-ci")]
-    fn test_ci_serde_repr() -> Result<()> {
+    fn test_ci_serde_repr() -> anyhow::Result<()> {
         const CI_NORMAL: &str = r#"{"type": "ci", "sha": "0000000", "alt": false}"#;
         const CI_ALT: &str = r#"{"type": "ci", "sha": "0000000", "alt": true}"#;
 
@@ -579,7 +583,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_installed() -> Result<()> {
+    fn test_list_installed() -> anyhow::Result<()> {
         const DIST_NAME: &str = "stable-x86_64-unknown-linux-gnu";
         const LINK_NAME: &str = "stage1";
         const CI_SHA: &str = "0000000000000000000000000000000000000000";
