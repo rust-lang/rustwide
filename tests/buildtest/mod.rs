@@ -1,4 +1,3 @@
-use anyhow::Result;
 use log::LevelFilter;
 use rustwide::cmd::{ProcessLinesActions, SandboxBuilder};
 

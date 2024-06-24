@@ -1,4 +1,3 @@
-use anyhow::Result;
 use rand::{distributions::Alphanumeric, Rng};
 use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
 use std::path::Path;

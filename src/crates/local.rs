@@ -74,8 +74,6 @@ fn copy_dir(src: &Path, dest: &Path) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
-
     #[test]
     fn test_copy_dir() -> anyhow::Result<()> {
         let tmp_src = tempfile::tempdir()?;

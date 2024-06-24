@@ -1,9 +1,9 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail};
 use rustwide::cmd::{Command, CommandError, SandboxBuilder};
 use rustwide::{Crate, PrepareError, Toolchain, Workspace};
 
 #[test]
-fn test_fetch() -> Result<()> {
+fn test_fetch() -> anyhow::Result<()> {
     let workspace = crate::utils::init_workspace()?;
     let toolchain = Toolchain::dist("stable");
     toolchain.install(&workspace)?;
@@ -13,7 +13,7 @@ fn test_fetch() -> Result<()> {
     krate.fetch(&workspace)?;
 
     // Return the commit that was used during a build.
-    let cloned_commit = || -> Result<String> {
+    let cloned_commit = || -> anyhow::Result<String> {
         let mut dir = workspace.build_dir("integration-crates_git-test_fetch");
         dir.purge()?;
         dir.build(&toolchain, &krate, SandboxBuilder::new())
@@ -48,7 +48,7 @@ fn test_fetch() -> Result<()> {
 }
 
 #[test]
-fn test_fetch_with_authentication() -> Result<()> {
+fn test_fetch_with_authentication() -> anyhow::Result<()> {
     let workspace = crate::utils::init_workspace()?;
 
     let repo = Repo::new(&workspace)?.authenticated();
@@ -73,7 +73,7 @@ struct Repo {
 }
 
 impl Repo {
-    fn new(workspace: &Workspace) -> Result<Self> {
+    fn new(workspace: &Workspace) -> anyhow::Result<Self> {
         let source = tempfile::tempdir()?;
 
         // Initialize a cargo project with a git repo in it.
@@ -96,7 +96,7 @@ impl Repo {
         self
     }
 
-    fn commit(&mut self, workspace: &Workspace) -> Result<()> {
+    fn commit(&mut self, workspace: &Workspace) -> anyhow::Result<()> {
         Command::new(workspace, "git")
             .args(&["add", "."])
             .cd(self.source.path())
@@ -125,8 +125,9 @@ impl Repo {
         Ok(())
     }
 
-    fn serve(&self) -> Result<String> {
+    fn serve(&self) -> anyhow::Result<String> {
         let server = tiny_http::Server::http("localhost:0").map_err(|e| anyhow!(e.to_string()))?;
+        #[allow(irrefutable_let_patterns)]
         let port = if let tiny_http::ListenAddr::IP(socket_addr) = server.server_addr() {
             socket_addr.port()
         } else {

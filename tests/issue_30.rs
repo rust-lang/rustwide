@@ -1,4 +1,3 @@
-use anyhow::Result;
 use rustwide::cmd::Command;
 use std::fs;
 

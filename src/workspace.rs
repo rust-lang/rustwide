@@ -2,7 +2,7 @@ use crate::build::BuildDirectory;
 use crate::cmd::{Command, SandboxImage};
 use crate::inside_docker::CurrentContainer;
 use crate::Toolchain;
-use anyhow::{Context as _, Result};
+use anyhow::Context as _;
 use log::info;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -135,7 +135,7 @@ impl WorkspaceBuilder {
 
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
-    pub fn init(self) -> Result<Workspace> {
+    pub fn init(self) -> anyhow::Result<Workspace> {
         std::fs::create_dir_all(&self.path).with_context(|| {
             format!(
                 "failed to create workspace directory: {}",
@@ -207,7 +207,7 @@ impl Workspace {
     }
 
     /// Remove all the contents of all the build directories, freeing disk space.
-    pub fn purge_all_build_dirs(&self) -> Result<()> {
+    pub fn purge_all_build_dirs(&self) -> anyhow::Result<()> {
         let dir = self.builds_dir();
         if dir.exists() {
             crate::utils::remove_dir_all(&dir)?;
@@ -216,7 +216,7 @@ impl Workspace {
     }
 
     /// Remove all the contents of the caches in the workspace, freeing disk space.
-    pub fn purge_all_caches(&self) -> Result<()> {
+    pub fn purge_all_caches(&self) -> anyhow::Result<()> {
         let mut paths = vec![
             self.cache_dir(),
             self.cargo_home().join("git"),
@@ -265,7 +265,7 @@ impl Workspace {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn installed_toolchains(&self) -> Result<Vec<Toolchain>> {
+    pub fn installed_toolchains(&self) -> anyhow::Result<Vec<Toolchain>> {
         crate::toolchain::list_installed_toolchains(&self.rustup_home())
     }
 
@@ -313,7 +313,7 @@ impl Workspace {
         &self.inner.rustup_profile
     }
 
-    fn init(&self, fast_init: bool) -> Result<()> {
+    fn init(&self, fast_init: bool) -> anyhow::Result<()> {
         info!("installing tools required by rustwide");
         crate::tools::install(self, fast_init)?;
         if !self.fetch_registry_index_during_builds() {
@@ -324,7 +324,7 @@ impl Workspace {
     }
 
     #[allow(clippy::unnecessary_wraps)] // hopefully we could actually catch the error here at some point
-    fn update_cratesio_registry(&self) -> Result<()> {
+    fn update_cratesio_registry(&self) -> anyhow::Result<()> {
         // This nop cargo command is to update the registry so we don't have to do it for each
         // crate.  using `install` is a temporary solution until
         // https://github.com/rust-lang/cargo/pull/5961 is ready

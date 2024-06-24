@@ -1,12 +1,12 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use std::fs::File;
 use std::path::Path;
 use windows_sys::Win32::Foundation::CloseHandle;
 use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
 
-pub(crate) fn kill_process(id: u32) -> Result<(), KillFailedError> {
+pub(crate) fn kill_process(id: u32) -> anyhow::Result<(), KillFailedError> {
     let error = Err(KillFailedError { pid: id });
 
     unsafe {
@@ -29,7 +29,7 @@ pub(crate) fn current_user() -> Option<CurrentUser> {
     None
 }
 
-fn path_ends_in_exe<P: AsRef<Path>>(path: P) -> Result<bool> {
+fn path_ends_in_exe<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
     path.as_ref()
         .extension()
         .ok_or_else(|| anyhow!("Unable to get `Path` extension"))
@@ -37,14 +37,14 @@ fn path_ends_in_exe<P: AsRef<Path>>(path: P) -> Result<bool> {
 }
 
 /// Check that the file exists and has `.exe` as its extension.
-pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> Result<bool> {
+pub(crate) fn is_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
     let path = path.as_ref();
     File::open(path)
         .map_err(Into::into)
         .and_then(|_| path_ends_in_exe(path))
 }
 
-pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> Result<()> {
+pub(crate) fn make_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     if is_executable(path)? {
         Ok(())
     } else {

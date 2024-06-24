@@ -553,7 +553,6 @@ pub(crate) fn list_installed_toolchains(rustup_home: &Path) -> anyhow::Result<Ve
 #[cfg(test)]
 mod tests {
     use super::Toolchain;
-    use anyhow::Result;
 
     #[test]
     fn test_dist_serde_repr() -> anyhow::Result<()> {

@@ -2,7 +2,7 @@ use super::CrateTrait;
 use crate::cmd::{Command, ProcessLinesActions};
 use crate::prepare::PrepareError;
 use crate::Workspace;
-use anyhow::{Context as _, Result};
+use anyhow::Context as _;
 use log::{info, warn};
 use std::path::{Path, PathBuf};
 
@@ -63,7 +63,7 @@ impl GitRepo {
 }
 
 impl CrateTrait for GitRepo {
-    fn fetch(&self, workspace: &Workspace) -> Result<()> {
+    fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
         // The credential helper that suppresses the password prompt shows this message when a
         // repository requires authentication:
         //
@@ -105,7 +105,7 @@ impl CrateTrait for GitRepo {
         }
     }
 
-    fn purge_from_cache(&self, workspace: &Workspace) -> Result<()> {
+    fn purge_from_cache(&self, workspace: &Workspace) -> anyhow::Result<()> {
         let path = self.cached_path(workspace);
         if path.exists() {
             crate::utils::remove_dir_all(&path)?;
@@ -113,7 +113,7 @@ impl CrateTrait for GitRepo {
         Ok(())
     }
 
-    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> Result<()> {
+    fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         Command::new(workspace, "git")
             .args(&["clone"])
             .args(&[self.cached_path(workspace).as_path(), dest])
