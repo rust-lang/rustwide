@@ -1,4 +1,3 @@
-use anyhow::Result;
 use rustwide::cmd::SandboxBuilder;
 use rustwide::{Crate, Toolchain};
 use std::collections::HashMap;

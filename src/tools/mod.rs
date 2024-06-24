@@ -2,7 +2,7 @@ mod binary_crates;
 mod rustup;
 
 use crate::workspace::Workspace;
-use anyhow::{bail, Result};
+use anyhow::bail;
 use binary_crates::BinaryCrate;
 use log::info;
 use rustup::Rustup;
@@ -33,9 +33,9 @@ static INSTALLABLE_TOOLS: &[&dyn Tool] = &[
 
 trait Tool: Send + Sync {
     fn name(&self) -> &'static str;
-    fn is_installed(&self, workspace: &Workspace) -> Result<bool>;
-    fn install(&self, workspace: &Workspace, fast_install: bool) -> Result<()>;
-    fn update(&self, workspace: &Workspace, fast_install: bool) -> Result<()>;
+    fn is_installed(&self, workspace: &Workspace) -> anyhow::Result<bool>;
+    fn install(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()>;
+    fn update(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()>;
 
     fn binary_path(&self, workspace: &Workspace) -> PathBuf {
         crate::utils::normalize_path(&workspace.cargo_home().join("bin").join(format!(
@@ -46,7 +46,7 @@ trait Tool: Send + Sync {
     }
 }
 
-pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> Result<()> {
+pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
     for tool in INSTALLABLE_TOOLS {
         if tool.is_installed(workspace)? {
             info!("tool {} is installed, trying to update it", tool.name());

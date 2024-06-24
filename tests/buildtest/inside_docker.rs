@@ -1,6 +1,6 @@
 #![cfg_attr(windows, allow(unused))]
 
-use anyhow::{Context, Result};
+use anyhow::Context;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -22,7 +22,7 @@ fn test_path_based_patch() {
     execute("buildtest::path_based_patch").unwrap();
 }
 
-fn execute(test: &str) -> Result<()> {
+fn execute(test: &str) -> anyhow::Result<()> {
     // The current working directory is mounted in the container to /outside.
     // The binary to execute is remapped to be prefixed by /outside instead of the current
     // directory.
@@ -69,13 +69,13 @@ fn execute(test: &str) -> Result<()> {
 }
 
 trait CommandExt {
-    fn map_user_group(&mut self) -> Result<&mut Self>;
-    fn assert(&mut self) -> Result<()>;
+    fn map_user_group(&mut self) -> anyhow::Result<&mut Self>;
+    fn assert(&mut self) -> anyhow::Result<()>;
 }
 
 impl CommandExt for Command {
     #[cfg(unix)]
-    fn map_user_group(&mut self) -> Result<&mut Self> {
+    fn map_user_group(&mut self) -> anyhow::Result<&mut Self> {
         use std::os::unix::fs::MetadataExt;
         let gid = std::fs::metadata(DOCKER_SOCKET)?.gid();
         let uid = nix::unistd::Uid::effective();
@@ -85,11 +85,11 @@ impl CommandExt for Command {
     }
 
     #[cfg(windows)]
-    fn map_user_group(&mut self) -> Result<&mut Self> {
+    fn map_user_group(&mut self) -> anyhow::Result<&mut Self> {
         Ok(self)
     }
 
-    fn assert(&mut self) -> Result<()> {
+    fn assert(&mut self) -> anyhow::Result<()> {
         let out = self.output()?;
         if !out.status.success() {
             eprintln!("failed to execute command {:?}", self);

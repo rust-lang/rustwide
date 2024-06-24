@@ -2,7 +2,7 @@ use crate::cmd::{Binary, Command, Runnable};
 use crate::toolchain::MAIN_TOOLCHAIN_NAME;
 use crate::tools::{Tool, RUSTUP};
 use crate::workspace::Workspace;
-use anyhow::{Context as _, Result};
+use anyhow::Context as _;
 use std::env::consts::EXE_SUFFIX;
 use std::fs::{self, File};
 use std::io;
@@ -23,7 +23,7 @@ impl Tool for Rustup {
         "rustup"
     }
 
-    fn is_installed(&self, workspace: &Workspace) -> Result<bool> {
+    fn is_installed(&self, workspace: &Workspace) -> anyhow::Result<bool> {
         let path = self.binary_path(workspace);
         if !path.is_file() {
             return Ok(false);
@@ -32,7 +32,7 @@ impl Tool for Rustup {
         crate::native::is_executable(path)
     }
 
-    fn install(&self, workspace: &Workspace, _fast_install: bool) -> Result<()> {
+    fn install(&self, workspace: &Workspace, _fast_install: bool) -> anyhow::Result<()> {
         fs::create_dir_all(workspace.cargo_home())?;
         fs::create_dir_all(workspace.rustup_home())?;
 
@@ -73,7 +73,7 @@ impl Tool for Rustup {
         Ok(())
     }
 
-    fn update(&self, workspace: &Workspace, _fast_install: bool) -> Result<()> {
+    fn update(&self, workspace: &Workspace, _fast_install: bool) -> anyhow::Result<()> {
         Command::new(workspace, &RUSTUP)
             .args(&["self", "update"])
             .run()

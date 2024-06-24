@@ -1,6 +1,6 @@
 use crate::cmd::Command;
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
-use anyhow::{Context as _, Result};
+use anyhow::Context as _;
 use log::info;
 use std::path::Path;
 use toml::{
@@ -33,7 +33,7 @@ impl<'a> Prepare<'a> {
         }
     }
 
-    pub(crate) fn prepare(&mut self) -> Result<()> {
+    pub(crate) fn prepare(&mut self) -> anyhow::Result<()> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
         self.validate_manifest()?;
         self.remove_override_files()?;
@@ -44,7 +44,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn validate_manifest(&self) -> Result<()> {
+    fn validate_manifest(&self) -> anyhow::Result<()> {
         info!(
             "validating manifest of {} on toolchain {}",
             self.krate, self.toolchain
@@ -67,7 +67,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn remove_override_files(&self) -> Result<()> {
+    fn remove_override_files(&self) -> anyhow::Result<()> {
         let paths = [
             &Path::new(".cargo").join("config"),
             &Path::new(".cargo").join("config.toml"),
@@ -84,7 +84,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn tweak_toml(&self) -> Result<()> {
+    fn tweak_toml(&self) -> anyhow::Result<()> {
         let path = self.source_dir.join("Cargo.toml");
         let mut tweaker = TomlTweaker::new(self.krate, &path, &self.patches)?;
         tweaker.tweak();
@@ -92,7 +92,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn capture_lockfile(&mut self) -> Result<()> {
+    fn capture_lockfile(&mut self) -> anyhow::Result<()> {
         if self.source_dir.join("Cargo.lock").exists() {
             info!(
                 "crate {} already has a lockfile, it will not be regenerated",
@@ -137,7 +137,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    fn fetch_deps(&mut self) -> Result<()> {
+    fn fetch_deps(&mut self) -> anyhow::Result<()> {
         fetch_deps(self.workspace, self.toolchain, self.source_dir, &[])
     }
 }
@@ -147,7 +147,7 @@ pub(crate) fn fetch_deps(
     toolchain: &Toolchain,
     source_dir: &Path,
     fetch_build_std_targets: &[&str],
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let mut missing_deps = false;
     let mut cmd = Command::new(workspace, toolchain.cargo())
         .args(&["fetch", "--manifest-path", "Cargo.toml"])
@@ -183,7 +183,11 @@ struct TomlTweaker<'a> {
 }
 
 impl<'a> TomlTweaker<'a> {
-    pub fn new(krate: &'a Crate, cargo_toml: &'a Path, patches: &[CratePatch]) -> Result<Self> {
+    pub fn new(
+        krate: &'a Crate,
+        cargo_toml: &'a Path,
+        patches: &[CratePatch],
+    ) -> anyhow::Result<Self> {
         let toml_content =
             ::std::fs::read_to_string(cargo_toml).context(PrepareError::MissingCargoToml)?;
         let table: Table =
@@ -349,7 +353,7 @@ impl<'a> TomlTweaker<'a> {
         }
     }
 
-    pub fn save(self, output_file: &Path) -> Result<()> {
+    pub fn save(self, output_file: &Path) -> anyhow::Result<()> {
         let crate_name = self.krate.to_string();
         ::std::fs::write(output_file, toml::to_string(&self.table)?.as_bytes())?;
         info!(
