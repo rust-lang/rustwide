@@ -1,6 +1,6 @@
 [package]
 name = "rustwide"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2018"
 build = "build.rs"
 
