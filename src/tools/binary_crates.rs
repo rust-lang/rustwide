@@ -47,7 +47,7 @@ impl Tool for BinaryCrate {
     }
 
     fn install(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
-        let mut cmd = Command::new(workspace, &Toolchain::MAIN.cargo())
+        let mut cmd = Command::new(workspace, Toolchain::MAIN.cargo())
             .args(&["install", self.crate_name])
             .timeout(None);
         if fast_install {
