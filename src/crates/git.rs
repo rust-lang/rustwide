@@ -18,7 +18,7 @@ impl GitRepo {
     pub(super) fn git_commit(&self, workspace: &Workspace) -> Option<String> {
         let res = Command::new(workspace, "git")
             .args(&["rev-parse", "HEAD"])
-            .cd(&self.cached_path(workspace))
+            .cd(self.cached_path(workspace))
             .run_capture();
 
         match res {
