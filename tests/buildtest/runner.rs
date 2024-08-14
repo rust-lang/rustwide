@@ -84,3 +84,25 @@ macro_rules! test_prepare_error {
         }
     };
 }
+
+macro_rules! test_prepare_error_stderr {
+    ($name:ident, $krate:expr, $expected:ident, $expected_output:expr) => {
+        #[test]
+        fn $name() {
+            runner::run($krate, |run| {
+                let res = run.run(
+                    rustwide::cmd::SandboxBuilder::new().enable_networking(false),
+                    |_| Ok(()),
+                );
+                if let Some(rustwide::PrepareError::$expected(output)) =
+                    res.err().and_then(|err| err.downcast().ok())
+                {
+                    assert!(output.contains($expected_output), "output: {:?}", output);
+                } else {
+                    panic!("didn't get the error {}", stringify!($expected));
+                }
+                Ok(())
+            });
+        }
+    };
+}

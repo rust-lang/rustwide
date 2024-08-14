@@ -188,22 +188,30 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
-test_prepare_error!(test_yanked_deps, "yanked-deps", YankedDependencies);
+test_prepare_error_stderr!(
+    test_yanked_deps,
+    "yanked-deps",
+    YankedDependencies,
+    r#"failed to select a version for the requirement `ring = "^0.2"`"#
+);
 
-test_prepare_error!(
+test_prepare_error_stderr!(
     test_missing_deps_git,
     "missing-deps-git",
-    MissingDependencies
+    MissingDependencies,
+    "failed to get `not-a-git-repo` as a dependency of package `missing-deps v0.1.0"
 );
 
-test_prepare_error!(
+test_prepare_error_stderr!(
     test_missing_deps_git_locked,
     "missing-deps-git-locked",
-    MissingDependencies
+    MissingDependencies,
+    "failed to get `not-a-git-repo` as a dependency of package `missing-deps-git-locked v0.1.0"
 );
 
-test_prepare_error!(
+test_prepare_error_stderr!(
     test_missing_deps_registry,
     "missing-deps-registry",
-    MissingDependencies
+    MissingDependencies,
+    "error: no matching package named `macro` found"
 );
