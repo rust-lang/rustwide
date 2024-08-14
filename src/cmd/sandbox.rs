@@ -393,7 +393,7 @@ impl Container<'_> {
         // Return a different error if the container was killed due to an OOM
         if details.state.oom_killed {
             Err(match res {
-                Ok(_) | Err(CommandError::ExecutionFailed(_)) => CommandError::SandboxOOM,
+                Ok(_) | Err(CommandError::ExecutionFailed { .. }) => CommandError::SandboxOOM,
                 Err(err) => err,
             })
         } else {

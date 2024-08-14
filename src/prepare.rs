@@ -1,4 +1,4 @@
-use crate::cmd::Command;
+use crate::cmd::{Command, CommandError};
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
 use anyhow::Context as _;
 use log::info;
@@ -113,7 +113,8 @@ impl<'a> Prepare<'a> {
                 .args(&["-Zno-index-update"])
                 .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly");
         }
-        let res = cmd
+
+        match cmd
             .cd(self.source_dir)
             .process_lines(&mut |line, _| {
                 if line.contains("failed to select a version for the requirement") {
@@ -124,17 +125,17 @@ impl<'a> Prepare<'a> {
                     missing_deps = true;
                 }
             })
-            .run();
-        match res {
-            Err(_) if yanked_deps => {
-                return Err(PrepareError::YankedDependencies.into());
+            .run_capture()
+        {
+            Ok(_) => Ok(()),
+            Err(CommandError::ExecutionFailed { status: _, stderr }) if yanked_deps => {
+                Err(PrepareError::YankedDependencies(stderr).into())
             }
-            Err(_) if missing_deps => {
-                return Err(PrepareError::MissingDependencies.into());
+            Err(CommandError::ExecutionFailed { status: _, stderr }) if missing_deps => {
+                Err(PrepareError::MissingDependencies(stderr).into())
             }
-            other => other?,
+            Err(err) => Err(err.into()),
         }
-        Ok(())
     }
 
     fn fetch_deps(&mut self) -> anyhow::Result<()> {
@@ -161,17 +162,20 @@ pub(crate) fn fetch_deps(
     for target in fetch_build_std_targets {
         cmd = cmd.args(&["--target", target]);
     }
-    let res = cmd
+
+    match cmd
         .process_lines(&mut |line, _| {
             if line.contains("failed to load source for dependency") {
                 missing_deps = true;
             }
         })
-        .run();
-    match res {
+        .run_capture()
+    {
         Ok(_) => Ok(()),
-        Err(_) if missing_deps => Err(PrepareError::MissingDependencies.into()),
-        err => err.map_err(|e| e.into()),
+        Err(CommandError::ExecutionFailed { status: _, stderr }) if missing_deps => {
+            Err(PrepareError::MissingDependencies(stderr).into())
+        }
+        Err(err) => Err(err.into()),
     }
 }
 
@@ -381,11 +385,11 @@ pub enum PrepareError {
     #[error("invalid Cargo.toml syntax")]
     InvalidCargoTomlSyntax,
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
-    #[error("the crate depends on yanked dependencies")]
-    YankedDependencies,
+    #[error("the crate depends on yanked dependencies: \n\n{0}")]
+    YankedDependencies(String),
     /// Some of the dependencies do not exist anymore.
-    #[error("the crate depends on missing dependencies")]
-    MissingDependencies,
+    #[error("the crate depends on missing dependencies: \n\n{0}")]
+    MissingDependencies(String),
 }
 
 #[cfg(test)]

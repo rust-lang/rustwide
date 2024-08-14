@@ -71,8 +71,13 @@ pub enum CommandError {
     Timeout(u64),
 
     /// The command failed to execute.
-    #[error("command failed: {0}")]
-    ExecutionFailed(ExitStatus),
+    #[error("command failed: {status}\n\n{stderr}")]
+    ExecutionFailed {
+        /// the exit status we got from the command
+        status: ExitStatus,
+        /// the stderr output, if it was captured via `.run_capture()`
+        stderr: String,
+    },
 
     /// Killing the underlying process after the timeout failed.
     #[error("{0}")]
@@ -496,7 +501,10 @@ impl<'w, 'pl> Command<'w, 'pl> {
             if out.status.success() {
                 Ok(out.into())
             } else {
-                Err(CommandError::ExecutionFailed(out.status))
+                Err(CommandError::ExecutionFailed {
+                    status: out.status,
+                    stderr: out.stderr.join("\n"),
+                })
             }
         }
     }
