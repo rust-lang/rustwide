@@ -95,6 +95,10 @@ pub enum CommandError {
     #[error("sandbox image missing from the local system: {0}")]
     SandboxImageMissing(#[source] Box<CommandError>),
 
+    /// Failed to create the sandbox container
+    #[error("sandbox container could not be created: {0}")]
+    SandboxContainerCreate(#[source] Box<CommandError>),
+
     /// Running rustwide inside a Docker container requires the workspace directory to be mounted
     /// from the host system. This error happens if that's not true, for example if the workspace
     /// lives in a directory inside the container.
