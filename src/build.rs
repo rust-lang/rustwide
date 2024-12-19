@@ -170,7 +170,7 @@ impl BuildDirectory {
         toolchain: &'a Toolchain,
         krate: &'a Crate,
         sandbox: SandboxBuilder,
-    ) -> BuildBuilder {
+    ) -> BuildBuilder<'a> {
         BuildBuilder {
             build_dir: self,
             toolchain,
