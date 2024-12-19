@@ -282,7 +282,8 @@ impl SandboxBuilder {
 
         let out = Command::new(workspace, "docker")
             .args(&args)
-            .run_capture()?;
+            .run_capture()
+            .map_err(|err| CommandError::SandboxContainerCreate(Box::new(err)))?;
         Ok(Container {
             id: out.stdout_lines()[0].clone(),
             workspace,
