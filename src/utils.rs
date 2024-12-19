@@ -183,7 +183,7 @@ mod windows_tests {
             let first_component = p.components().next().unwrap();
 
             if let Component::Prefix(prefix) = &first_component {
-                let stripped = strip_verbatim_from_prefix(&prefix);
+                let stripped = strip_verbatim_from_prefix(prefix);
                 assert_eq!(stripped.as_ref().map(|p| p.to_str().unwrap()), output);
             } else {
                 assert!(output.is_none());

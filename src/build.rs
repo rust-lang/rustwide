@@ -42,7 +42,7 @@ pub struct BuildBuilder<'a> {
     patches: Vec<CratePatch>,
 }
 
-impl<'a> BuildBuilder<'a> {
+impl BuildBuilder<'_> {
     /// Add a git-based patch to this build.
     /// Patches get added to the crate's Cargo.toml in the `patch.crates-io` table.
     /// # Example

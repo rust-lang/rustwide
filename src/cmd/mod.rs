@@ -169,7 +169,7 @@ pub trait Runnable {
     }
 }
 
-impl<'a> Runnable for &'a str {
+impl Runnable for &str {
     fn name(&self) -> Binary {
         Binary::Global(self.into())
     }
@@ -181,7 +181,7 @@ impl Runnable for String {
     }
 }
 
-impl<'a, B: Runnable> Runnable for &'a B {
+impl<B: Runnable> Runnable for &B {
     fn name(&self) -> Binary {
         Runnable::name(*self)
     }
