@@ -5,9 +5,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.19.0] - 2024-12-26
+
 ### Added 
 
-- New variant `CommandError::SandboxContainerCreate`
+- **BREAKING** New variant `CommandError::SandboxContainerCreate` for previous
+  more generic `CommandError::ExecutionFailed` on sandbox creation.
+
+### Changed
+
+- use ubuntu-22.04 instead of ubuntu-latest for tests
 
 ## [0.18.0] - 2024-10-13
 
