@@ -8,7 +8,10 @@ use std::fs::{self, File};
 use std::io;
 use tempfile::tempdir;
 
-static RUSTUP_BASE_URL: &str = "https://static.rust-lang.org/rustup/dist";
+// we're using an old version of rustup, since rustup 1.28 is broken for rustwide for now.
+// We'll try to either fix rustup, or adapt rustwide to fix this, until then, we'll use this version.
+// see https://github.com/rust-lang/rustup/issues/4224
+static RUSTUP_VERSION: &str = "1.27.1";
 
 pub(crate) struct Rustup;
 
@@ -37,10 +40,10 @@ impl Tool for Rustup {
         fs::create_dir_all(workspace.rustup_home())?;
 
         let url = format!(
-            "{}/{}/rustup-init{}",
-            RUSTUP_BASE_URL,
-            crate::HOST_TARGET,
-            EXE_SUFFIX
+            "https://static.rust-lang.org/rustup/archive/{version}/{target}/rustup-init{exe_suffix}",
+            version = RUSTUP_VERSION,
+            target = crate::HOST_TARGET,
+            exe_suffix = EXE_SUFFIX
         );
         let mut resp = workspace
             .http_client()
@@ -75,11 +78,7 @@ impl Tool for Rustup {
 
     fn update(&self, workspace: &Workspace, _fast_install: bool) -> anyhow::Result<()> {
         Command::new(workspace, &RUSTUP)
-            .args(&["self", "update"])
-            .run()
-            .context("failed to update rustup")?;
-        Command::new(workspace, &RUSTUP)
-            .args(&["update", MAIN_TOOLCHAIN_NAME])
+            .args(&["update", MAIN_TOOLCHAIN_NAME, "--no-self-update"])
             .run()
             .with_context(|| format!("failed to update main toolchain {}", MAIN_TOOLCHAIN_NAME))?;
         Ok(())
