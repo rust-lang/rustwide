@@ -211,6 +211,7 @@ pub struct Command<'w, 'pl> {
     no_output_timeout: Option<Duration>,
     log_command: bool,
     log_output: bool,
+    cargo_home_mount_kind: MountKind,
 }
 
 impl<'w, 'pl> Command<'w, 'pl> {
@@ -261,7 +262,14 @@ impl<'w, 'pl> Command<'w, 'pl> {
             no_output_timeout,
             log_output: true,
             log_command: true,
+            cargo_home_mount_kind: MountKind::ReadOnly,
         }
+    }
+
+    /// Mount the cargo home directory as read-write in the sandbox.
+    pub fn rw_cargo_home(mut self) -> Self {
+        self.cargo_home_mount_kind = MountKind::ReadWrite;
+        self
     }
 
     /// Add command-line arguments to the command. This method can be called multiple times to add
@@ -413,7 +421,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 .mount(
                     &workspace.cargo_home(),
                     &container_dirs::CARGO_HOME,
-                    MountKind::ReadOnly,
+                    self.cargo_home_mount_kind,
                 )
                 .mount(
                     &workspace.rustup_home(),
