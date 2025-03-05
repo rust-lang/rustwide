@@ -11,7 +11,7 @@ use tempfile::tempdir;
 // we're using an old version of rustup, since rustup 1.28 is broken for rustwide for now.
 // We'll try to either fix rustup, or adapt rustwide to fix this, until then, we'll use this version.
 // see https://github.com/rust-lang/rustup/issues/4224
-static RUSTUP_VERSION: &str = "1.27.1";
+static RUSTUP_VERSION: &str = "1.28.1";
 
 pub(crate) struct Rustup;
 
