@@ -49,6 +49,7 @@ impl DistToolchain {
                 self.name(),
                 "--profile",
                 workspace.rustup_profile(),
+                "--no-self-update",
             ])
             .run()
             .with_context(|| format!("unable to install toolchain {} via rustup", self.name()))?;

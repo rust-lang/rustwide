@@ -42,6 +42,9 @@ pub(crate) fn file_lock<T>(
     }
 
     let res = std::panic::catch_unwind(f);
+    #[allow(unstable_name_collisions)]
+    // the method is coming from the `fs2` crate
+    // https://github.com/danburkert/fs2-rs/issues/50
     let _ = file.unlock();
 
     match res {
