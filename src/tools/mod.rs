@@ -38,11 +38,11 @@ trait Tool: Send + Sync {
     fn update(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()>;
 
     fn binary_path(&self, workspace: &Workspace) -> PathBuf {
-        crate::utils::normalize_path(&workspace.cargo_home().join("bin").join(format!(
-            "{}{}",
-            self.name(),
-            EXE_SUFFIX
-        )))
+        // `cargo_home()` might a relative path
+        let cargo_home = crate::utils::normalize_path(&workspace.cargo_home());
+        cargo_home
+            .join("bin")
+            .join(format!("{}{}", self.name(), EXE_SUFFIX))
     }
 }
 
