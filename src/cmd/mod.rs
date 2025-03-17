@@ -437,14 +437,15 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 // global paths should never be normalized
                 Binary::Global(path) => (path, false),
                 Binary::ManagedByRustwide(path) => {
-                    let binary = self
-                        .workspace
-                        .expect("calling rustwide bins without a workspace is not supported")
-                        .cargo_home()
-                        .join("bin")
-                        .join(exe_suffix(path.as_os_str()));
                     // `cargo_home()` might a relative path
-                    (crate::utils::normalize_path(&binary), true)
+                    let cargo_home = crate::utils::normalize_path(
+                        &self
+                            .workspace
+                            .expect("calling rustwide bins without a workspace is not supported")
+                            .cargo_home(),
+                    );
+                    let binary = cargo_home.join("bin").join(exe_suffix(path.as_os_str()));
+                    (binary, true)
                 }
             };
 
