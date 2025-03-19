@@ -7,13 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.19.1] - 2025-03-05
 
+- unfreeze rustup version, don't canoncalize binary names
+
+
+## [0.19.1] - 2025-03-05
+
 - temporarily freeze used rustup version to 1.27.1, disable rustup self-update
-  see https://github.com/rust-lang/rustup/issues/4224 and 
+  see https://github.com/rust-lang/rustup/issues/4224 and
   https://github.com/rust-lang/rustwide/issues/94
 
 ## [0.19.0] - 2024-12-26
 
-### Added 
+### Added
 
 - **BREAKING** New variant `CommandError::SandboxContainerCreate` for previous
   more generic `CommandError::ExecutionFailed` on sandbox creation.
