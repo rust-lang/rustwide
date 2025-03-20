@@ -5,7 +5,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## [0.19.1] - 2025-03-05
+## [0.19.2] - 2025-03-19
 
 - unfreeze rustup version, don't canoncalize binary names
 
