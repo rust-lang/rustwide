@@ -330,7 +330,7 @@ test_prepare_error_stderr!(
     "error: invalid type: map, expected a string"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_conflicting_links,
     "invalid-cargotoml-conflicting-links",
     InvalidCargoLock,
