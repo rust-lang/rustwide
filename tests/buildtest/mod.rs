@@ -275,7 +275,7 @@ test_prepare_error_stderr!(
     "error: invalid table header"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_lockfile_syntax,
     "invalid-lockfile-syntax",
     InvalidCargoLock,
