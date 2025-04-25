@@ -1,4 +1,4 @@
-use crate::cmd::{Command, CommandError};
+use crate::cmd::{Command, CommandError, ProcessLinesActions};
 use crate::{build::CratePatch, Crate, Toolchain, Workspace};
 use anyhow::Context as _;
 use log::info;
@@ -101,8 +101,6 @@ impl<'a> Prepare<'a> {
             return Ok(());
         }
 
-        let mut yanked_deps = false;
-        let mut missing_deps = false;
         let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
             "generate-lockfile",
             "--manifest-path",
@@ -114,28 +112,7 @@ impl<'a> Prepare<'a> {
                 .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly");
         }
 
-        match cmd
-            .cd(self.source_dir)
-            .process_lines(&mut |line, _| {
-                if line.contains("failed to select a version for the requirement") {
-                    yanked_deps = true;
-                } else if line.contains("failed to load source for dependency")
-                    || line.contains("no matching package named")
-                {
-                    missing_deps = true;
-                }
-            })
-            .run_capture()
-        {
-            Ok(_) => Ok(()),
-            Err(CommandError::ExecutionFailed { status: _, stderr }) if yanked_deps => {
-                Err(PrepareError::YankedDependencies(stderr).into())
-            }
-            Err(CommandError::ExecutionFailed { status: _, stderr }) if missing_deps => {
-                Err(PrepareError::MissingDependencies(stderr).into())
-            }
-            Err(err) => Err(err.into()),
-        }
+        run_command(cmd.cd(self.source_dir))
     }
 
     fn fetch_deps(&mut self) -> anyhow::Result<()> {
@@ -149,7 +126,6 @@ pub(crate) fn fetch_deps(
     source_dir: &Path,
     fetch_build_std_targets: &[&str],
 ) -> anyhow::Result<()> {
-    let mut missing_deps = false;
     let mut cmd = Command::new(workspace, toolchain.cargo())
         .args(&["fetch", "--manifest-path", "Cargo.toml"])
         .cd(source_dir);
@@ -163,15 +139,28 @@ pub(crate) fn fetch_deps(
         cmd = cmd.args(&["--target", target]);
     }
 
-    match cmd
-        .process_lines(&mut |line, _| {
-            if line.contains("failed to load source for dependency") {
-                missing_deps = true;
-            }
-        })
-        .run_capture()
-    {
+    run_command(cmd)
+}
+
+fn run_command(cmd: Command) -> anyhow::Result<()> {
+    let mut yanked_deps = false;
+    let mut missing_deps = false;
+
+    let mut process = |line: &str, _: &mut ProcessLinesActions| {
+        if line.contains("failed to select a version for the requirement") {
+            yanked_deps = true;
+        } else if line.contains("failed to load source for dependency")
+            || line.contains("no matching package named")
+        {
+            missing_deps = true;
+        }
+    };
+
+    match cmd.process_lines(&mut process).run_capture() {
         Ok(_) => Ok(()),
+        Err(CommandError::ExecutionFailed { status: _, stderr }) if yanked_deps => {
+            Err(PrepareError::YankedDependencies(stderr).into())
+        }
         Err(CommandError::ExecutionFailed { status: _, stderr }) if missing_deps => {
             Err(PrepareError::MissingDependencies(stderr).into())
         }
