@@ -316,10 +316,10 @@ test_prepare_uncategorized_err!(
     "no matching package for override `https://github.com/rust-lang/crates.io-index#build-rs@0.1.2` found"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_missing_deps_registry_version,
     "missing-deps-registry-version",
-    MissingDependencies,
+    YankedDependencies,
     "error: failed to select a version for the requirement `empty-library = \"=0.5.0\"`"
 );
 

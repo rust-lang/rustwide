@@ -331,9 +331,14 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str, &mut ProcessLinesActions)) -> Self {
-        self.process_lines = Some(f);
-        self
+    pub fn process_lines<'pl2>(
+        self,
+        f: &'pl2 mut dyn FnMut(&str, &mut ProcessLinesActions),
+    ) -> Command<'w, 'pl2> {
+        Command {
+            process_lines: Some(f),
+            ..self
+        }
     }
 
     /// Enable or disable logging all the output lines to the [`log` crate][log]. By default
