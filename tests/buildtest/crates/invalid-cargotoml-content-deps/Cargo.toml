@@ -1,0 +1,12 @@
+[package]
+name = "invalid-cargotoml-content-deps"
+version = "0.1.0"
+authors = ["Pietro Albini <pietro@pietroalbini.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parity-db = "=0.2.3"
+# invalid package name in invalid-cargotoml-content is too invalid
+# invalid-cargotoml-content = { git = "https://github.com/rust-lang/rustwide.git", rev = "ee102383cbe40aafdfce7bf04a120226c16a8983" }
