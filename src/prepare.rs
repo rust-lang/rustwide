@@ -146,6 +146,7 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
     let mut yanked_deps = false;
     let mut missing_deps = false;
     let mut broken_deps = false;
+    let mut broken_lockfile = false;
 
     let mut process = |line: &str, _: &mut ProcessLinesActions| {
         if line.contains("failed to select a version for the requirement") {
@@ -158,6 +159,8 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("error: invalid table header")
         {
             broken_deps = true;
+        } else if line.contains("error: failed to parse lock file at") {
+            broken_lockfile = true;
         }
     };
 
@@ -171,6 +174,9 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
         }
         Err(CommandError::ExecutionFailed { status: _, stderr }) if broken_deps => {
             Err(PrepareError::BrokenDependencies(stderr).into())
+        }
+        Err(CommandError::ExecutionFailed { status: _, stderr }) if broken_lockfile => {
+            Err(PrepareError::InvalidCargoLock(stderr).into())
         }
         Err(err) => Err(err.into()),
     }
@@ -390,6 +396,9 @@ pub enum PrepareError {
     /// Some of the dependencies do not exist anymore.
     #[error("the crate depends on missing dependencies: \n\n{0}")]
     MissingDependencies(String),
+    /// cargo rejected (generating) the lockfile
+    #[error("the crate has a broken lockfile: \n\n{0}")]
+    InvalidCargoLock(String),
     /// Uncategorized error
     #[doc(hidden)]
     #[error("uncategorized prepare error")]
