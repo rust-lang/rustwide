@@ -1,0 +1,13 @@
+[package]
+name = "invalid-cargotoml-missing-override"
+version = "0.1.0"
+authors = ["Pietro Albini <pietro@pietroalbini.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+build-rs = "=0.1.2"
+
+[replace]
+"build-rs:0.1.2" = { git = "https://github.com/rust-lang/rustwide.git", rev = "07784be00b68cfd6bf80006c8d8669a7d6374ec2" }

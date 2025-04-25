@@ -1,0 +1,2 @@
+[registries]
+will-be-removed = { index = "https://github.com/rust-lang/crates.io-index" }
