@@ -260,3 +260,94 @@ test_prepare_error_stderr!(
     MissingDependencies,
     "error: no matching package named `macro` found"
 );
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_content_deps,
+    "invalid-cargotoml-content-deps",
+    BrokenDependencies,
+    "failed to parse the version requirement `0.11\t` for dependency `parking_lot`"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_syntax_deps,
+    "invalid-cargotoml-syntax-deps",
+    BrokenDependencies,
+    "error: invalid table header"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_lockfile_syntax,
+    "invalid-lockfile-syntax",
+    InvalidCargoLock,
+    "error: failed to parse lock file at"
+);
+
+test_prepare_unknown_err!(
+    test_missing_deps_typo,
+    "missing-deps-typo",
+    MissingDependencies,
+    "error: no matching package found"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_cyclic_feature,
+    "invalid-cargotoml-cyclic-feature",
+    BrokenDependencies,
+    "error: cyclic feature dependency: feature"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_cyclic_package,
+    "invalid-cargotoml-cyclic-package",
+    BrokenDependencies,
+    "error: cyclic package dependency: package"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_missing_registry_config,
+    "invalid-cargotoml-missing-registry-config",
+    MissingDependencies,
+    "registry index was not found in any configuration: `will-be-removed`"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_missing_override,
+    "invalid-cargotoml-missing-override",
+    MissingDependencies,
+    "no matching package for override `https://github.com/rust-lang/crates.io-index#build-rs@0.1.2` found"
+);
+
+test_prepare_unknown_err!(
+    test_missing_deps_registry_version,
+    "missing-deps-registry-version",
+    MissingDependencies,
+    "error: failed to select a version for the requirement `empty-library = \"=0.5.0\"`"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_content_type_in_deps,
+    "invalid-cargotoml-content-type-in-deps",
+    BrokenDependencies,
+    "error: invalid type: map, expected a string"
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_conflicting_links,
+    "invalid-cargotoml-conflicting-links",
+    InvalidCargoLock,
+    "error: Attempting to resolve a dependency with more than one crate with links=ring-asm"
+);
+
+test_prepare_unknown_err!(
+    test_lockfile_collision,
+    "lockfile-collision",
+    BrokenDependencies,
+    "error: package collision in the lockfile: packages lockfile-collision v0.1.0 "
+);
+
+test_prepare_unknown_err!(
+    test_invalid_cargotoml_missing_patch,
+    "invalid-cargotoml-missing-patch",
+    MissingDependencies,
+    "The patch location `https://github.com/rust-lang/rustwide.git?rev=07784be00b68cfd6bf80006c8d8669a7d6374ec2` does not appear to contain any packages matching the name `build-rs`"
+);
