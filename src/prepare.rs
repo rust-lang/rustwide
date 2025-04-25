@@ -164,7 +164,11 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("error: cyclic package dependency: package ")
         {
             broken_deps = true;
-        } else if line.contains("error: failed to parse lock file at") {
+        } else if line.contains("error: failed to parse lock file at")
+            || line.contains(
+                "error: Attempting to resolve a dependency with more than one crate with links=",
+            )
+        {
             broken_lockfile = true;
         }
     };
