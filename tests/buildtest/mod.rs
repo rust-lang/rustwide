@@ -337,7 +337,7 @@ test_prepare_error_stderr!(
     "error: Attempting to resolve a dependency with more than one crate with links=ring-asm"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_lockfile_collision,
     "lockfile-collision",
     BrokenDependencies,
