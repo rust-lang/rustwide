@@ -344,7 +344,7 @@ test_prepare_uncategorized_err!(
     "error: package collision in the lockfile: packages lockfile-collision v0.1.0 "
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_patch,
     "invalid-cargotoml-missing-patch",
     MissingDependencies,
