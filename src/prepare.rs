@@ -164,6 +164,10 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("error: invalid type: ")
             || line.contains("error: cyclic feature dependency: feature ")
             || line.contains("error: cyclic package dependency: package ")
+            || (line.contains("error: package collision in the lockfile: packages ")
+                && line.contains(
+                    " are different, but only one can be written to lockfile unambiguously",
+                ))
         {
             broken_deps = true;
         } else if line.contains("error: failed to parse lock file at")
