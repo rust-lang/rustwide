@@ -153,6 +153,7 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             yanked_deps = true;
         } else if line.contains("failed to load source for dependency")
             || line.contains("no matching package named")
+            || line.contains("no matching package found")
         {
             missing_deps = true;
         } else if line.contains("failed to parse manifest at")
