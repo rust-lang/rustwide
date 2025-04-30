@@ -1,5 +1,5 @@
 [package]
-name = "missing-deps"
+name = "missing-deps-git"
 version = "0.1.0"
 authors = ["Pietro Albini <pietro@pietroalbini.org>"]
 edition = "2018"

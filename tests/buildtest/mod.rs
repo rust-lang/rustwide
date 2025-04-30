@@ -6,6 +6,51 @@ mod runner;
 mod inside_docker;
 
 #[test]
+fn buildtest_crate_name_matches_folder_name() {
+    for result in std::fs::read_dir(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/buildtest/crates"
+    ))
+    .unwrap()
+    {
+        let dir_entry = result.unwrap();
+        if dir_entry.file_type().unwrap().is_dir() {
+            let dir_name = dir_entry.file_name();
+
+            if [
+                "cargo-workspace".as_ref(),
+                "invalid-cargotoml-syntax".as_ref(),
+            ]
+            .contains(&dir_name.as_os_str())
+            {
+                continue;
+            }
+
+            let expected_crate_name = if dir_name != "invalid-cargotoml-content" {
+                dir_name.clone()
+            } else {
+                "!".into()
+            };
+
+            let cargo_toml_path = dir_entry.path().join("Cargo.toml");
+
+            if !cargo_toml_path.exists() {
+                continue;
+            }
+
+            let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).unwrap();
+
+            assert!(
+                cargo_toml_content.contains(&format!("name = {expected_crate_name:?}")),
+                "directory {:?} does not contain a crate with the expected name {:?}",
+                dir_name,
+                expected_crate_name
+            )
+        }
+    }
+}
+
+#[test]
 fn test_hello_world() {
     runner::run("hello-world", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
@@ -199,7 +244,7 @@ test_prepare_error_stderr!(
     test_missing_deps_git,
     "missing-deps-git",
     MissingDependencies,
-    "failed to get `not-a-git-repo` as a dependency of package `missing-deps v0.1.0"
+    "failed to get `not-a-git-repo` as a dependency of package `missing-deps-git v0.1.0"
 );
 
 test_prepare_error_stderr!(
