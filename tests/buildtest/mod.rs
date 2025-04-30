@@ -282,7 +282,7 @@ test_prepare_error_stderr!(
     "error: failed to parse lock file at"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_missing_deps_typo,
     "missing-deps-typo",
     MissingDependencies,
