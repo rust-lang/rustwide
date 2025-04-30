@@ -154,7 +154,9 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("no matching package named")
         {
             missing_deps = true;
-        } else if line.contains("failed to parse manifest at") {
+        } else if line.contains("failed to parse manifest at")
+            || line.contains("error: invalid table header")
+        {
             broken_deps = true;
         }
     };
