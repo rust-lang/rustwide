@@ -261,7 +261,7 @@ test_prepare_error_stderr!(
     "error: no matching package named `macro` found"
 );
 
-test_prepare_unknown_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_content_deps,
     "invalid-cargotoml-content-deps",
     BrokenDependencies,
@@ -303,10 +303,10 @@ test_prepare_unknown_err!(
     "error: cyclic package dependency: package"
 );
 
-test_prepare_unknown_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_registry_config,
     "invalid-cargotoml-missing-registry-config",
-    MissingDependencies,
+    BrokenDependencies,
     "registry index was not found in any configuration: `will-be-removed`"
 );
 
