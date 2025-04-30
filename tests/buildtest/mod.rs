@@ -268,7 +268,7 @@ test_prepare_error_stderr!(
     "failed to parse the version requirement `0.11\t` for dependency `parking_lot`"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_syntax_deps,
     "invalid-cargotoml-syntax-deps",
     BrokenDependencies,
