@@ -289,7 +289,7 @@ test_prepare_error_stderr!(
     "error: no matching package found"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_cyclic_feature,
     "invalid-cargotoml-cyclic-feature",
     BrokenDependencies,
