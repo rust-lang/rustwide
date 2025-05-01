@@ -159,6 +159,7 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
         } else if line.contains("failed to parse manifest at")
             || line.contains("error: invalid table header")
             || line.contains("error: cyclic feature dependency: feature ")
+            || line.contains("error: cyclic package dependency: package ")
         {
             broken_deps = true;
         } else if line.contains("error: failed to parse lock file at") {
