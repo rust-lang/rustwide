@@ -310,7 +310,7 @@ test_prepare_error_stderr!(
     "registry index was not found in any configuration: `will-be-removed`"
 );
 
-test_prepare_unknown_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_override,
     "invalid-cargotoml-missing-override",
     MissingDependencies,

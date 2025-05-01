@@ -155,6 +155,7 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("no matching package named")
             || line.contains("no matching package found")
             || line.contains("registry index was not found in any configuration:")
+            || line.contains("no matching package for override ")
         {
             missing_deps = true;
         } else if line.contains("failed to parse manifest at")
