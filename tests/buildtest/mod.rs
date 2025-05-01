@@ -306,7 +306,7 @@ test_prepare_error_stderr!(
 test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_registry_config,
     "invalid-cargotoml-missing-registry-config",
-    BrokenDependencies,
+    MissingDependencies,
     "registry index was not found in any configuration: `will-be-removed`"
 );
 
