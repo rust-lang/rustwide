@@ -309,7 +309,7 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_override,
     "invalid-cargotoml-missing-override",
     MissingDependencies,
