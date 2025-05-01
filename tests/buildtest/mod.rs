@@ -324,7 +324,7 @@ test_prepare_error_stderr!(
     "error: failed to select a version for the requirement `empty-library = \"=0.5.0\"`"
 );
 
-test_prepare_unknown_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_content_type_in_deps,
     "invalid-cargotoml-content-type-in-deps",
     BrokenDependencies,
