@@ -63,6 +63,7 @@ impl Runner {
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! test_prepare_unknown_err {
     ($name:ident, $krate:expr, $expected:ident $(,$expected_output:expr)?) => {
         #[test]
