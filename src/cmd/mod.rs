@@ -211,6 +211,7 @@ pub struct Command<'w, 'pl> {
     no_output_timeout: Option<Duration>,
     log_command: bool,
     log_output: bool,
+    source_dir_mount_kind: MountKind,
 }
 
 impl<'w, 'pl> Command<'w, 'pl> {
@@ -261,6 +262,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
             no_output_timeout,
             log_output: true,
             log_command: true,
+            source_dir_mount_kind: MountKind::ReadOnly,
         }
     }
 
@@ -352,6 +354,22 @@ impl<'w, 'pl> Command<'w, 'pl> {
         self
     }
 
+    /// Sets how the source directory is mounted.
+    ///
+    /// The default mount kind is read-only.
+    ///
+    /// ## Security
+    ///
+    /// Be sure you understand the implications of setting this. If you set
+    /// this to read-write, and the source directory may potentially be
+    /// reused, then subsequent invocations may see those changes. Beware of
+    /// trusting those previous invocations or the contents of the source
+    /// directory.
+    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
+        self.source_dir_mount_kind = mount_kind;
+        self
+    }
+
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
     pub fn run(self) -> Result<(), CommandError> {
@@ -393,7 +411,11 @@ impl<'w, 'pl> Command<'w, 'pl> {
             };
 
             builder = builder
-                .mount(&source_dir, &container_dirs::WORK_DIR, MountKind::ReadOnly)
+                .mount(
+                    &source_dir,
+                    &container_dirs::WORK_DIR,
+                    self.source_dir_mount_kind,
+                )
                 .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
                 .workdir(container_dirs::WORK_DIR.to_str().unwrap())
                 .cmd(cmd);
