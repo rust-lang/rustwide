@@ -43,6 +43,15 @@ fn execute(test: &str) -> anyhow::Result<()> {
     let target_mount = os_string!(&target_parent_dir, ":", &target_prefix);
     let docker_sock = os_string!(DOCKER_SOCKET, ":", DOCKER_SOCKET);
 
+    // NixOS's linkage model is different compared to any other Linux distribution, as it stores
+    // all of the shared libraries it links to in /nix. Mounting that directory inside the
+    // container allows the test binary to be executed inside of the container.
+    let nixos_args: &[&str] = if std::fs::exists("/nix")? {
+        &["-v", "/nix:/nix:ro"]
+    } else {
+        &[]
+    };
+
     Command::new("docker")
         .arg("run")
         .arg("-v")
@@ -51,6 +60,7 @@ fn execute(test: &str) -> anyhow::Result<()> {
         .arg(target_mount)
         .arg("-v")
         .arg(docker_sock)
+        .args(nixos_args)
         .arg("-w")
         .arg(container_prefix)
         .arg("-e")
