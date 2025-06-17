@@ -5,6 +5,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.19.3] - 2025-06-17
+
+### Added
+
+- Added `Command::source_dir_mount_kind`
+
+### Fixed
+
+- Fixed running tests inside of nixos
+
 ## [0.19.2] - 2025-03-19
 
 - unfreeze rustup version, don't canoncalize binary names
