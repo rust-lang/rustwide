@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.19.4] - 2025-06-17
+
+### Fixed
+  
+- "move manifest validation later in the preparation to harden against possible cargo changes
+
+
 ## [0.19.3] - 2025-06-17
 
 ### Added
