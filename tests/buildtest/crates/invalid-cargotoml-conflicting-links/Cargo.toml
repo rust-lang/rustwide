@@ -1,0 +1,16 @@
+[package]
+name = "invalid-cargotoml-conflicting-links"
+version = "0.1.0"
+authors = ["Pietro Albini <pietro@pietroalbini.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ring_13 = { version = "=0.13.5", package = "ring" }
+ring_14 = { version = "=0.14.6", package = "ring" }
+
+
+[replace]
+"ring:0.13.5" = { git = "https://github.com/briansmith/ring.git", rev = "704e4216a397bd830479bcd6d7dd67fc62cdbe67" }
+"ring:0.14.6" = { git = "https://github.com/briansmith/ring.git", rev = "ef85df478152aa3fe06c811309379efa08f8a529" }
