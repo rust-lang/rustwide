@@ -35,9 +35,9 @@ impl<'a> Prepare<'a> {
 
     pub(crate) fn prepare(&mut self) -> anyhow::Result<()> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
-        self.validate_manifest()?;
         self.remove_override_files()?;
         self.tweak_toml()?;
+        self.validate_manifest()?;
         self.capture_lockfile()?;
         self.fetch_deps()?;
 
