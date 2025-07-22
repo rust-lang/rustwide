@@ -501,14 +501,14 @@ impl<'w, 'pl> Command<'w, 'pl> {
                 cmd.env(k, v);
             }
 
-            let cmdstr = format!("{:?}", cmd);
+            let cmdstr = format!("{cmd:?}");
 
             if let Some(ref cd) = self.cd {
                 cmd.current_dir(cd);
             }
 
             if self.log_command {
-                info!("running `{}`", cmdstr);
+                info!("running `{cmdstr}`");
             }
 
             let out = RUNTIME
@@ -521,7 +521,7 @@ impl<'w, 'pl> Command<'w, 'pl> {
                     self.log_output,
                 ))
                 .map_err(|e| {
-                    error!("error running command: {}", e);
+                    error!("error running command: {e}");
                     e
                 })?;
 

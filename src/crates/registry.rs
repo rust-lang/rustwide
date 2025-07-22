@@ -122,7 +122,7 @@ impl RegistryCrate {
                     git2::build::RepoBuilder::new()
                         .fetch_options(fo)
                         .clone(url, &index_path)
-                        .with_context(|| format!("unable to update_index at {}", url))?;
+                        .with_context(|| format!("unable to update_index at {url}"))?;
                     info!("cloned registry index");
                 }
                 let config = std::fs::read_to_string(index_path.join("config.json"))?;

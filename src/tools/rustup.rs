@@ -49,7 +49,7 @@ impl Tool for Rustup {
             .error_for_status()?;
 
         let tempdir = tempdir()?;
-        let installer = &tempdir.path().join(format!("rustup-init{}", EXE_SUFFIX));
+        let installer = &tempdir.path().join(format!("rustup-init{EXE_SUFFIX}"));
         {
             let mut file = File::create(installer)?;
             io::copy(&mut resp, &mut file)?;
@@ -81,7 +81,7 @@ impl Tool for Rustup {
         Command::new(workspace, &RUSTUP)
             .args(&["update", MAIN_TOOLCHAIN_NAME])
             .run()
-            .with_context(|| format!("failed to update main toolchain {}", MAIN_TOOLCHAIN_NAME))?;
+            .with_context(|| format!("failed to update main toolchain {MAIN_TOOLCHAIN_NAME}"))?;
         Ok(())
     }
 }

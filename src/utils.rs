@@ -35,7 +35,7 @@ pub(crate) fn file_lock<T>(
     let mut message_displayed = false;
     while let Err(err) = file.try_lock_exclusive() {
         if !message_displayed && err.kind() == fs2::lock_contended_error().kind() {
-            warn!("blocking on other processes finishing to {}", msg);
+            warn!("blocking on other processes finishing to {msg}");
             message_displayed = true;
         }
         file.lock_exclusive()?;
