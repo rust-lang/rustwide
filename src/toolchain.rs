@@ -407,8 +407,7 @@ impl Toolchain {
                 .collect()),
             Err(_) if not_installed => Err(ToolchainError::NotInstalled.into()),
             Err(err) => Err(anyhow!(err).context(format!(
-                "failed to read the list of installed {}s for {} with rustup",
-                thing, name
+                "failed to read the list of installed {thing}s for {name} with rustup"
             ))),
         }
     }
@@ -419,7 +418,7 @@ impl Toolchain {
         Command::new(workspace, &RUSTUP)
             .args(&["toolchain", "uninstall", &name])
             .run()
-            .with_context(|| format!("unable to uninstall toolchain {} via rustup", name))?;
+            .with_context(|| format!("unable to uninstall toolchain {name} via rustup"))?;
         Ok(())
     }
 

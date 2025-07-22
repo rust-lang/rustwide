@@ -29,7 +29,7 @@ impl SandboxImage {
     /// error will be returned instead.
     pub fn remote(name: &str) -> Result<Self, CommandError> {
         let mut image = SandboxImage { name: name.into() };
-        info!("pulling image {} from Docker Hub", name);
+        info!("pulling image {name} from Docker Hub");
         Command::new_workspaceless("docker")
             .args(&["pull", name])
             .run()
@@ -219,7 +219,7 @@ impl SandboxBuilder {
     }
 
     pub(super) fn user(mut self, user: u32, group: u32) -> Self {
-        self.user = Some(format!("{}:{}", user, group));
+        self.user = Some(format!("{user}:{group}"));
         self
     }
 
@@ -242,7 +242,7 @@ impl SandboxBuilder {
 
         for (var, value) in &self.env {
             args.push("-e".into());
-            args.push(format! {"{}={}", var, value})
+            args.push(format! {"{var}={value}"})
         }
 
         if let Some(workdir) = self.workdir {
@@ -308,10 +308,10 @@ impl SandboxBuilder {
         scopeguard::defer! {{
             if let Err(err) = container.delete() {
                 error!("failed to delete container {}", container.id);
-                error!("caused by: {}", err);
+                error!("caused by: {err}");
                 let mut err: &dyn Error = &err;
                 while let Some(cause) = err.source() {
-                    error!("caused by: {}", cause);
+                    error!("caused by: {cause}");
                     err = cause;
                 }
             }

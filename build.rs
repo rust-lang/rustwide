@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let target = std::env::var("TARGET")?;
 
     let output = std::env::var("OUT_DIR")?;
-    ::std::fs::write(format!("{}/target", output), target.as_bytes())?;
+    ::std::fs::write(format!("{output}/target"), target.as_bytes())?;
 
     println!("cargo:rerun-if-env-changed=DOCS_RS");
     if std::env::var_os("DOCS_RS").as_deref() == Some(std::ffi::OsStr::new("1")) {

@@ -268,7 +268,7 @@ impl<'a> TomlTweaker<'a> {
         // Eliminate parent workspaces
         if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package") {
             if package.remove("workspace").is_some() {
-                info!("removed parent workspace from {}", krate);
+                info!("removed parent workspace from {krate}");
             }
         }
     }
@@ -295,7 +295,7 @@ impl<'a> TomlTweaker<'a> {
 
         // Strip the 'publish-lockfile' key from [package]
         if has_publish_lockfile {
-            info!("disabled cargo feature 'publish-lockfile' from {}", krate);
+            info!("disabled cargo feature 'publish-lockfile' from {krate}");
             if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package") {
                 package.remove("publish-lockfile");
             }
@@ -303,7 +303,7 @@ impl<'a> TomlTweaker<'a> {
 
         // Strip the 'default-run' key from [package]
         if has_default_run {
-            info!("disabled cargo feature 'default-run' from {}", krate);
+            info!("disabled cargo feature 'default-run' from {krate}");
             if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package") {
                 package.remove("default-run");
             }
@@ -390,6 +390,7 @@ pub enum PrepareError {
     /// Some of the dependencies do not exist anymore.
     #[error("the crate depends on missing dependencies: \n\n{0}")]
     MissingDependencies(String),
+    /// Some not further detaild error
     #[error("prepare failed without further details")]
     Unknown,
 }
