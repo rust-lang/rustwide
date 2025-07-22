@@ -390,6 +390,8 @@ pub enum PrepareError {
     /// Some of the dependencies do not exist anymore.
     #[error("the crate depends on missing dependencies: \n\n{0}")]
     MissingDependencies(String),
+    #[error("prepare failed without further details")]
+    Unknown,
 }
 
 #[cfg(test)]
