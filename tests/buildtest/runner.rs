@@ -63,29 +63,6 @@ impl Runner {
     }
 }
 
-macro_rules! test_prepare_unknown_err {
-    ($name:ident, $krate:expr, $expected:ident $(,$expected_output:expr)?) => {
-        #[test]
-        fn $name() {
-            runner::run($krate, |run| {
-                let res = run.run(
-                    rustwide::cmd::SandboxBuilder::new().enable_networking(false),
-                    |_| Ok(()),
-                );
-                if let Some(err) = res
-                    .err()
-                    .and_then(|err| err.downcast::<rustwide::PrepareError>().ok())
-                {
-                    panic!("did get an unexpected error: \n\n{}", err);
-                } else {
-                    // Everything is OK!
-                }
-                Ok(())
-            });
-        }
-    };
-}
-
 macro_rules! test_prepare_error {
     ($name:ident, $krate:expr, $expected:ident) => {
         #[test]
@@ -119,6 +96,8 @@ macro_rules! test_prepare_error {
     };
 }
 
+pub(crate) use test_prepare_error;
+
 macro_rules! test_prepare_error_stderr {
     ($name:ident, $krate:expr, $expected:ident, $expected_output:expr) => {
         #[test]
@@ -149,5 +128,11 @@ macro_rules! test_prepare_error_stderr {
                 Ok(())
             });
         }
+    };
+}
+
+macro_rules! test_prepare_unknown_err {
+    ($name:ident, $krate:expr, $expected:ident $(,$expected_output:expr)?) => {
+        $crate::buildtest::runner::test_prepare_error!($name, $krate, Unknown);
     };
 }

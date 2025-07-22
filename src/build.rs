@@ -1,6 +1,6 @@
 use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
 use crate::prepare::Prepare;
-use crate::{Crate, Toolchain, Workspace};
+use crate::{Crate, PrepareError, Toolchain, Workspace};
 use std::path::PathBuf;
 use std::vec::Vec;
 
@@ -194,7 +194,13 @@ impl BuildDirectory {
         }
 
         let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
-        prepare.prepare()?;
+        prepare.prepare().map_err(|err| {
+            if err.downcast_ref::<PrepareError>().is_none() {
+                err.context(PrepareError::Unknown)
+            } else {
+                err
+            }
+        })?;
 
         std::fs::create_dir_all(self.target_dir())?;
         let res = f(&Build {
