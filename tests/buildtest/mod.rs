@@ -303,11 +303,10 @@ test_prepare_unknown_err!(
     "error: cyclic package dependency: package"
 );
 
-test_prepare_unknown_err!(
+test_prepare_error!(
     test_invalid_cargotoml_missing_registry_config,
     "invalid-cargotoml-missing-registry-config",
-    MissingDependencies,
-    "registry index was not found in any configuration: `will-be-removed`"
+    InvalidCargoTomlSyntax
 );
 
 test_prepare_unknown_err!(
