@@ -95,12 +95,23 @@ macro_rules! test_prepare_error {
                     rustwide::cmd::SandboxBuilder::new().enable_networking(false),
                     |_| Ok(()),
                 );
-                if let Some(rustwide::PrepareError::$expected) =
-                    res.err().and_then(|err| err.downcast().ok())
-                {
-                    // Everything is OK!
-                } else {
-                    panic!("didn't get the error {}", stringify!($expected));
+                match res.err().and_then(|err| err.downcast().ok()) {
+                    Some(rustwide::PrepareError::$expected) => {
+                        // Everything is OK!
+                    }
+                    Some(other) => {
+                        panic!(
+                            "expected PrepareError::{} error, got {:?} instead",
+                            stringify!($expected),
+                            other
+                        );
+                    }
+                    None => {
+                        panic!(
+                            "expected PrepareError::{} error, but did get None instead",
+                            stringify!($expected)
+                        );
+                    }
                 }
                 Ok(())
             });
@@ -117,12 +128,23 @@ macro_rules! test_prepare_error_stderr {
                     rustwide::cmd::SandboxBuilder::new().enable_networking(false),
                     |_| Ok(()),
                 );
-                if let Some(rustwide::PrepareError::$expected(output)) =
-                    res.err().and_then(|err| err.downcast().ok())
-                {
-                    assert!(output.contains($expected_output), "output: {:?}", output);
-                } else {
-                    panic!("didn't get the error {}", stringify!($expected));
+                match res.err().and_then(|err| err.downcast().ok()) {
+                    Some(rustwide::PrepareError::$expected(output)) => {
+                        assert!(output.contains($expected_output), "output: {:?}", output);
+                    }
+                    Some(other) => {
+                        panic!(
+                            "expected PrepareError::{} error, got {:?} instead",
+                            stringify!($expected),
+                            other
+                        );
+                    }
+                    None => {
+                        panic!(
+                            "expected PrepareError::{} error, but did get None instead",
+                            stringify!($expected)
+                        );
+                    }
                 }
                 Ok(())
             });
