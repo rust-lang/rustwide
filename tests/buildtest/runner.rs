@@ -131,7 +131,7 @@ macro_rules! test_prepare_error_stderr {
     };
 }
 
-macro_rules! test_prepare_unknown_err {
+macro_rules! test_prepare_uncategorized_err {
     ($name:ident, $krate:expr, $expected:ident $(,$expected_output:expr)?) => {
         $crate::buildtest::runner::test_prepare_error!($name, $krate, Unknown);
     };
