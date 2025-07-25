@@ -391,6 +391,7 @@ pub enum PrepareError {
     #[error("the crate depends on missing dependencies: \n\n{0}")]
     MissingDependencies(String),
     /// Some not further detaild error
+    #[doc(hidden)]
     #[error("prepare failed without further details")]
     Unknown,
 }
