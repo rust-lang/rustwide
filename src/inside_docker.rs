@@ -62,7 +62,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
         .log_command(false)
         .run_capture()?;
     for id in out.stdout_lines() {
-        info!("probing container id {}", id);
+        info!("probing container id {id}");
 
         let res = Command::new(workspace, "docker")
             .args(&["exec", id, "cat", probe_path_str])
@@ -71,7 +71,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
             .run_capture();
         if let Ok([probed]) = res.as_ref().map(|out| out.stdout_lines()) {
             if *probed == probe_content {
-                info!("probe successful, this is container ID {}", id);
+                info!("probe successful, this is container ID {id}");
                 return Ok(Some(id.clone()));
             }
         }
