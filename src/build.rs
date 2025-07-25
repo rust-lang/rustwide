@@ -196,7 +196,7 @@ impl BuildDirectory {
         let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
         prepare.prepare().map_err(|err| {
             if err.downcast_ref::<PrepareError>().is_none() {
-                err.context(PrepareError::Unknown)
+                err.context(PrepareError::Uncategorized)
             } else {
                 err
             }
