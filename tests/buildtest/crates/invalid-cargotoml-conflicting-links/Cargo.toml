@@ -14,3 +14,15 @@ ring_14 = { version = "=0.14.6", package = "ring" }
 [replace]
 "ring:0.13.5" = { git = "https://github.com/briansmith/ring.git", rev = "704e4216a397bd830479bcd6d7dd67fc62cdbe67" }
 "ring:0.14.6" = { git = "https://github.com/briansmith/ring.git", rev = "ef85df478152aa3fe06c811309379efa08f8a529" }
+
+
+# Both of the above packages declare the package.links ¹ key with value "ring-asm" in their respective Cargo.toml ² ³ file.
+# As each links value may only be used by one package in the dependency tree depending on both causes a conflict and cargo fill fail.
+#
+# [INFO] [stderr]     Updating crates.io index
+# [INFO] [stderr] error: Attempting to resolve a dependency with more than one crate with links=ring-asm.
+# [INFO] [stderr] This will not build as is. Consider rebuilding the .lock file.
+# 
+# [1]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-links-field
+# [2]: https://github.com/briansmith/ring/blob/704e4216a397bd830479bcd6d7dd67fc62cdbe67/Cargo.toml#L15
+# [3]: https://github.com/briansmith/ring/blob/ef85df478152aa3fe06c811309379efa08f8a529/Cargo.toml#L16

@@ -8,3 +8,10 @@ edition = "2018"
 
 [dependencies]
 empty-library = "=0.5.0"
+
+# Note that while the crate empty-library is published to crates.io it does not have a version 0.5.0 published ¹
+# as such cargo will fail as it will be unable to find a matching package version for the specified dependency
+#
+# This is a reproduction for crater errors like https://crater-reports.s3.amazonaws.com/beta-1.86-1/1.85.0/gh/adelelopez.bayes/log.txt
+#
+# [1]: https://crates.io/crates/empty-library/versions
