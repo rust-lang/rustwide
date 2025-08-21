@@ -11,3 +11,8 @@ build-rs = "=0.1.2"
 
 [replace]
 "build-rs:0.1.2" = { git = "https://github.com/rust-lang/rustwide.git", rev = "07784be00b68cfd6bf80006c8d8669a7d6374ec2" }
+
+# Note that the rustwide repository at the specified revision does not declare a package of the name `build-rs`
+# as such the declared replacement of the build-rs crate cannot be applied and cargo fails.
+#
+# This is a reproduction for crater errors like https://crater-reports.s3.amazonaws.com/beta-1.86-1/1.85.0/gh/bestform.game-of-life.rs/log.txt

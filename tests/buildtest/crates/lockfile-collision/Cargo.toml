@@ -8,3 +8,11 @@ edition = "2018"
 
 [dependencies]
 lockfile-collision = { path = "./crates/lockfile-collision" }
+
+# Note that this package and its dependency have the same name
+# this results in Cargo being unable to build a lock file as both packages would have the same entry key.
+#
+# This is a reproduction for crater errors like https://crater-reports.s3.amazonaws.com/beta-1.86-1/1.85.0/gh/shadowmint.loghaul/log.txt
+#
+# [INFO] [stderr]     Blocking waiting for file lock on package cache
+# [INFO] [stderr] error: package collision in the lockfile: packages loghaul v0.1.0 (/workspace/builds/worker-3-tc2/source) and loghaul v0.1.0 (/workspace/builds/worker-3-tc2/source/crates/loghaul) are different, but only one can be written to lockfile unambiguously

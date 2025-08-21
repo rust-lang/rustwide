@@ -8,3 +8,14 @@ edition = "2018"
 
 [dependencies]
 url = "=0.5.9"
+
+# The url dependency at version 0.5.9 was published with a malformed Cargo.toml, this syntax error causes cargo to fail.
+#
+# [INFO] [stderr]  Downloading crates ...
+# [INFO] [stderr] error: invalid table header
+# [INFO] [stderr] expected newline, `#`
+# [INFO] [stderr]   --> ../../../cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/url-0.5.9/Cargo.toml:14:10
+# [INFO] [stderr]    |
+# [INFO] [stderr] 14 | [[test]] name = "format"
+# [INFO] [stderr]    |          ^
+# [INFO] [stderr]    |

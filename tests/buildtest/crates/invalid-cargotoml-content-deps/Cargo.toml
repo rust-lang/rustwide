@@ -10,3 +10,17 @@ edition = "2018"
 parity-db = "=0.2.3"
 # invalid package name in invalid-cargotoml-content is too invalid
 # invalid-cargotoml-content = { git = "https://github.com/rust-lang/rustwide.git", rev = "ee102383cbe40aafdfce7bf04a120226c16a8983" }
+
+# parity-db version 0.2.3 specifies a dependency on parking_lot at version "0.11\t" in its Cargo.toml ¹ file, but a tab character is not
+# allowed in the package version constraint causing cargo to error out.
+#
+#  Downloaded parity-db v0.2.3
+# error: failed to parse manifest at `/workspace/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/parity-db-0.2.3/Cargo.toml`
+#
+# Caused by:
+#   failed to parse the version requirement `0.11	` for dependency `parking_lot`
+#
+# Caused by:
+#   expected comma after minor version number, found '\t'
+#
+# [1]: https://docs.rs/crate/parity-db/0.2.3/source/Cargo.toml.orig#13

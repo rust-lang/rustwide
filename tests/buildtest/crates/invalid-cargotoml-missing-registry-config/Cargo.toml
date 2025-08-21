@@ -8,3 +8,9 @@ edition = "2018"
 
 [dependencies]
 build-rs = { version = "*", registry = "will-be-removed" }
+
+# During the preperation rustwide will remove the ./.config/config.toml file
+# this will make the build-rs dependecy refere to an undefined registry
+# which causes cargo to fail.
+#
+# This is a reproduction for crater errors like https://crater-reports.s3.amazonaws.com/beta-1.86-1/1.85.0/gh/retrokiller543.rust-echo/log.txt
