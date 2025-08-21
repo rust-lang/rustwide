@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.20.0] - 2025-08-22 
+
+-  **BREAKING** ensure callers of BuildDirectory::run can determine if the source of the
+   error is in Prepare::prepare.
+   See https://github.com/rust-lang/rustwide/pull/103
+
 ## [0.19.4] - 2025-06-17
 
 ### Fixed
