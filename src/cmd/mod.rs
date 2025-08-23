@@ -214,7 +214,7 @@ pub struct Command<'w, 'pl> {
     source_dir_mount_kind: MountKind,
 }
 
-impl<'w, 'pl> Command<'w, 'pl> {
+impl<'w> Command<'w, '_> {
     /// Create a new, unsandboxed command.
     pub fn new<R: Runnable>(workspace: &'w Workspace, binary: R) -> Self {
         binary.prepare_command(Self::new_inner(binary.name(), Some(workspace), None))
@@ -331,9 +331,14 @@ impl<'w, 'pl> Command<'w, 'pl> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn process_lines(mut self, f: &'pl mut dyn FnMut(&str, &mut ProcessLinesActions)) -> Self {
-        self.process_lines = Some(f);
-        self
+    pub fn process_lines<'pl>(
+        self,
+        f: &'pl mut dyn FnMut(&str, &mut ProcessLinesActions),
+    ) -> Command<'w, 'pl> {
+        Command {
+            process_lines: Some(f),
+            ..self
+        }
     }
 
     /// Enable or disable logging all the output lines to the [`log` crate][log]. By default
