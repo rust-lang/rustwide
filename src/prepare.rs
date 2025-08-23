@@ -145,6 +145,7 @@ pub(crate) fn fetch_deps(
 fn run_command(cmd: Command) -> anyhow::Result<()> {
     let mut yanked_deps = false;
     let mut missing_deps = false;
+    let mut broken_deps = false;
 
     let mut process = |line: &str, _: &mut ProcessLinesActions| {
         if line.contains("failed to select a version for the requirement") {
@@ -153,6 +154,8 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("no matching package named")
         {
             missing_deps = true;
+        } else if line.contains("failed to parse manifest at") {
+            broken_deps = true;
         }
     };
 
@@ -163,6 +166,9 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
         }
         Err(CommandError::ExecutionFailed { status: _, stderr }) if missing_deps => {
             Err(PrepareError::MissingDependencies(stderr).into())
+        }
+        Err(CommandError::ExecutionFailed { status: _, stderr }) if broken_deps => {
+            Err(PrepareError::BrokenDependencies(stderr).into())
         }
         Err(err) => Err(err.into()),
     }
@@ -373,6 +379,9 @@ pub enum PrepareError {
     /// rejecting it.
     #[error("invalid Cargo.toml syntax")]
     InvalidCargoTomlSyntax,
+    /// Something about the crates dependencies is invalid
+    #[error("broken dependencies: \n\n{0}")]
+    BrokenDependencies(String),
     /// Some of this crate's dependencies were yanked, preventing Crater from fetching them.
     #[error("the crate depends on yanked dependencies: \n\n{0}")]
     YankedDependencies(String),
