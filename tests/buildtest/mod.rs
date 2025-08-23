@@ -261,7 +261,7 @@ test_prepare_error_stderr!(
     "error: no matching package named `macro` found"
 );
 
-test_prepare_uncategorized_err!(
+test_prepare_error_stderr!(
     test_invalid_cargotoml_content_deps,
     "invalid-cargotoml-content-deps",
     BrokenDependencies,
