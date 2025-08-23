@@ -96,8 +96,6 @@ macro_rules! test_prepare_error {
     };
 }
 
-pub(crate) use test_prepare_error;
-
 macro_rules! test_prepare_error_stderr {
     ($name:ident, $krate:expr, $expected:ident, $expected_output:expr) => {
         #[test]
@@ -128,11 +126,5 @@ macro_rules! test_prepare_error_stderr {
                 Ok(())
             });
         }
-    };
-}
-
-macro_rules! test_prepare_uncategorized_err {
-    ($name:ident, $krate:expr, $expected:ident $(,$expected_output:expr)?) => {
-        $crate::buildtest::runner::test_prepare_error!($name, $krate, Uncategorized);
     };
 }
