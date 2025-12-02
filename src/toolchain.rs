@@ -1,11 +1,11 @@
 //! Tools to manage and use Rust toolchains.
 
+use crate::Workspace;
 use crate::cmd::{Binary, Command, Runnable};
 use crate::tools::RUSTUP;
 #[cfg(feature = "unstable-toolchain-ci")]
 use crate::tools::RUSTUP_TOOLCHAIN_INSTALL_MASTER;
-use crate::Workspace;
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use log::info;
 use std::borrow::Cow;
 use std::path::Path;

@@ -1,8 +1,8 @@
-use log::{info, LevelFilter, Log, Metadata, Record};
+use log::{LevelFilter, Log, Metadata, Record, info};
 use rustwide::logging::{self, LogStorage};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 #[derive(Clone)]

@@ -1,5 +1,5 @@
 use rustwide::cmd::SandboxImage;
-use rustwide::{cmd::SandboxBuilder, Crate, Toolchain, WorkspaceBuilder};
+use rustwide::{Crate, Toolchain, WorkspaceBuilder, cmd::SandboxBuilder};
 use std::error::Error;
 use std::path::Path;
 

@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use std::fs::File;
 use std::path::Path;
 use windows_sys::Win32::Foundation::CloseHandle;
-use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
 
 pub(crate) fn kill_process(id: u32) -> anyhow::Result<(), KillFailedError> {
     let error = Err(KillFailedError { pid: id });

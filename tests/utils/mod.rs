@@ -1,5 +1,5 @@
 use log::LevelFilter;
-use rustwide::{cmd::SandboxImage, Workspace, WorkspaceBuilder};
+use rustwide::{Workspace, WorkspaceBuilder, cmd::SandboxImage};
 use std::path::{Path, PathBuf};
 
 static USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";

@@ -128,11 +128,11 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         let mut components = p.components();
         let first_component = components.next().unwrap();
 
-        if let Component::Prefix(prefix) = first_component {
-            if let Some(mut modified_path) = strip_verbatim_from_prefix(&prefix) {
-                modified_path.push(components.as_path());
-                p = modified_path;
-            }
+        if let Component::Prefix(prefix) = first_component
+            && let Some(mut modified_path) = strip_verbatim_from_prefix(&prefix)
+        {
+            modified_path.push(components.as_path());
+            p = modified_path;
         }
 
         if p.as_os_str().len() >= MAX_PATH_LEN {
