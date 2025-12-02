@@ -1,6 +1,6 @@
 use crate::cmd::Command;
 use crate::workspace::Workspace;
-use base64::{engine::general_purpose::STANDARD as b64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as b64};
 use getrandom::getrandom;
 use log::info;
 
@@ -69,11 +69,11 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
             .log_output(false)
             .log_command(false)
             .run_capture();
-        if let Ok([probed]) = res.as_ref().map(|out| out.stdout_lines()) {
-            if *probed == probe_content {
-                info!("probe successful, this is container ID {id}");
-                return Ok(Some(id.clone()));
-            }
+        if let Ok([probed]) = res.as_ref().map(|out| out.stdout_lines())
+            && *probed == probe_content
+        {
+            info!("probe successful, this is container ID {id}");
+            return Ok(Some(id.clone()));
         }
     }
 

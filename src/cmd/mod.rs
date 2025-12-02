@@ -26,7 +26,7 @@ use tokio::{
     runtime::Runtime,
     time,
 };
-use tokio_stream::{wrappers::LinesStream, StreamExt};
+use tokio_stream::{StreamExt, wrappers::LinesStream};
 
 lazy_static::lazy_static! {
     // TODO: Migrate to asynchronous code and remove runtime

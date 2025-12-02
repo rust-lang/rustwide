@@ -1,4 +1,4 @@
-use log::{info, LevelFilter};
+use log::{LevelFilter, info};
 use rustwide::logging::{self, LogStorage};
 
 #[test]

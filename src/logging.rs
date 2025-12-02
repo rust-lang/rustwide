@@ -4,8 +4,8 @@ use log::{Level, LevelFilter, Log, Metadata, Record};
 use std::cell::RefCell;
 use std::fmt;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex, Once,
+    atomic::{AtomicBool, Ordering},
 };
 use std::thread::LocalKey;
 
@@ -174,37 +174,37 @@ impl SealedLog for LogStorage {
         if inner.truncated {
             return;
         }
-        if let Some(max_lines) = self.max_lines {
-            if inner.records.len() >= max_lines {
-                inner.records.push(StoredRecord {
-                    level: Level::Warn,
-                    message: "too many lines in the log, truncating it".into(),
-                });
-                inner.truncated = true;
-                return;
-            }
+        if let Some(max_lines) = self.max_lines
+            && inner.records.len() >= max_lines
+        {
+            inner.records.push(StoredRecord {
+                level: Level::Warn,
+                message: "too many lines in the log, truncating it".into(),
+            });
+            inner.truncated = true;
+            return;
         }
         let mut message = record.args().to_string();
 
-        if let Some(max_line_length) = self.max_line_length {
-            if message.len() > max_line_length {
-                let mut length = max_line_length - 3;
-                while !message.is_char_boundary(length) {
-                    length -= 1;
-                }
-                message = format!("{}...", &message[..length]);
+        if let Some(max_line_length) = self.max_line_length
+            && message.len() > max_line_length
+        {
+            let mut length = max_line_length - 3;
+            while !message.is_char_boundary(length) {
+                length -= 1;
             }
+            message = format!("{}...", &message[..length]);
         }
 
-        if let Some(max_size) = self.max_size {
-            if inner.size + message.len() >= max_size {
-                inner.records.push(StoredRecord {
-                    level: Level::Warn,
-                    message: "too much data in the log, truncating it".into(),
-                });
-                inner.truncated = true;
-                return;
-            }
+        if let Some(max_size) = self.max_size
+            && inner.size + message.len() >= max_size
+        {
+            inner.records.push(StoredRecord {
+                level: Level::Warn,
+                message: "too much data in the log, truncating it".into(),
+            });
+            inner.truncated = true;
+            return;
         }
         inner.size += message.len();
         inner.records.push(StoredRecord {
@@ -301,7 +301,7 @@ fn init_inner(logger: Option<Box<dyn Log>>) {
 mod tests {
     use super::{LogStorage, StoredRecord};
     use crate::logging;
-    use log::{info, trace, warn, Level, LevelFilter};
+    use log::{Level, LevelFilter, info, trace, warn};
 
     #[test]
     fn test_log_storage() {
@@ -342,12 +342,14 @@ mod tests {
 
         let inner = storage.inner.lock().unwrap();
         assert_eq!(inner.records.len(), 1);
-        assert!(inner
-            .records
-            .last()
-            .unwrap()
-            .message
-            .contains("too much data"));
+        assert!(
+            inner
+                .records
+                .last()
+                .unwrap()
+                .message
+                .contains("too much data")
+        );
     }
 
     #[test]
@@ -364,12 +366,14 @@ mod tests {
 
         let inner = storage.inner.lock().unwrap();
         assert_eq!(inner.records.len(), 101);
-        assert!(inner
-            .records
-            .last()
-            .unwrap()
-            .message
-            .contains("too many lines"));
+        assert!(
+            inner
+                .records
+                .last()
+                .unwrap()
+                .message
+                .contains("too many lines")
+        );
     }
 
     #[test]
