@@ -1,11 +1,11 @@
 use crate::cmd::{Command, CommandError, ProcessLinesActions};
-use crate::{build::CratePatch, Crate, Toolchain, Workspace};
+use crate::{Crate, Toolchain, Workspace, build::CratePatch};
 use anyhow::Context as _;
 use log::info;
 use std::path::Path;
 use toml::{
-    value::{Array, Table},
     Value,
+    value::{Array, Table},
 };
 
 pub(crate) struct Prepare<'a> {
@@ -272,12 +272,12 @@ impl<'a> TomlTweaker<'a> {
 
     fn remove_missing_items(&mut self, category: &str) {
         let folder = &(String::from(category) + "s");
-        if let Some(dir) = self.dir {
-            if let Some(&mut Value::Array(ref mut array)) = self.table.get_mut(category) {
-                let dim = array.len();
-                *(array) = Self::test_existance(dir, array, folder);
-                info!("removed {} missing {}", dim - array.len(), folder);
-            }
+        if let Some(dir) = self.dir
+            && let Some(&mut Value::Array(ref mut array)) = self.table.get_mut(category)
+        {
+            let dim = array.len();
+            *(array) = Self::test_existance(dir, array, folder);
+            info!("removed {} missing {}", dim - array.len(), folder);
         }
     }
 
@@ -285,10 +285,10 @@ impl<'a> TomlTweaker<'a> {
         let krate = self.krate.to_string();
 
         // Eliminate parent workspaces
-        if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package") {
-            if package.remove("workspace").is_some() {
-                info!("removed parent workspace from {krate}");
-            }
+        if let Some(&mut Value::Table(ref mut package)) = self.table.get_mut("package")
+            && package.remove("workspace").is_some()
+        {
+            info!("removed parent workspace from {krate}");
         }
     }
 

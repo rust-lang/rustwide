@@ -1,5 +1,5 @@
-use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput};
 use crate::Workspace;
+use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput};
 use log::{error, info};
 use serde::Deserialize;
 use std::error::Error;
