@@ -1,7 +1,6 @@
 use crate::cmd::Command;
 use crate::workspace::Workspace;
 use base64::{engine::general_purpose::STANDARD as b64, Engine};
-use getrandom::getrandom;
 use log::info;
 
 static PROBE_FILENAME: &str = "rustwide-probe";
@@ -51,7 +50,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
     let probe_path = std::env::temp_dir().join(PROBE_FILENAME);
     let probe_path_str = probe_path.to_str().unwrap();
     let mut probe_content = [0u8; 64];
-    getrandom(&mut probe_content)?;
+    getrandom::fill(&mut probe_content)?;
     let probe_content = b64.encode(&probe_content[..]);
     std::fs::write(&probe_path, probe_content.as_bytes())?;
 
