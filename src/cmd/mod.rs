@@ -26,7 +26,7 @@ use tokio::{
     runtime::Runtime,
     time,
 };
-use tokio_stream::{wrappers::LinesStream, StreamExt};
+use tokio_stream::{StreamExt, wrappers::LinesStream};
 
 // TODO: Migrate to asynchronous code and remove runtime
 pub(super) static RUNTIME: LazyLock<Runtime> =

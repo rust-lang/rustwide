@@ -1,6 +1,6 @@
 use crate::cmd::{Binary, Command, Runnable};
 use crate::toolchain::MAIN_TOOLCHAIN_NAME;
-use crate::tools::{Tool, RUSTUP};
+use crate::tools::{RUSTUP, Tool};
 use crate::workspace::Workspace;
 use anyhow::Context as _;
 use std::env::consts::EXE_SUFFIX;

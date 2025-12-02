@@ -1,7 +1,7 @@
 use super::CurrentUser;
 use crate::cmd::KillFailedError;
 use nix::{
-    sys::signal::{kill, Signal},
+    sys::signal::{Signal, kill},
     unistd::{Gid, Pid, Uid},
 };
 use std::convert::AsRef;

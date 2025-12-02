@@ -1,5 +1,5 @@
-use rand::{distr::Alphanumeric, Rng};
-use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
+use rand::{Rng, distr::Alphanumeric};
+use rustwide::{Build, BuildBuilder, Crate, Toolchain, Workspace, cmd::SandboxBuilder};
 use std::path::Path;
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> anyhow::Result<()>) {

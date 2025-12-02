@@ -61,9 +61,11 @@ fn test_hello_world() {
             })?;
 
             assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
-            assert!(storage
-                .to_string()
-                .contains("[stdout] Hello, world again!\n"));
+            assert!(
+                storage
+                    .to_string()
+                    .contains("[stdout] Hello, world again!\n")
+            );
             Ok(())
         })?;
         Ok(())
@@ -92,9 +94,11 @@ fn test_fetch_build_std() {
             })?;
 
             assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
-            assert!(storage
-                .to_string()
-                .contains("[stdout] Hello, world again!\n"));
+            assert!(
+                storage
+                    .to_string()
+                    .contains("[stdout] Hello, world again!\n")
+            );
             Ok(())
         })?;
         Ok(())
@@ -115,9 +119,11 @@ fn path_based_patch() {
                     })?;
 
                     assert!(storage.to_string().contains("[stdout] Hello, world!\n"));
-                    assert!(storage
-                        .to_string()
-                        .contains("[stdout] This is coming from the patch!\n"));
+                    assert!(
+                        storage
+                            .to_string()
+                            .contains("[stdout] This is coming from the patch!\n")
+                    );
                     Ok(())
                 })
         })?;

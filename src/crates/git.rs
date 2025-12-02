@@ -1,7 +1,7 @@
 use super::CrateTrait;
+use crate::Workspace;
 use crate::cmd::{Command, ProcessLinesActions};
 use crate::prepare::PrepareError;
-use crate::Workspace;
 use anyhow::Context as _;
 use log::{info, warn};
 use std::path::{Path, PathBuf};
@@ -23,10 +23,10 @@ impl GitRepo {
 
         match res {
             Ok(out) => {
-                if let Some(shaline) = out.stdout_lines().first() {
-                    if !shaline.is_empty() {
-                        return Some(shaline.to_string());
-                    }
+                if let Some(shaline) = out.stdout_lines().first()
+                    && !shaline.is_empty()
+                {
+                    return Some(shaline.to_string());
                 }
                 warn!("bad output from `git rev-parse HEAD`");
             }
