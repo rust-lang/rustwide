@@ -14,12 +14,12 @@ use futures_util::{
 };
 use log::{error, info};
 use process_lines_actions::InnerState;
-use std::convert::AsRef;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
+use std::{convert::AsRef, sync::LazyLock};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command as AsyncCommand,
@@ -28,32 +28,30 @@ use tokio::{
 };
 use tokio_stream::{wrappers::LinesStream, StreamExt};
 
-lazy_static::lazy_static! {
-    // TODO: Migrate to asynchronous code and remove runtime
-    pub(super) static ref RUNTIME: Runtime = Runtime::new().expect("Failed to construct tokio runtime");
-}
+// TODO: Migrate to asynchronous code and remove runtime
+pub(super) static RUNTIME: LazyLock<Runtime> =
+    LazyLock::new(|| Runtime::new().expect("Failed to construct tokio runtime"));
 
 pub(crate) mod container_dirs {
-    use lazy_static::lazy_static;
     use std::path::{Path, PathBuf};
+    use std::sync::LazyLock;
+
+    macro_rules! path_const {
+        ($v:ident, $n:ident, $p:expr) => {
+            pub($v) static $n: LazyLock<PathBuf> = LazyLock::new(|| $p);
+        };
+    }
 
     #[cfg(windows)]
-    lazy_static! {
-        pub(super) static ref ROOT_DIR: PathBuf = Path::new(r"C:\rustwide").into();
-    }
-
+    path_const!(super, ROOT_DIR, Path::new(r"C:\rustwide").into());
     #[cfg(not(windows))]
-    lazy_static! {
-        pub(super) static ref ROOT_DIR: PathBuf = Path::new("/opt/rustwide").into();
-    }
+    path_const!(super, ROOT_DIR, Path::new("/opt/rustwide").into());
 
-    lazy_static! {
-        pub(crate) static ref WORK_DIR: PathBuf = ROOT_DIR.join("workdir");
-        pub(crate) static ref TARGET_DIR: PathBuf = ROOT_DIR.join("target");
-        pub(super) static ref CARGO_HOME: PathBuf = ROOT_DIR.join("cargo-home");
-        pub(super) static ref RUSTUP_HOME: PathBuf = ROOT_DIR.join("rustup-home");
-        pub(super) static ref CARGO_BIN_DIR: PathBuf = CARGO_HOME.join("bin");
-    }
+    path_const!(crate, WORK_DIR, ROOT_DIR.join("workdir"));
+    path_const!(crate, TARGET_DIR, ROOT_DIR.join("target"));
+    path_const!(super, CARGO_HOME, ROOT_DIR.join("cargo-home"));
+    path_const!(super, RUSTUP_HOME, ROOT_DIR.join("rustup-home"));
+    path_const!(super, CARGO_BIN_DIR, CARGO_HOME.join("bin"));
 }
 
 /// Error happened while executing a command.

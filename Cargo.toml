@@ -3,6 +3,7 @@ name = "rustwide"
 version = "0.21.0"
 edition = "2018"
 build = "build.rs"
+rust-version = "1.89"
 
 documentation = "https://docs.rs/rustwide"
 repository = "https://github.com/rust-lang/rustwide"
@@ -26,7 +27,6 @@ tokio-stream = { version = "0.1", features = ["io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 scopeguard = "1.0.0"
-lazy_static = "1.0.0"
 tempfile = "3.0.0"
 attohttpc = "0.28.0"
 flate2 = "1"
