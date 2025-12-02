@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
       - "**"
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@master
+        uses: actions/checkout@main
 
       - name: Install Rust stable
         run: |
@@ -45,7 +45,7 @@ jobs:
             test_flags: --skip buildtest --skip integration --skip run_binary_with_same_name_as_file
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@master
+        uses: actions/checkout@main
 
       - name: Install Rust stable
         run: |
