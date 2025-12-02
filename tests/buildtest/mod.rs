@@ -272,7 +272,7 @@ test_prepare_error_stderr!(
     test_invalid_cargotoml_syntax_deps,
     "invalid-cargotoml-syntax-deps",
     BrokenDependencies,
-    "error: invalid table header"
+    "error: unexpected "
 );
 
 test_prepare_error_stderr!(

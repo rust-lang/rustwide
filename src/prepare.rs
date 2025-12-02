@@ -161,6 +161,7 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             missing_deps = true;
         } else if line.contains("failed to parse manifest at")
             || line.contains("error: invalid table header")
+            || (line.contains("error: unexpected ") && line.contains(", expected "))
             || line.contains("error: invalid type: ")
             || line.contains("error: cyclic feature dependency: feature ")
             || line.contains("error: cyclic package dependency: package ")
