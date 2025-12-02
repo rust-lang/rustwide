@@ -1,4 +1,4 @@
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 use rustwide::{cmd::SandboxBuilder, Build, BuildBuilder, Crate, Toolchain, Workspace};
 use std::path::Path;
 
@@ -41,7 +41,7 @@ impl Runner {
         f: impl FnOnce(BuildBuilder) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
         // Use a random string at the end to avoid conflicts if multiple tests use the same source crate.
-        let suffix: String = rand::thread_rng()
+        let suffix: String = rand::rng()
             .sample_iter(&Alphanumeric)
             .take(10)
             .map(char::from)
