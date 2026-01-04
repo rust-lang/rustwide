@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.22.0] - 2026-04-01
+
+* **BREAKING**: replace lazy_static with LazyLock, add MSRV to what is in the code
+* upgrade dependencies: `attohttpc`, `toml`, `remove_dir_all`, `getrandom`,
+  `thiserror`, `git2`, `nix`
+* update to edition 2024, fix clippy errors
+
 ## [0.21.0] - 2025-12-02
 
 * **BREAKING** categorize more previously uncategorised cargo errors
