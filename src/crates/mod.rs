@@ -74,7 +74,10 @@ impl Crate {
         }
     }
 
-    pub(crate) fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
+    /// copy the source of this crate to the specified destination path.
+    ///
+    /// Will delete the target directory if it already exists.
+    pub fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         if dest.exists() {
             info!(
                 "crate source directory {} already exists, cleaning it up",
