@@ -5,9 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.22.1] - 2026-01-15
+
 * make `Crate::copy_source_to` public.
 
-## [0.22.0] - 2026-04-01
+## [0.22.0] - 2026-01-04
 
 * **BREAKING**: replace lazy_static with LazyLock, add MSRV to what is in the code
 * upgrade dependencies: `attohttpc`, `toml`, `remove_dir_all`, `getrandom`,
