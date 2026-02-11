@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* upgrade dependencies: `getrandom`, `rand`
+
 ## [0.22.1] - 2026-01-15
 
 * make `Crate::copy_source_to` public.

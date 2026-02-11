@@ -1,4 +1,4 @@
-use rand::{Rng, distr::Alphanumeric};
+use rand::{RngExt as _, distr::Alphanumeric};
 use rustwide::{Build, BuildBuilder, Crate, Toolchain, Workspace, cmd::SandboxBuilder};
 use std::path::Path;
 
