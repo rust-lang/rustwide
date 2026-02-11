@@ -375,9 +375,9 @@ impl<'w> Command<'w, '_> {
 
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
-    pub fn run(self) -> Result<(), CommandError> {
-        self.run_inner(false)?;
-        Ok(())
+    pub fn run(self) -> Result<ProcessStatistics, CommandError> {
+        let output = self.run_inner(false)?;
+        Ok(output.statistics)
     }
 
     /// Run the prepared command and return its output if it succeedes. If it fails (for example
@@ -551,8 +551,18 @@ impl From<InnerProcessOutput> for ProcessOutput {
         ProcessOutput {
             stdout: orig.stdout,
             stderr: orig.stderr,
+            statistics: ProcessStatistics::default(),
         }
     }
+}
+
+/// collected statistics about the process execution.
+#[derive(Default)]
+pub struct ProcessStatistics {
+    /// peak memory usage in bytes.
+    /// This is populated for sandboxed commands on systems
+    /// with cgroups v1/v2.
+    pub memory_peak: Option<u64>,
 }
 
 /// Output of a [`Command`](struct.Command.html) when it was executed with the
@@ -560,6 +570,7 @@ impl From<InnerProcessOutput> for ProcessOutput {
 pub struct ProcessOutput {
     stdout: Vec<String>,
     stderr: Vec<String>,
+    statistics: ProcessStatistics,
 }
 
 impl ProcessOutput {
@@ -571,6 +582,14 @@ impl ProcessOutput {
     /// Return a list of the lines printed by the process on the standard error.
     pub fn stderr_lines(&self) -> &[String] {
         &self.stderr
+    }
+
+    /// Return the peak memory usage in bytes of the sandbox container, if available.
+    ///
+    /// This is populated for sandboxed commands on systems with cgroups v2. Returns `None` for
+    /// non-sandboxed commands or when the metric could not be read.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.statistics.memory_peak
     }
 }
 
