@@ -52,7 +52,10 @@ impl SandboxImage {
         Ok(())
     }
 
-    fn get_name_with_hash(&self) -> Option<String> {
+    /// Get the image name with its hash, if available.
+    /// In case of a github package registry image, something like:
+    ///    ghcr.io/rust-lang/crates-build-env/linux@sha256:61361fe0a...
+    pub fn get_name_with_hash(&self) -> Option<String> {
         Command::new_workspaceless("docker")
             .args(&[
                 "inspect",

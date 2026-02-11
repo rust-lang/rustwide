@@ -289,7 +289,8 @@ impl Workspace {
         self.inner.path.join("builds")
     }
 
-    pub(crate) fn sandbox_image(&self) -> &SandboxImage {
+    /// return the used sandbox image for the workspace.
+    pub fn sandbox_image(&self) -> &SandboxImage {
         &self.inner.sandbox_image
     }
 
