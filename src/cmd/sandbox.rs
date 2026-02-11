@@ -1,5 +1,5 @@
 use crate::Workspace;
-use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput};
+use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics};
 use log::{error, info};
 use serde::Deserialize;
 use std::error::Error;
@@ -229,6 +229,7 @@ impl SandboxBuilder {
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
+        // Mounts are container-level config, always on `docker create`
         for mount in &self.mounts {
             std::fs::create_dir_all(&mount.host_path)?;
 
@@ -243,16 +244,7 @@ impl SandboxBuilder {
             }
         }
 
-        for (var, value) in &self.env {
-            args.push("-e".into());
-            args.push(format! {"{var}={value}"})
-        }
-
-        if let Some(workdir) = self.workdir {
-            args.push("-w".into());
-            args.push(workdir);
-        }
-
+        // Resource limits and networking are container-level config
         if let Some(limit) = self.memory_limit {
             args.push("-m".into());
             args.push(limit.to_string());
@@ -261,11 +253,6 @@ impl SandboxBuilder {
         if let Some(limit) = self.cpu_limit {
             args.push("--cpus".into());
             args.push(limit.to_string());
-        }
-
-        if let Some(user) = self.user {
-            args.push("--user".into());
-            args.push(user);
         }
 
         if !self.enable_networking {
@@ -279,9 +266,10 @@ impl SandboxBuilder {
 
         args.push(workspace.sandbox_image().name.clone());
 
-        for arg in self.cmd {
-            args.push(arg);
-        }
+        // Use an idle command; the real command runs via `docker exec` so the container stays
+        // alive after the command finishes, allowing us to read cgroup metrics.
+        args.push("sleep".into());
+        args.push("infinity".into());
 
         let out = Command::new(workspace, "docker")
             .args(&args)
@@ -290,6 +278,10 @@ impl SandboxBuilder {
         Ok(Container {
             id: out.stdout_lines()[0].clone(),
             workspace,
+            cmd: self.cmd,
+            env: self.env,
+            workdir: self.workdir,
+            user: self.user,
         })
     }
 
@@ -348,6 +340,11 @@ struct Container<'w> {
     // Docker container ID
     id: String,
     workspace: &'w Workspace,
+    // Command-level config for `docker exec` (not baked into `docker create`)
+    cmd: Vec<String>,
+    env: Vec<(String, String)>,
+    workdir: Option<String>,
+    user: Option<String>,
 }
 
 impl fmt::Display for Container<'_> {
@@ -370,6 +367,82 @@ impl Container<'_> {
         Ok(data.pop().unwrap())
     }
 
+    /// Start the container in detached mode (without `-a`).
+    fn start(&self) -> Result<(), CommandError> {
+        Command::new(self.workspace, "docker")
+            .args(&["start", &self.id])
+            .log_output(false)
+            .run()
+            .map(|_| ())
+    }
+
+    /// Stop a running container. Uses `-t 1` to give `sleep infinity` a short grace period.
+    fn stop(&self) -> Result<(), CommandError> {
+        Command::new(self.workspace, "docker")
+            .args(&["stop", "-t", "1", &self.id])
+            .log_output(false)
+            .run()
+            .map(|_| ())
+    }
+
+    /// Helper to `docker exec cat <path>` and return stdout lines on success.
+    fn exec_cat_file(&self, path: &str) -> Option<Vec<String>> {
+        Command::new(self.workspace, "docker")
+            .args(&["exec", &self.id, "cat", path])
+            .log_output(false)
+            .log_command(false)
+            .run_capture()
+            .ok()
+            .map(|o| o.stdout_lines().to_vec())
+    }
+
+    /// Best-effort read of peak memory usage from the still-running container.
+    /// Tries cgroups v2 first, then falls back to cgroups v1.
+    fn read_memory_peak(&self) -> Option<u64> {
+        let paths = [
+            "/sys/fs/cgroup/memory.peak",                      // v2
+            "/sys/fs/cgroup/memory/memory.max_usage_in_bytes", // v1
+        ];
+        for path in paths {
+            if let Some(val) = self
+                .exec_cat_file(path)
+                .and_then(|lines| lines.first()?.trim().parse::<u64>().ok())
+            {
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    /// Check if any OOM kills occurred in the container's cgroup.
+    ///
+    /// With the `docker exec` model, the OOM killer may only kill the exec'd process
+    /// while `sleep infinity` (PID 1) survives. In that case `docker inspect` won't
+    /// report `OOMKilled`, so we check the cgroup events directly.
+    /// Tries cgroups v2 first, then falls back to cgroups v1.
+    fn check_cgroup_oom(&self) -> bool {
+        // Both v1 and v2 expose `oom_kill <count>` — just in different files.
+        let paths = [
+            "/sys/fs/cgroup/memory.events",             // v2
+            "/sys/fs/cgroup/memory/memory.oom_control", // v1
+        ];
+        for path in paths {
+            if let Some(lines) = self.exec_cat_file(path) {
+                let found = lines.iter().any(|line| {
+                    line.strip_prefix("oom_kill ")
+                        .and_then(|rest| rest.trim().parse::<u64>().ok())
+                        .is_some_and(|count| count > 0)
+                });
+                if found {
+                    return true;
+                }
+                // File existed but no OOM — don't try the other version
+                return false;
+            }
+        }
+        false
+    }
+
     #[allow(clippy::type_complexity)]
     fn run(
         &self,
@@ -380,8 +453,32 @@ impl Container<'_> {
         log_command: bool,
         capture: bool,
     ) -> Result<ProcessOutput, CommandError> {
+        // Start the container in detached mode (runs `sleep infinity`)
+        self.start()?;
+
+        // Build the `docker exec` command with env/workdir/user from the sandbox config
+        let mut args: Vec<String> = vec!["exec".into()];
+
+        for (var, value) in &self.env {
+            args.push("-e".into());
+            args.push(format!("{var}={value}"));
+        }
+
+        if let Some(ref workdir) = self.workdir {
+            args.push("-w".into());
+            args.push(workdir.clone());
+        }
+
+        if let Some(ref user) = self.user {
+            args.push("--user".into());
+            args.push(user.clone());
+        }
+
+        args.push(self.id.clone());
+        args.extend(self.cmd.iter().cloned());
+
         let mut cmd = Command::new(self.workspace, "docker")
-            .args(&["start", "-a", &self.id])
+            .args(&args)
             .timeout(timeout)
             .log_output(log_output)
             .log_command(log_command)
@@ -392,16 +489,31 @@ impl Container<'_> {
         }
 
         let res = cmd.run_inner(capture);
+
+        // Read peak memory usage while the container is still running (best-effort)
+        let memory_peak = self.read_memory_peak();
+
+        // Check OOM via cgroup events (catches cases where only the exec'd process
+        // was killed, leaving the container's init process alive)
+        let cgroup_oom = self.check_cgroup_oom();
+
+        // Explicitly stop the container now that we're done reading metrics.
+        // The scopeguard will still call `docker rm -f` for final cleanup.
+        let _ = self.stop();
+
         let details = self.inspect()?;
 
         // Return a different error if the container was killed due to an OOM
-        if details.state.oom_killed {
+        if details.state.oom_killed || cgroup_oom {
             Err(match res {
                 Ok(_) | Err(CommandError::ExecutionFailed { .. }) => CommandError::SandboxOOM,
                 Err(err) => err,
             })
         } else {
-            res
+            res.map(|mut output| {
+                output.statistics = ProcessStatistics { memory_peak };
+                output
+            })
         }
     }
 
@@ -409,6 +521,7 @@ impl Container<'_> {
         Command::new(self.workspace, "docker")
             .args(&["rm", "-f", &self.id])
             .run()
+            .map(|_| ())
     }
 }
 

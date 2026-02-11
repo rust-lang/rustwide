@@ -101,7 +101,7 @@ impl CrateTrait for GitRepo {
         if private_repository && res.is_err() {
             Err(PrepareError::PrivateGitRepository.into())
         } else {
-            Ok(res?)
+            Ok(res.map(|_| ())?)
         }
     }
 

@@ -165,6 +165,30 @@ fn test_process_lines() {
 
 #[test]
 #[cfg(not(windows))]
+fn test_memory_peak() {
+    runner::run("hello-world", |run| {
+        run.run(
+            SandboxBuilder::new()
+                .enable_networking(false)
+                .memory_limit(Some(512 * 1024 * 1024)),
+            |build| {
+                let output = build.cargo().args(&["run"]).run_capture()?;
+                if let Some(peak) = output.memory_peak_bytes() {
+                    assert!(peak > 0, "memory peak should be positive");
+                    assert!(
+                        peak < 512 * 1024 * 1024,
+                        "memory peak should be below the limit"
+                    );
+                }
+                Ok(())
+            },
+        )?;
+        Ok(())
+    });
+}
+
+#[test]
+#[cfg(not(windows))]
 fn test_sandbox_oom() {
     use rustwide::cmd::CommandError;
 
