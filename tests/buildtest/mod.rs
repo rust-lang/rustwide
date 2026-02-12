@@ -166,20 +166,21 @@ fn test_process_lines() {
 #[test]
 #[cfg(not(windows))]
 fn test_memory_peak() {
-    runner::run("hello-world", |run| {
+    runner::run("allocate", |run| {
         run.run(
             SandboxBuilder::new()
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
             |build| {
-                let output = build.cargo().args(&["run"]).run_capture()?;
-                if let Some(peak) = output.memory_peak_bytes() {
-                    assert!(peak > 0, "memory peak should be positive");
-                    assert!(
-                        peak < 512 * 1024 * 1024,
-                        "memory peak should be below the limit"
-                    );
-                }
+                let output = build.cargo().args(&["run", "--", "400"]).run_capture()?;
+                let peak = output.memory_peak_bytes().expect("missing memory peak");
+
+                assert!(
+                    peak > 400_000_000 && peak < 450_000_000,
+                    "memory peak roughly be 400 MiB, but it is {}",
+                    peak
+                );
+
                 Ok(())
             },
         )?;
@@ -192,13 +193,13 @@ fn test_memory_peak() {
 fn test_sandbox_oom() {
     use rustwide::cmd::CommandError;
 
-    runner::run("out-of-memory", |run| {
+    runner::run("allocate", |run| {
         let res = run.run(
             SandboxBuilder::new()
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
             |build| {
-                build.cargo().args(&["run"]).run()?;
+                build.cargo().args(&["run", "--", "1024"]).run()?;
                 Ok(())
             },
         );
