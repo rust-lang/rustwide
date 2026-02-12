@@ -1,6 +1,7 @@
 use log::LevelFilter;
 use rustwide::cmd::{ProcessLinesActions, SandboxBuilder};
 
+mod container_cleanup;
 #[macro_use]
 mod runner;
 mod inside_docker;
