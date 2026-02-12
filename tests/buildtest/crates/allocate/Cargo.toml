@@ -1,5 +1,5 @@
 [package]
-name = "out-of-memory"
+name = "allocate"
 version = "0.1.0"
 authors = ["Pietro Albini <pietro@pietroalbini.org>"]
 edition = "2018"
