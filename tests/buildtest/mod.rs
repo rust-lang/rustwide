@@ -214,6 +214,57 @@ fn test_sandbox_oom() {
 }
 
 #[test]
+#[cfg(not(windows))]
+fn test_invalid_cpuset_cpus() {
+    use rustwide::cmd::CommandError;
+
+    runner::run("hello-world", |run| {
+        let res = run.run(
+            SandboxBuilder::new()
+                .enable_networking(false)
+                .cpuset_cpus(Some(999_999..=999_999)),
+            |build| {
+                build.cmd("true").run()?;
+                Ok(())
+            },
+        );
+        if let Some(
+            CommandError::SandboxContainerCreate(_) | CommandError::ExecutionFailed { .. },
+        ) = res.err().and_then(|err| err.downcast().ok())
+        {
+            // Everything is OK!
+        } else {
+            panic!(
+                "didn't get CommandError::SandboxContainerCreate or CommandError::ExecutionFailed"
+            );
+        }
+        Ok(())
+    });
+}
+
+#[test]
+#[cfg(not(windows))]
+fn test_cpuset_cpus_applied() {
+    runner::run("hello-world", |run| {
+        run.run(
+            SandboxBuilder::new()
+                .enable_networking(false)
+                .cpuset_cpus(Some(0..=1)),
+            |build| {
+                let output = build
+                    .cmd("sh")
+                    .args(&["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
+                    .run_capture()?;
+
+                assert_eq!(output.stdout_lines(), ["Cpus_allowed_list:\t0-1"]);
+                Ok(())
+            },
+        )?;
+        Ok(())
+    });
+}
+
+#[test]
 fn test_override_files() {
     runner::run("cargo-config", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
