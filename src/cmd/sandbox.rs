@@ -2,10 +2,13 @@ use crate::Workspace;
 use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics};
 use log::{error, info};
 use serde::Deserialize;
-use std::error::Error;
-use std::fmt;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::{
+    error::Error,
+    fmt,
+    ops::RangeInclusive,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 /// The Docker image used for sandboxing.
 pub struct SandboxImage {
@@ -145,6 +148,7 @@ pub struct SandboxBuilder {
     env: Vec<(String, String)>,
     memory_limit: Option<usize>,
     cpu_limit: Option<f32>,
+    cpuset_cpus: Option<RangeInclusive<usize>>,
     workdir: Option<String>,
     user: Option<String>,
     cmd: Vec<String>,
@@ -160,6 +164,7 @@ impl SandboxBuilder {
             workdir: None,
             memory_limit: None,
             cpu_limit: None,
+            cpuset_cpus: None,
             user: None,
             cmd: Vec::new(),
             enable_networking: true,
@@ -194,6 +199,15 @@ impl SandboxBuilder {
     /// be used.
     pub fn cpu_limit(mut self, limit: Option<f32>) -> Self {
         self.cpu_limit = limit;
+        self
+    }
+
+    /// Restrict the sandbox to run on a specific inclusive range of CPU IDs.
+    ///
+    /// For example, `0..=1` will restrict the sandbox to CPUs 0 and 1 and translate to Docker's
+    /// `--cpuset-cpus 0-1`.
+    pub fn cpuset_cpus(mut self, cpus: Option<RangeInclusive<usize>>) -> Self {
+        self.cpuset_cpus = cpus;
         self
     }
 
@@ -253,6 +267,11 @@ impl SandboxBuilder {
         if let Some(limit) = self.cpu_limit {
             args.push("--cpus".into());
             args.push(limit.to_string());
+        }
+
+        if let Some(cpus) = self.cpuset_cpus {
+            args.push("--cpuset-cpus".into());
+            args.push(format_cpuset_cpus(&cpus));
         }
 
         if !self.enable_networking {
@@ -537,4 +556,18 @@ pub fn docker_running(workspace: &Workspace) -> bool {
         .log_output(false)
         .run()
         .is_ok()
+}
+
+fn format_cpuset_cpus(cpus: &RangeInclusive<usize>) -> String {
+    format!("{}-{}", cpus.start(), cpus.end())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats_cpuset_cpus() {
+        assert_eq!(format_cpuset_cpus(&(2..=4)), "2-4");
+    }
 }
