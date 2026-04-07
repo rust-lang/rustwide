@@ -5,7 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.23.0] - 2026-04-07
+
 * upgrade dependencies: `getrandom`, `rand`
+* support setting the cores a container should use
+* make sandbox image & image-digest methods public
+* **BREAKING**: return memory.peak after calling sandboxed commands.
+  See https://github.com/rust-lang/rustwide/pull/115
 
 ## [0.22.1] - 2026-01-15
 
