@@ -16,6 +16,8 @@ use log::{error, info};
 use process_lines_actions::InnerState;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
+use std::mem;
+use std::ops;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
@@ -557,12 +559,31 @@ impl From<InnerProcessOutput> for ProcessOutput {
 }
 
 /// collected statistics about the process execution.
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ProcessStatistics {
     /// peak memory usage in bytes.
     /// This is populated for sandboxed commands on systems
     /// with cgroups v1/v2.
     pub memory_peak: Option<u64>,
+}
+
+impl ops::Add for ProcessStatistics {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            memory_peak: match (self.memory_peak, rhs.memory_peak) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+}
+
+impl ops::AddAssign for ProcessStatistics {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = mem::take(self) + rhs;
+    }
 }
 
 /// Output of a [`Command`](struct.Command.html) when it was executed with the
@@ -731,4 +752,99 @@ fn exe_suffix(file: &OsStr) -> OsString {
     let mut path = OsString::from(file);
     path.push(EXE_SUFFIX);
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProcessStatistics;
+
+    // helpers
+    fn stats(peak: Option<u64>) -> ProcessStatistics {
+        ProcessStatistics { memory_peak: peak }
+    }
+
+    // --- Add ---
+
+    #[test]
+    fn add_both_none() {
+        let result = stats(None) + stats(None);
+        assert_eq!(result.memory_peak, None);
+    }
+
+    #[test]
+    fn add_lhs_some_rhs_none() {
+        let result = stats(Some(100)) + stats(None);
+        assert_eq!(result.memory_peak, Some(100));
+    }
+
+    #[test]
+    fn add_lhs_none_rhs_some() {
+        let result = stats(None) + stats(Some(200));
+        assert_eq!(result.memory_peak, Some(200));
+    }
+
+    #[test]
+    fn add_both_some_lhs_greater() {
+        let result = stats(Some(300)) + stats(Some(100));
+        assert_eq!(result.memory_peak, Some(300));
+    }
+
+    #[test]
+    fn add_both_some_rhs_greater() {
+        let result = stats(Some(100)) + stats(Some(300));
+        assert_eq!(result.memory_peak, Some(300));
+    }
+
+    #[test]
+    fn add_both_some_equal() {
+        let result = stats(Some(42)) + stats(Some(42));
+        assert_eq!(result.memory_peak, Some(42));
+    }
+
+    // --- AddAssign ---
+
+    #[test]
+    fn add_assign_both_none() {
+        let mut s = stats(None);
+        s += stats(None);
+        assert_eq!(s.memory_peak, None);
+    }
+
+    #[test]
+    fn add_assign_lhs_some_rhs_none() {
+        let mut s = stats(Some(100));
+        s += stats(None);
+        assert_eq!(s.memory_peak, Some(100));
+    }
+
+    #[test]
+    fn add_assign_lhs_none_rhs_some() {
+        let mut s = stats(None);
+        s += stats(Some(200));
+        assert_eq!(s.memory_peak, Some(200));
+    }
+
+    #[test]
+    fn add_assign_both_some_lhs_greater() {
+        let mut s = stats(Some(300));
+        s += stats(Some(100));
+        assert_eq!(s.memory_peak, Some(300));
+    }
+
+    #[test]
+    fn add_assign_both_some_rhs_greater() {
+        let mut s = stats(Some(100));
+        s += stats(Some(300));
+        assert_eq!(s.memory_peak, Some(300));
+    }
+
+    #[test]
+    fn add_assign_accumulate_over_multiple() {
+        let mut s = stats(None);
+        s += stats(Some(50));
+        s += stats(Some(200));
+        s += stats(None);
+        s += stats(Some(150));
+        assert_eq!(s.memory_peak, Some(200));
+    }
 }
