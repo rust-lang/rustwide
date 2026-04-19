@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.23.1] - 2026-04-19
+
+* extend `ProcessStatistics` struct with some traits & helper functions
+* support new cargo error text in rust 1.95 for `MissingDependencies` error
+
 ## [0.23.0] - 2026-04-07
 
 * upgrade dependencies: `getrandom`, `rand`
