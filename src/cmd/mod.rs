@@ -17,7 +17,6 @@ use process_lines_actions::InnerState;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
 use std::mem;
-use std::ops;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
@@ -560,6 +559,7 @@ impl From<InnerProcessOutput> for ProcessOutput {
 
 /// collected statistics about the process execution.
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct ProcessStatistics {
     /// peak memory usage in bytes.
     /// This is populated for sandboxed commands on systems
@@ -567,22 +567,26 @@ pub struct ProcessStatistics {
     pub memory_peak: Option<u64>,
 }
 
-impl ops::Add for ProcessStatistics {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
+impl ProcessStatistics {
+    /// Merge two `ProcessStatistics` into one, following a fixed set of aggregation rules:
+    ///
+    /// - `memory_peak`: the maximum of the two values is kept, since a merged peak
+    ///   should reflect the highest peak observed across all runs. If only one side
+    ///   has a value and the other is `None`, that value is used as-is.
+    pub fn merge(self, other: Self) -> Self {
         Self {
-            memory_peak: match (self.memory_peak, rhs.memory_peak) {
+            memory_peak: match (self.memory_peak, other.memory_peak) {
                 (Some(a), Some(b)) => Some(a.max(b)),
                 (a, b) => a.or(b),
             },
         }
     }
-}
 
-impl ops::AddAssign for ProcessStatistics {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = mem::take(self) + rhs;
+    /// Merge another `ProcessStatistics` into `self` in place.
+    ///
+    /// See [`merge`](Self::merge) for the aggregation rules.
+    pub fn merge_mut(&mut self, other: Self) {
+        *self = mem::take(self).merge(other);
     }
 }
 
@@ -757,94 +761,39 @@ fn exe_suffix(file: &OsStr) -> OsString {
 #[cfg(test)]
 mod tests {
     use super::ProcessStatistics;
+    use test_case::test_case;
 
-    // helpers
-    fn stats(peak: Option<u64>) -> ProcessStatistics {
+    const fn stats(peak: Option<u64>) -> ProcessStatistics {
         ProcessStatistics { memory_peak: peak }
     }
 
-    // --- Add ---
+    #[test_case(stats(None), stats(None), stats(None))]
+    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
+    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
+    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
+    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
+    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
+    fn test_merge(lhs: ProcessStatistics, rhs: ProcessStatistics, expected: ProcessStatistics) {
+        {
+            let lhs = lhs.clone();
+            let rhs = rhs.clone();
+            assert_eq!(lhs.merge(rhs), expected);
+        }
 
-    #[test]
-    fn add_both_none() {
-        let result = stats(None) + stats(None);
-        assert_eq!(result.memory_peak, None);
+        {
+            let mut lhs = lhs.clone();
+            lhs.merge_mut(rhs);
+            assert_eq!(lhs, expected);
+        }
     }
 
     #[test]
-    fn add_lhs_some_rhs_none() {
-        let result = stats(Some(100)) + stats(None);
-        assert_eq!(result.memory_peak, Some(100));
-    }
-
-    #[test]
-    fn add_lhs_none_rhs_some() {
-        let result = stats(None) + stats(Some(200));
-        assert_eq!(result.memory_peak, Some(200));
-    }
-
-    #[test]
-    fn add_both_some_lhs_greater() {
-        let result = stats(Some(300)) + stats(Some(100));
-        assert_eq!(result.memory_peak, Some(300));
-    }
-
-    #[test]
-    fn add_both_some_rhs_greater() {
-        let result = stats(Some(100)) + stats(Some(300));
-        assert_eq!(result.memory_peak, Some(300));
-    }
-
-    #[test]
-    fn add_both_some_equal() {
-        let result = stats(Some(42)) + stats(Some(42));
-        assert_eq!(result.memory_peak, Some(42));
-    }
-
-    // --- AddAssign ---
-
-    #[test]
-    fn add_assign_both_none() {
+    fn merge_mut_accumulate_over_multiple() {
         let mut s = stats(None);
-        s += stats(None);
-        assert_eq!(s.memory_peak, None);
-    }
-
-    #[test]
-    fn add_assign_lhs_some_rhs_none() {
-        let mut s = stats(Some(100));
-        s += stats(None);
-        assert_eq!(s.memory_peak, Some(100));
-    }
-
-    #[test]
-    fn add_assign_lhs_none_rhs_some() {
-        let mut s = stats(None);
-        s += stats(Some(200));
-        assert_eq!(s.memory_peak, Some(200));
-    }
-
-    #[test]
-    fn add_assign_both_some_lhs_greater() {
-        let mut s = stats(Some(300));
-        s += stats(Some(100));
-        assert_eq!(s.memory_peak, Some(300));
-    }
-
-    #[test]
-    fn add_assign_both_some_rhs_greater() {
-        let mut s = stats(Some(100));
-        s += stats(Some(300));
-        assert_eq!(s.memory_peak, Some(300));
-    }
-
-    #[test]
-    fn add_assign_accumulate_over_multiple() {
-        let mut s = stats(None);
-        s += stats(Some(50));
-        s += stats(Some(200));
-        s += stats(None);
-        s += stats(Some(150));
+        s.merge_mut(stats(Some(50)));
+        s.merge_mut(stats(Some(200)));
+        s.merge_mut(stats(None));
+        s.merge_mut(stats(Some(150)));
         assert_eq!(s.memory_peak, Some(200));
     }
 }
