@@ -431,5 +431,5 @@ test_prepare_error_stderr!(
     test_invalid_cargotoml_missing_patch,
     "invalid-cargotoml-missing-patch",
     MissingDependencies,
-    "The patch location `https://github.com/rust-lang/rustwide.git?rev=07784be00b68cfd6bf80006c8d8669a7d6374ec2` does not appear to contain any packages matching the name `build-rs`"
+    "patch location `https://github.com/rust-lang/rustwide.git?rev=07784be00b68cfd6bf80006c8d8669a7d6374ec2` does not contain packages matching `build-rs`"
 );

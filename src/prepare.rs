@@ -157,6 +157,8 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains("no matching package for override ")
             || (line.contains("The patch location ")
                 && line.contains(" does not appear to contain any packages matching the name "))
+            || (line.contains("patch location ")
+                && line.contains(" does not contain packages matching "))
         {
             missing_deps = true;
         } else if line.contains("failed to parse manifest at")
