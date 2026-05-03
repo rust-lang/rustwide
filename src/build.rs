@@ -180,6 +180,18 @@ impl BuildDirectory {
         }
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                build_dir = %self.name,
+                krate = %krate,
+                toolchain = %toolchain,
+                patches = patches.len(),
+            )
+        )
+    )]
     pub(crate) fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
         &mut self,
         toolchain: &Toolchain,
@@ -203,11 +215,15 @@ impl BuildDirectory {
         })?;
 
         std::fs::create_dir_all(self.target_dir())?;
-        let res = f(&Build {
-            dir: self,
-            toolchain,
-            sandbox,
-        })?;
+        let res = {
+            #[cfg(feature = "tracing")]
+            let _entered = tracing::info_span!("build.user_callback").entered();
+            f(&Build {
+                dir: self,
+                toolchain,
+                sandbox,
+            })
+        }?;
 
         crate::utils::remove_dir_all(&source_dir)?;
         Ok(res)

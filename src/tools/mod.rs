@@ -46,6 +46,10 @@ trait Tool: Send + Sync {
     }
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(skip_all, fields(fast_install))
+)]
 pub(crate) fn install(workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
     for tool in INSTALLABLE_TOOLS {
         if tool.is_installed(workspace)? {
