@@ -255,6 +255,10 @@ impl Toolchain {
     }
 
     /// Download and install the toolchain.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(toolchain = %self))
+    )]
     pub fn install(&self, workspace: &Workspace) -> anyhow::Result<()> {
         match &self.inner {
             ToolchainInner::Dist(dist) => dist.init(workspace)?,
@@ -303,6 +307,13 @@ impl Toolchain {
         self.list_rustup_things(workspace, RustupThing::Target)
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(toolchain = %self, action = %action, thing = %thing, name)
+        )
+    )]
     fn change_rustup_thing(
         &self,
         workspace: &Workspace,
@@ -375,6 +386,10 @@ impl Toolchain {
         Ok(())
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(toolchain = %self, thing = %thing))
+    )]
     fn list_rustup_things(
         &self,
         workspace: &Workspace,

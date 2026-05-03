@@ -11,6 +11,7 @@ use std::{
 };
 
 /// The Docker image used for sandboxing.
+#[derive(Debug)]
 pub struct SandboxImage {
     name: String,
 }
@@ -76,7 +77,7 @@ impl SandboxImage {
 }
 
 /// Whether to mount a path in the sandbox with write permissions or not.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MountKind {
     /// Allow the sandboxed code to change the mounted data.
@@ -240,6 +241,22 @@ impl SandboxBuilder {
         self
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                image = %workspace.sandbox_image().name,
+                mounts = self.mounts.len(),
+                env = self.env.len(),
+                memory_limit = ?self.memory_limit,
+                cpu_limit = ?self.cpu_limit,
+                cpuset_cpus = ?self.cpuset_cpus,
+                enable_networking = self.enable_networking,
+                command = ?self.cmd,
+            )
+        )
+    )]
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
@@ -306,6 +323,25 @@ impl SandboxBuilder {
 
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::type_complexity)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                image = %workspace.sandbox_image().name,
+                mounts = self.mounts.len(),
+                env = self.env.len(),
+                memory_limit = ?self.memory_limit,
+                cpu_limit = ?self.cpu_limit,
+                cpuset_cpus = ?self.cpuset_cpus,
+                enable_networking = self.enable_networking,
+                command = ?self.cmd,
+                capture,
+                timeout_secs = ?timeout.map(|timeout| timeout.as_secs()),
+                no_output_timeout_secs = ?no_output_timeout.map(|timeout| timeout.as_secs()),
+            )
+        )
+    )]
     pub(super) fn run(
         self,
         workspace: &Workspace,
@@ -373,6 +409,7 @@ impl fmt::Display for Container<'_> {
 }
 
 impl Container<'_> {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn inspect(&self) -> Result<InspectContainer, CommandError> {
         let output = Command::new(self.workspace, "docker")
             .args(&["inspect", &self.id])
@@ -387,6 +424,7 @@ impl Container<'_> {
     }
 
     /// Start the container in detached mode (without `-a`).
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn start(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
             .args(&["start", &self.id])
@@ -396,6 +434,7 @@ impl Container<'_> {
     }
 
     /// Stop a running container. Uses `-t 1` to give `sleep infinity` a short grace period.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn stop(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
             .args(&["stop", "-t", "1", &self.id])
@@ -405,6 +444,7 @@ impl Container<'_> {
     }
 
     /// Helper to `docker exec cat <path>` and return stdout lines on success.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn exec_cat_file(&self, path: &str) -> Option<Vec<String>> {
         Command::new(self.workspace, "docker")
             .args(&["exec", &self.id, "cat", path])
@@ -417,6 +457,7 @@ impl Container<'_> {
 
     /// Best-effort read of peak memory usage from the still-running container.
     /// Tries cgroups v2 first, then falls back to cgroups v1.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn read_memory_peak(&self) -> Option<u64> {
         let paths = [
             "/sys/fs/cgroup/memory.peak",                      // v2
@@ -439,6 +480,7 @@ impl Container<'_> {
     /// while `sleep infinity` (PID 1) survives. In that case `docker inspect` won't
     /// report `OOMKilled`, so we check the cgroup events directly.
     /// Tries cgroups v2 first, then falls back to cgroups v1.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn check_cgroup_oom(&self) -> bool {
         // Both v1 and v2 expose `oom_kill <count>` — just in different files.
         let paths = [
@@ -463,6 +505,10 @@ impl Container<'_> {
     }
 
     #[allow(clippy::type_complexity)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(container_id = %self.id, capture))
+    )]
     fn run(
         &self,
         timeout: Option<Duration>,
@@ -536,6 +582,7 @@ impl Container<'_> {
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn delete(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
             .args(&["rm", "-f", &self.id])

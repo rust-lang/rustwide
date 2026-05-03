@@ -16,6 +16,7 @@ use log::{error, info};
 use process_lines_actions::InnerState;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
@@ -152,6 +153,17 @@ pub enum Binary {
     ManagedByRustwide(PathBuf),
 }
 
+impl fmt::Debug for Binary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Binary::Global(path) => f.debug_tuple("Global").field(path).finish(),
+            Binary::ManagedByRustwide(path) => {
+                f.debug_tuple("ManagedByRustwide").field(path).finish()
+            }
+        }
+    }
+}
+
 /// Trait representing a command that can be run by [`Command`](struct.Command.html).
 pub trait Runnable {
     /// The name of the binary to execute.
@@ -211,6 +223,30 @@ pub struct Command<'w, 'pl> {
     log_command: bool,
     log_output: bool,
     source_dir_mount_kind: MountKind,
+}
+
+impl fmt::Debug for Command<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Command")
+            .field("binary", &self.binary)
+            .field("args", &self.args)
+            .field("env_count", &self.env.len())
+            .field("cwd", &self.cd.as_deref().unwrap_or_else(|| Path::new(".")))
+            .field("sandboxed", &self.sandbox.is_some())
+            .field("has_process_lines", &self.process_lines.is_some())
+            .field(
+                "timeout_secs",
+                &self.timeout.map(|timeout| timeout.as_secs()),
+            )
+            .field(
+                "no_output_timeout_secs",
+                &self.no_output_timeout.map(|timeout| timeout.as_secs()),
+            )
+            .field("log_command", &self.log_command)
+            .field("log_output", &self.log_output)
+            .field("source_dir_mount_kind", &self.source_dir_mount_kind)
+            .finish()
+    }
 }
 
 impl<'w> Command<'w, '_> {
@@ -391,6 +427,10 @@ impl<'w> Command<'w, '_> {
         self.run_inner(true)
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(self = ?self, capture))
+    )]
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
         if let Some(mut builder) = self.sandbox {
             let workspace = self

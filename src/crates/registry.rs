@@ -88,6 +88,17 @@ impl RegistryCrate {
             .join(format!("{}-{}.crate", self.name, self.version))
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                registry = %self.registry.name(),
+                crate_name = %self.name,
+                version = %self.version,
+            )
+        )
+    )]
     fn fetch_url(&self, workspace: &Workspace) -> anyhow::Result<String> {
         match &self.registry {
             Registry::CratesIo => Ok(format!(
@@ -151,9 +162,25 @@ impl RegistryCrate {
 }
 
 impl CrateTrait for RegistryCrate {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                registry = %self.registry.name(),
+                crate_name = %self.name,
+                version = %self.version,
+                cache_hit = tracing::field::Empty,
+            )
+        )
+    )]
     fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
         let local = self.cache_path(workspace);
-        if local.exists() {
+        let cache_hit = local.exists();
+        #[cfg(feature = "tracing")]
+        tracing::Span::current().record("cache_hit", cache_hit);
+
+        if cache_hit {
             info!("crate {} {} is already in cache", self.name, self.version);
             return Ok(());
         }
@@ -163,9 +190,11 @@ impl CrateTrait for RegistryCrate {
             std::fs::create_dir_all(parent)?;
         }
 
+        let url = self.fetch_url(workspace)?;
+
         workspace
             .http_client()
-            .get(self.fetch_url(workspace)?)
+            .get(url)
             .send()?
             .error_for_status()?
             .write_to(&mut BufWriter::new(File::create(&local)?))?;
@@ -181,6 +210,18 @@ impl CrateTrait for RegistryCrate {
         Ok(())
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                registry = %self.registry.name(),
+                crate_name = %self.name,
+                version = %self.version,
+                dest = %dest.display(),
+            )
+        )
+    )]
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         let cached = self.cache_path(workspace);
         let mut file = File::open(cached)?;
@@ -192,7 +233,9 @@ impl CrateTrait for RegistryCrate {
             self.version,
             dest.display()
         );
-        if let Err(err) = unpack_without_first_dir(&mut tar, dest) {
+        let unpack_result = unpack_without_first_dir(&mut tar, dest);
+
+        if let Err(err) = unpack_result {
             let _ = crate::utils::remove_dir_all(dest);
             Err(err.context(format!(
                 "unable to download {} version {}",

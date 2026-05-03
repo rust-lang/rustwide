@@ -74,6 +74,10 @@ pub(crate) fn remove_file(path: &Path) -> std::io::Result<()> {
     std::fs::remove_file(path).map_err(|error| crate::utils::improve_remove_error(error, path))
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(skip_all, fields(path = %path.display()))
+)]
 pub(crate) fn remove_dir_all(path: &Path) -> std::io::Result<()> {
     remove_dir_all::remove_dir_all(path)
         .map_err(|error| crate::utils::improve_remove_error(error, path))
