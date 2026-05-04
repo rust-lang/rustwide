@@ -1,9 +1,6 @@
 use crate::{
     Workspace,
-    cmd::{
-        Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics,
-        container_dirs,
-    },
+    cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, container_dirs},
 };
 use log::{error, info};
 use serde::Deserialize;
@@ -175,6 +172,7 @@ pub struct Sandbox<'w> {
     source_dir: PathBuf,
     target_dir: PathBuf,
     container: Option<Container<'w>>,
+    memory_peak: Cell<Option<u64>>,
 }
 
 pub(crate) struct SandboxCommand<'a> {
@@ -303,6 +301,7 @@ impl SandboxBuilder {
             source_dir: crate::utils::normalize_path(&source_dir),
             target_dir: crate::utils::normalize_path(&target_dir),
             container: None,
+            memory_peak: Cell::new(None),
         }
     }
 
@@ -514,6 +513,7 @@ impl Container<'_> {
     fn run_command(
         &self,
         command: SandboxCommand<'_>,
+        record_memory_peak: impl FnOnce(Option<u64>),
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
         process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
@@ -557,6 +557,7 @@ impl Container<'_> {
 
         // Read peak memory usage while the container is still running (best-effort)
         let memory_peak = self.read_memory_peak();
+        record_memory_peak(memory_peak);
 
         // Check OOM via cgroup events (catches cases where only the exec'd process
         // was killed, leaving the container's init process alive)
@@ -572,10 +573,7 @@ impl Container<'_> {
                 Err(err) => err,
             })
         } else {
-            res.map(|mut output| {
-                output.statistics = ProcessStatistics { memory_peak };
-                output
-            })
+            res
         }
     }
 
@@ -588,12 +586,16 @@ impl Container<'_> {
 }
 
 impl<'w> Sandbox<'w> {
+    pub(crate) fn memory_peak_bytes(&self) -> Option<u64> {
+        self.memory_peak.get()
+    }
+
     pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
         let relative = path.strip_prefix(&self.source_dir).ok()?;
         Some(container_dirs::WORK_DIR.join(relative))
     }
 
-    fn reusable_container(&mut self) -> Result<&Container<'w>, CommandError> {
+    fn ensure_reusable_container(&mut self) -> Result<(), CommandError> {
         let mount_kind = self.builder.source_dir_mount_kind;
 
         // If a previous command killed the container itself, recreate it before
@@ -631,7 +633,7 @@ impl<'w> Sandbox<'w> {
             self.container = Some(container);
         }
 
-        Ok(self.container.as_ref().unwrap())
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -653,8 +655,18 @@ impl<'w> Sandbox<'w> {
                 workdir: Some(container_workdir.to_str().unwrap()),
                 ..command
             };
-            return self.reusable_container()?.run_command(
+            self.ensure_reusable_container()?;
+            let container = self.container.as_ref().unwrap();
+            let peak = &self.memory_peak;
+            return container.run_command(
                 command,
+                |memory_peak| {
+                    let updated = match (peak.get(), memory_peak) {
+                        (Some(lhs), Some(rhs)) => Some(lhs.max(rhs)),
+                        (lhs, rhs) => lhs.or(rhs),
+                    };
+                    peak.set(updated);
+                },
                 timeout,
                 no_output_timeout,
                 process_lines,
@@ -726,8 +738,16 @@ impl<'w> Sandbox<'w> {
             }
         }}
 
+        let peak = &self.memory_peak;
         container.run_command(
             command,
+            |memory_peak| {
+                let updated = match (peak.get(), memory_peak) {
+                    (Some(lhs), Some(rhs)) => Some(lhs.max(rhs)),
+                    (lhs, rhs) => lhs.or(rhs),
+                };
+                peak.set(updated);
+            },
             timeout,
             no_output_timeout,
             process_lines,

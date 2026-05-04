@@ -32,7 +32,7 @@ mod tools;
 mod utils;
 mod workspace;
 
-pub use crate::build::{Build, BuildBuilder, BuildDirectory};
+pub use crate::build::{Build, BuildBuilder, BuildDirectory, BuildResult, BuildStatistics};
 pub use crate::crates::{AlternativeRegistry, Crate};
 pub use crate::prepare::PrepareError;
 pub use crate::toolchain::Toolchain;

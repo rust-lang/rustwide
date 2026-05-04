@@ -3,6 +3,7 @@ use crate::{
     cmd::{Command, Runnable, Sandbox, SandboxBuilder, container_dirs},
     prepare::Prepare,
 };
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::vec::Vec;
 use std::{cell::RefCell, rc::Rc};
@@ -43,6 +44,56 @@ pub struct BuildBuilder<'a> {
     krate: &'a Crate,
     sandbox: SandboxBuilder,
     patches: Vec<CratePatch>,
+}
+
+/// Statistics collected for a sandboxed build.
+#[derive(Debug, Default, Clone)]
+pub struct BuildStatistics {
+    memory_peak: Option<u64>,
+}
+
+impl BuildStatistics {
+    /// Return the peak memory usage in bytes observed across the whole build, if available.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.memory_peak
+    }
+}
+
+/// Output of a completed build together with build-level statistics.
+pub struct BuildResult<T> {
+    output: T,
+    statistics: BuildStatistics,
+}
+
+impl<T> BuildResult<T> {
+    /// Return the wrapped build output.
+    pub fn into_inner(self) -> T {
+        self.output
+    }
+
+    /// Borrow the build-level statistics.
+    pub fn statistics(&self) -> &BuildStatistics {
+        &self.statistics
+    }
+
+    /// Return the peak memory usage in bytes observed across the whole build, if available.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.statistics.memory_peak_bytes()
+    }
+}
+
+impl<T> Deref for BuildResult<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.output
+    }
+}
+
+impl<T> DerefMut for BuildResult<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.output
+    }
 }
 
 impl BuildBuilder<'_> {
@@ -133,7 +184,10 @@ impl BuildBuilder<'_> {
     /// })?;
     /// # Ok(())
     /// # }
-    pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(self, f: F) -> anyhow::Result<R> {
+    pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
+        self,
+        f: F,
+    ) -> anyhow::Result<BuildResult<R>> {
         self.build_dir
             .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
@@ -190,7 +244,7 @@ impl BuildDirectory {
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
         f: F,
-    ) -> anyhow::Result<R> {
+    ) -> anyhow::Result<BuildResult<R>> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
             crate::utils::remove_dir_all(&source_dir)?;
@@ -221,11 +275,17 @@ impl BuildDirectory {
         let res = f(&Build {
             dir: self,
             toolchain,
-            sandbox,
+            sandbox: sandbox.clone(),
         })?;
+        let statistics = BuildStatistics {
+            memory_peak: sandbox.borrow().memory_peak_bytes(),
+        };
 
         crate::utils::remove_dir_all(&source_dir)?;
-        Ok(res)
+        Ok(BuildResult {
+            output: res,
+            statistics,
+        })
     }
 
     /// Remove all the contents of the build directory, freeing disk space.
@@ -317,6 +377,11 @@ impl<'ws> Build<'ws> {
     /// ```
     pub fn cargo<'pl>(&self) -> Command<'ws, 'pl> {
         self.cmd(self.toolchain.cargo())
+    }
+
+    /// Return the peak memory usage in bytes observed across the sandbox so far, if available.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.sandbox.borrow().memory_peak_bytes()
     }
 
     /// Get the path to the source code on the host machine (outside the sandbox).
