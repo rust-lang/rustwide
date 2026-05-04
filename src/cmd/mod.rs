@@ -14,12 +14,11 @@ use futures_util::{
 };
 use log::{error, info};
 use process_lines_actions::InnerState;
-use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
+use std::{cell::RefCell, env::consts::EXE_SUFFIX, rc::Rc};
 use std::{convert::AsRef, sync::LazyLock};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -200,7 +199,7 @@ impl<B: Runnable> Runnable for &B {
 #[allow(clippy::type_complexity)]
 pub struct Command<'w, 'pl> {
     workspace: Option<&'w Workspace>,
-    sandbox: Option<SandboxBuilder>,
+    sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     binary: Binary,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
@@ -210,7 +209,6 @@ pub struct Command<'w, 'pl> {
     no_output_timeout: Option<Duration>,
     log_command: bool,
     log_output: bool,
-    source_dir_mount_kind: MountKind,
 }
 
 impl<'w> Command<'w, '_> {
@@ -219,10 +217,10 @@ impl<'w> Command<'w, '_> {
         binary.prepare_command(Self::new_inner(binary.name(), Some(workspace), None))
     }
 
-    /// Create a new, sandboxed command.
-    pub fn new_sandboxed<R: Runnable>(
+    /// Create a new command that runs inside an existing sandbox.
+    pub fn new_in_sandbox<R: Runnable>(
         workspace: &'w Workspace,
-        sandbox: SandboxBuilder,
+        sandbox: Rc<RefCell<Sandbox<'w>>>,
         binary: R,
     ) -> Self {
         binary.prepare_command(Self::new_inner(
@@ -239,7 +237,7 @@ impl<'w> Command<'w, '_> {
     fn new_inner(
         binary: Binary,
         workspace: Option<&'w Workspace>,
-        sandbox: Option<SandboxBuilder>,
+        sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     ) -> Self {
         let (timeout, no_output_timeout) = if let Some(workspace) = workspace {
             (
@@ -261,7 +259,6 @@ impl<'w> Command<'w, '_> {
             no_output_timeout,
             log_output: true,
             log_command: true,
-            source_dir_mount_kind: MountKind::ReadOnly,
         }
     }
 
@@ -358,27 +355,11 @@ impl<'w> Command<'w, '_> {
         self
     }
 
-    /// Sets how the source directory is mounted.
-    ///
-    /// The default mount kind is read-only.
-    ///
-    /// ## Security
-    ///
-    /// Be sure you understand the implications of setting this. If you set
-    /// this to read-write, and the source directory may potentially be
-    /// reused, then subsequent invocations may see those changes. Beware of
-    /// trusting those previous invocations or the contents of the source
-    /// directory.
-    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
-        self.source_dir_mount_kind = mount_kind;
-        self
-    }
-
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
-    pub fn run(self) -> Result<ProcessStatistics, CommandError> {
-        let output = self.run_inner(false)?;
-        Ok(output.statistics)
+    pub fn run(self) -> Result<(), CommandError> {
+        self.run_inner(false)?;
+        Ok(())
     }
 
     /// Run the prepared command and return its output if it succeedes. If it fails (for example
@@ -392,10 +373,7 @@ impl<'w> Command<'w, '_> {
     }
 
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
-        if let Some(mut builder) = self.sandbox {
-            let workspace = self
-                .workspace
-                .expect("sandboxed builds without a workspace are not supported");
+        if let Some(sandbox) = self.sandbox {
             let binary = match self.binary {
                 Binary::Global(path) => path,
                 Binary::ManagedByRustwide(path) => {
@@ -404,60 +382,54 @@ impl<'w> Command<'w, '_> {
             };
 
             let mut cmd = vec![binary.to_string_lossy().as_ref().to_string()];
-
             for arg in self.args {
                 cmd.push(arg.to_string_lossy().to_string());
             }
 
-            let source_dir = match self.cd {
-                Some(path) => path,
+            let workdir = match self.cd {
+                Some(path) => crate::utils::normalize_path(&path),
                 None => PathBuf::from("."),
             };
-
-            builder = builder
-                .mount(
-                    &source_dir,
-                    &container_dirs::WORK_DIR,
-                    self.source_dir_mount_kind,
+            let mut env = vec![
+                (
+                    "SOURCE_DIR".to_string(),
+                    container_dirs::WORK_DIR.to_string_lossy().to_string(),
+                ),
+                (
+                    "CARGO_HOME".to_string(),
+                    container_dirs::CARGO_HOME.to_string_lossy().to_string(),
+                ),
+                (
+                    "RUSTUP_HOME".to_string(),
+                    container_dirs::RUSTUP_HOME.to_string_lossy().to_string(),
+                ),
+            ];
+            env.extend(self.env.iter().map(|(key, value)| {
+                (
+                    key.to_string_lossy().to_string(),
+                    value.to_string_lossy().to_string(),
                 )
-                .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
-                .workdir(container_dirs::WORK_DIR.to_str().unwrap())
-                .cmd(cmd);
-
-            if let Some(user) = native::current_user() {
-                builder = builder.user(user.user_id, user.group_id);
-            }
-
-            for (key, value) in self.env {
-                builder = builder.env(
-                    key.to_string_lossy().as_ref(),
-                    value.to_string_lossy().as_ref(),
-                );
-            }
-
-            builder = builder
-                .mount(
-                    &workspace.cargo_home(),
-                    &container_dirs::CARGO_HOME,
-                    MountKind::ReadOnly,
+            }));
+            let user =
+                native::current_user().map(|user| format!("{}:{}", user.user_id, user.group_id));
+            let command = SandboxCommand {
+                cmd,
+                env: &env,
+                workdir: Some(workdir.to_str().unwrap()),
+                user: user.as_deref(),
+            };
+            sandbox
+                .try_borrow_mut()
+                .expect("re-entrant sandboxed commands are not supported")
+                .run(
+                    command,
+                    self.timeout,
+                    self.no_output_timeout,
+                    self.process_lines,
+                    self.log_output,
+                    self.log_command,
+                    capture,
                 )
-                .mount(
-                    &workspace.rustup_home(),
-                    &container_dirs::RUSTUP_HOME,
-                    MountKind::ReadOnly,
-                )
-                .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
-                .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap());
-
-            builder.run(
-                workspace,
-                self.timeout,
-                self.no_output_timeout,
-                self.process_lines,
-                self.log_output,
-                self.log_command,
-                capture,
-            )
         } else {
             let (binary, managed_by_rustwide) = match self.binary {
                 // global paths should never be normalized
@@ -552,41 +524,7 @@ impl From<InnerProcessOutput> for ProcessOutput {
         ProcessOutput {
             stdout: orig.stdout,
             stderr: orig.stderr,
-            statistics: ProcessStatistics::default(),
         }
-    }
-}
-
-/// collected statistics about the process execution.
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-pub struct ProcessStatistics {
-    /// peak memory usage in bytes.
-    /// This is populated for sandboxed commands on systems
-    /// with cgroups v1/v2.
-    pub memory_peak: Option<u64>,
-}
-
-impl ProcessStatistics {
-    /// Merge two `ProcessStatistics` into one, following a fixed set of aggregation rules:
-    ///
-    /// - `memory_peak`: the maximum of the two values is kept, since a merged peak
-    ///   should reflect the highest peak observed across all runs. If only one side
-    ///   has a value and the other is `None`, that value is used as-is.
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            memory_peak: match (self.memory_peak, other.memory_peak) {
-                (Some(a), Some(b)) => Some(a.max(b)),
-                (a, b) => a.or(b),
-            },
-        }
-    }
-
-    /// Merge another `ProcessStatistics` into `self` in place.
-    ///
-    /// See [`merge`](Self::merge) for the aggregation rules.
-    pub fn merge_mut(&mut self, other: Self) {
-        *self = mem::take(self).merge(other);
     }
 }
 
@@ -595,7 +533,6 @@ impl ProcessStatistics {
 pub struct ProcessOutput {
     stdout: Vec<String>,
     stderr: Vec<String>,
-    statistics: ProcessStatistics,
 }
 
 impl ProcessOutput {
@@ -607,14 +544,6 @@ impl ProcessOutput {
     /// Return a list of the lines printed by the process on the standard error.
     pub fn stderr_lines(&self) -> &[String] {
         &self.stderr
-    }
-
-    /// Return the peak memory usage in bytes of the sandbox container, if available.
-    ///
-    /// This is populated for sandboxed commands on systems with cgroups v2. Returns `None` for
-    /// non-sandboxed commands or when the metric could not be read.
-    pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.statistics.memory_peak
     }
 }
 
@@ -756,44 +685,4 @@ fn exe_suffix(file: &OsStr) -> OsString {
     let mut path = OsString::from(file);
     path.push(EXE_SUFFIX);
     path
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ProcessStatistics;
-    use test_case::test_case;
-
-    const fn stats(peak: Option<u64>) -> ProcessStatistics {
-        ProcessStatistics { memory_peak: peak }
-    }
-
-    #[test_case(stats(None), stats(None), stats(None))]
-    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
-    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
-    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
-    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
-    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
-    fn test_merge(lhs: ProcessStatistics, rhs: ProcessStatistics, expected: ProcessStatistics) {
-        {
-            let lhs = lhs.clone();
-            let rhs = rhs.clone();
-            assert_eq!(lhs.merge(rhs), expected);
-        }
-
-        {
-            let mut lhs = lhs.clone();
-            lhs.merge_mut(rhs);
-            assert_eq!(lhs, expected);
-        }
-    }
-
-    #[test]
-    fn merge_mut_accumulate_over_multiple() {
-        let mut s = stats(None);
-        s.merge_mut(stats(Some(50)));
-        s.merge_mut(stats(Some(200)));
-        s.merge_mut(stats(None));
-        s.merge_mut(stats(Some(150)));
-        assert_eq!(s.memory_peak, Some(200));
-    }
 }

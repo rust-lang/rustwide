@@ -1,8 +1,12 @@
-use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
-use crate::prepare::Prepare;
-use crate::{Crate, PrepareError, Toolchain, Workspace};
+use crate::{
+    Crate, PrepareError, Toolchain, Workspace,
+    cmd::{Command, Runnable, Sandbox, SandboxBuilder, SandboxStatistics, container_dirs},
+    prepare::Prepare,
+};
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::vec::Vec;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone)]
 pub(crate) enum CratePatch {
@@ -40,6 +44,38 @@ pub struct BuildBuilder<'a> {
     krate: &'a Crate,
     sandbox: SandboxBuilder,
     patches: Vec<CratePatch>,
+}
+
+/// Output of a completed build together with build-level statistics.
+pub struct BuildResult<T> {
+    output: T,
+    statistics: SandboxStatistics,
+}
+
+impl<T> BuildResult<T> {
+    /// Return the wrapped build output.
+    pub fn into_inner(self) -> T {
+        self.output
+    }
+
+    /// Borrow the build-level statistics.
+    pub fn statistics(&self) -> &SandboxStatistics {
+        &self.statistics
+    }
+}
+
+impl<T> Deref for BuildResult<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.output
+    }
+}
+
+impl<T> DerefMut for BuildResult<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.output
+    }
 }
 
 impl BuildBuilder<'_> {
@@ -111,6 +147,9 @@ impl BuildBuilder<'_> {
     /// be provided an instance of [`Build`](struct.Build.html) that allows spawning new processes
     /// inside the sandbox.
     ///
+    /// Returns a [`BuildResult`] containing both the closure's return value and build-level
+    /// statistics gathered across the sandbox lifetime.
+    ///
     /// All the state will be kept on disk as long as the closure doesn't exit: after that things
     /// might be removed.
     /// # Example
@@ -124,13 +163,17 @@ impl BuildBuilder<'_> {
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+    /// let result = build_dir.build(&toolchain, &krate, sandbox).run(|build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
+    /// let _peak = result.statistics().memory_peak_bytes();
     /// # Ok(())
     /// # }
-    pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(self, f: F) -> anyhow::Result<R> {
+    pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
+        self,
+        f: F,
+    ) -> anyhow::Result<BuildResult<R>> {
         self.build_dir
             .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
     }
@@ -187,7 +230,7 @@ impl BuildDirectory {
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
         f: F,
-    ) -> anyhow::Result<R> {
+    ) -> anyhow::Result<BuildResult<R>> {
         let source_dir = self.source_dir();
         if source_dir.exists() {
             crate::utils::remove_dir_all(&source_dir)?;
@@ -203,14 +246,32 @@ impl BuildDirectory {
         })?;
 
         std::fs::create_dir_all(self.target_dir())?;
+        let sandbox = Rc::new(RefCell::new(sandbox.clone().start(
+            &self.workspace,
+            source_dir.clone(),
+            self.target_dir(),
+        )));
+        let mut sandbox_cleanup = scopeguard::guard(Some(sandbox.clone()), |mut sandbox| {
+            if let Some(sandbox) = sandbox.take()
+                && let Err(err) = sandbox.borrow_mut().cleanup()
+            {
+                log::error!("failed to clean up reused sandbox containers");
+                log::error!("caused by: {err}");
+            }
+        });
         let res = f(&Build {
             dir: self,
             toolchain,
-            sandbox,
+            sandbox: sandbox.clone(),
         })?;
+        let statistics = sandbox.borrow_mut().cleanup()?;
+        *sandbox_cleanup = None;
 
         crate::utils::remove_dir_all(&source_dir)?;
-        Ok(res)
+        Ok(BuildResult {
+            output: res,
+            statistics,
+        })
     }
 
     /// Remove all the contents of the build directory, freeing disk space.
@@ -241,7 +302,7 @@ impl BuildDirectory {
 pub struct Build<'ws> {
     dir: &'ws BuildDirectory,
     toolchain: &'ws Toolchain,
-    sandbox: SandboxBuilder,
+    sandbox: Rc<RefCell<Sandbox<'ws>>>,
 }
 
 impl<'ws> Build<'ws> {
@@ -270,17 +331,11 @@ impl<'ws> Build<'ws> {
     /// # }
     /// ```
     pub fn cmd<'pl, R: Runnable>(&self, bin: R) -> Command<'ws, 'pl> {
-        let container_dir = &*crate::cmd::container_dirs::TARGET_DIR;
+        let container_dir = &*container_dirs::TARGET_DIR;
 
-        Command::new_sandboxed(
-            &self.dir.workspace,
-            self.sandbox
-                .clone()
-                .mount(&self.dir.target_dir(), container_dir, MountKind::ReadWrite),
-            bin,
-        )
-        .cd(self.dir.source_dir())
-        .env("CARGO_TARGET_DIR", container_dir)
+        Command::new_in_sandbox(&self.dir.workspace, self.sandbox.clone(), bin)
+            .cd(self.dir.source_dir())
+            .env("CARGO_TARGET_DIR", container_dir)
     }
 
     /// Run `cargo` inside the sandbox, using the toolchain chosen for the build.
@@ -309,7 +364,6 @@ impl<'ws> Build<'ws> {
     pub fn cargo<'pl>(&self) -> Command<'ws, 'pl> {
         self.cmd(self.toolchain.cargo())
     }
-
     /// Get the path to the source code on the host machine (outside the sandbox).
     pub fn host_source_dir(&self) -> PathBuf {
         self.dir.source_dir()

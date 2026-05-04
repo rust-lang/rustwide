@@ -173,18 +173,20 @@ fn test_memory_peak() {
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
             |build| {
-                let output = build.cargo().args(&["run", "--", "400"]).run_capture()?;
-                let peak = output.memory_peak_bytes().expect("missing memory peak");
-
-                assert!(
-                    peak > 400_000_000 && peak < 450_000_000,
-                    "memory peak roughly be 400 MiB, but it is {}",
-                    peak
-                );
-
+                build.cargo().args(&["run", "--", "400"]).run_capture()?;
                 Ok(())
             },
-        )?;
+        )?
+        .statistics()
+        .memory_peak_bytes()
+        .inspect(|peak| {
+            assert!(
+                *peak > 400_000_000 && *peak < 450_000_000,
+                "memory peak roughly be 400 MiB, but it is {}",
+                peak
+            );
+        })
+        .expect("missing memory peak");
         Ok(())
     });
 }

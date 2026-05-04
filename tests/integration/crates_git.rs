@@ -25,6 +25,7 @@ fn test_fetch() -> anyhow::Result<()> {
                     .stdout_lines()[0]
                     .to_string())
             })
+            .map(|result| result.into_inner())
     };
 
     // Check if the initial commit was fetched
