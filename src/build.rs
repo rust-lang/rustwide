@@ -206,7 +206,7 @@ impl BuildDirectory {
         })?;
 
         std::fs::create_dir_all(self.target_dir())?;
-        let sandbox = Rc::new(RefCell::new(sandbox.clone().start_session(
+        let sandbox = Rc::new(RefCell::new(sandbox.clone().start(
             &self.workspace,
             source_dir.clone(),
             self.target_dir(),

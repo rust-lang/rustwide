@@ -166,14 +166,14 @@ pub struct SandboxBuilder {
 
 /// A live sandbox that can execute one or more commands.
 ///
-/// Sandboxes created with [`SandboxBuilder::start`] are lazy: container(s) are
+/// Sandboxes created with [`SandboxBuilder::start`] are lazy: the container is
 /// created only when a command is first run. The same sandbox can be reused
 /// across multiple commands.
 pub struct Sandbox<'w> {
     workspace: &'w Workspace,
     builder: SandboxBuilder,
-    source_dir: Option<PathBuf>,
-    target_dir: Option<PathBuf>,
+    source_dir: PathBuf,
+    target_dir: PathBuf,
     container: Option<Container<'w>>,
 }
 
@@ -286,7 +286,12 @@ impl SandboxBuilder {
         self
     }
 
-    pub(crate) fn start_session<'w>(
+    /// Start a live sandbox from this configuration.
+    ///
+    /// The returned sandbox can be used to run one or more commands against a
+    /// fixed source directory and target directory. Container creation is
+    /// deferred until the first command is executed.
+    pub fn start<'w>(
         self,
         workspace: &'w Workspace,
         source_dir: PathBuf,
@@ -295,37 +300,8 @@ impl SandboxBuilder {
         Sandbox {
             workspace,
             builder: self,
-            source_dir: Some(source_dir),
-            target_dir: Some(target_dir),
-            container: None,
-        }
-    }
-
-    /// Start a live sandbox from this configuration.
-    ///
-    /// The returned sandbox can be used to run one or more commands. Container
-    /// creation is deferred until the first command is executed.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use rustwide::{WorkspaceBuilder, cmd::{Command, SandboxBuilder}};
-    /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
-    /// let sandbox = SandboxBuilder::new().start(&workspace);
-    /// Command::new_in_sandbox(&workspace, std::rc::Rc::new(std::cell::RefCell::new(sandbox)), "cargo")
-    ///     .args(&["--version"])
-    ///     .run()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn start<'w>(self, workspace: &'w Workspace) -> Sandbox<'w> {
-        Sandbox {
-            workspace,
-            builder: self,
-            source_dir: None,
-            target_dir: None,
+            source_dir,
+            target_dir,
             container: None,
         }
     }
@@ -593,29 +569,20 @@ impl Container<'_> {
 
 impl<'w> Sandbox<'w> {
     pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
-        let source_dir = self.source_dir.as_ref()?;
-        let relative = path.strip_prefix(source_dir).ok()?;
+        let relative = path.strip_prefix(&self.source_dir).ok()?;
         Some(container_dirs::WORK_DIR.join(relative))
     }
 
     fn reusable_container(&mut self) -> Result<&Container<'w>, CommandError> {
-        let source_dir = self
-            .source_dir
-            .as_ref()
-            .expect("reused containers require a source dir");
-        let target_dir = self
-            .target_dir
-            .as_ref()
-            .expect("reused containers require a target dir");
         let mount_kind = self.builder.source_dir_mount_kind;
 
         if self.container.is_none() {
             let container = self
                 .builder
                 .clone()
-                .mount(source_dir, &container_dirs::WORK_DIR, mount_kind)
+                .mount(&self.source_dir, &container_dirs::WORK_DIR, mount_kind)
                 .mount(
-                    target_dir,
+                    &self.target_dir,
                     &container_dirs::TARGET_DIR,
                     MountKind::ReadWrite,
                 )
@@ -686,14 +653,12 @@ impl<'w> Sandbox<'w> {
             .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
             .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap())
             .workdir(container_dirs::WORK_DIR.to_str().unwrap())
-            .cmd(command.cmd.clone());
-        if let Some(target_dir) = &self.target_dir {
-            ephemeral = ephemeral.mount(
-                target_dir,
+            .cmd(command.cmd.clone())
+            .mount(
+                &self.target_dir,
                 &container_dirs::TARGET_DIR,
                 MountKind::ReadWrite,
             );
-        }
         for (key, value) in command.env {
             if key != "SOURCE_DIR" && key != "CARGO_HOME" && key != "RUSTUP_HOME" {
                 ephemeral = ephemeral.env(key, value);
