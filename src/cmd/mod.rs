@@ -357,9 +357,9 @@ impl<'w> Command<'w, '_> {
 
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
-    pub fn run(self) -> Result<ProcessStatistics, CommandError> {
+    pub fn run(self) -> Result<(), CommandError> {
         self.run_inner(false)?;
-        Ok(ProcessStatistics::default())
+        Ok(())
     }
 
     /// Run the prepared command and return its output if it succeedes. If it fails (for example
@@ -527,10 +527,6 @@ impl From<InnerProcessOutput> for ProcessOutput {
         }
     }
 }
-
-/// collected statistics about the process execution.
-#[derive(Debug, Default, Clone)]
-pub struct ProcessStatistics {}
 
 /// Output of a [`Command`](struct.Command.html) when it was executed with the
 /// [`run_capture`](struct.Command.html#method.run_capture) method.
