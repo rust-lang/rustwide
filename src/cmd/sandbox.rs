@@ -499,6 +499,9 @@ impl Container<'_> {
 
     fn check_container_oom(&self, details: &InspectContainer) -> bool {
         self.running.set(details.state.running);
+        // `OOMKilled` can stay true after the first failure. Treat it as an
+        // edge-triggered signal so later commands in the same container don't
+        // keep being reported as fresh OOMs.
         let previous = self.oom_killed.replace(details.state.oom_killed);
         details.state.oom_killed && !previous
     }
@@ -593,6 +596,8 @@ impl<'w> Sandbox<'w> {
     fn reusable_container(&mut self) -> Result<&Container<'w>, CommandError> {
         let mount_kind = self.builder.source_dir_mount_kind;
 
+        // If a previous command killed the container itself, recreate it before
+        // attempting another `docker exec`.
         if self
             .container
             .as_ref()
