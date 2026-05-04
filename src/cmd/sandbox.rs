@@ -730,13 +730,25 @@ impl<'w> Sandbox<'w> {
     }
 
     pub(crate) fn cleanup(&mut self) -> Result<(), CommandError> {
-        if let Some(container) = self.read_only.take() {
-            container.delete()?;
+        let mut result = Ok(());
+
+        if let Some(container) = self.read_only.take()
+            && let Err(err) = container.delete()
+        {
+            result = Err(err);
         }
-        if let Some(container) = self.read_write.take() {
-            container.delete()?;
+
+        if let Some(container) = self.read_write.take()
+            && let Err(err) = container.delete()
+        {
+            if result.is_err() {
+                error!("failed to cleanup sandbox container: {}", err);
+            } else {
+                result = Err(err);
+            }
         }
-        Ok(())
+
+        result
     }
 }
 
