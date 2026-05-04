@@ -210,7 +210,6 @@ pub struct Command<'w, 'pl> {
     no_output_timeout: Option<Duration>,
     log_command: bool,
     log_output: bool,
-    source_dir_mount_kind: MountKind,
 }
 
 impl<'w> Command<'w, '_> {
@@ -261,7 +260,6 @@ impl<'w> Command<'w, '_> {
             no_output_timeout,
             log_output: true,
             log_command: true,
-            source_dir_mount_kind: MountKind::ReadOnly,
         }
     }
 
@@ -358,22 +356,6 @@ impl<'w> Command<'w, '_> {
         self
     }
 
-    /// Sets how the source directory is mounted.
-    ///
-    /// The default mount kind is read-only.
-    ///
-    /// ## Security
-    ///
-    /// Be sure you understand the implications of setting this. If you set
-    /// this to read-write, and the source directory may potentially be
-    /// reused, then subsequent invocations may see those changes. Beware of
-    /// trusting those previous invocations or the contents of the source
-    /// directory.
-    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
-        self.source_dir_mount_kind = mount_kind;
-        self
-    }
-
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
     pub fn run(self) -> Result<ProcessStatistics, CommandError> {
@@ -438,7 +420,6 @@ impl<'w> Command<'w, '_> {
                 user: user.as_deref(),
             };
             sandbox.borrow_mut().run(
-                self.source_dir_mount_kind,
                 command,
                 self.timeout,
                 self.no_output_timeout,

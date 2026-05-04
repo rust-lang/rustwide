@@ -154,6 +154,7 @@ impl MountConfig {
 pub struct SandboxBuilder {
     mounts: Vec<MountConfig>,
     env: Vec<(String, String)>,
+    source_dir_mount_kind: MountKind,
     memory_limit: Option<usize>,
     cpu_limit: Option<f32>,
     cpuset_cpus: Option<RangeInclusive<usize>>,
@@ -173,7 +174,6 @@ pub struct Sandbox<'w> {
     builder: SandboxBuilder,
     source_dir: Option<PathBuf>,
     target_dir: Option<PathBuf>,
-    mount_kind: Option<MountKind>,
     container: Option<Container<'w>>,
 }
 
@@ -190,6 +190,7 @@ impl SandboxBuilder {
         Self {
             mounts: Vec::new(),
             env: Vec::new(),
+            source_dir_mount_kind: MountKind::ReadOnly,
             workdir: None,
             memory_limit: None,
             cpu_limit: None,
@@ -208,6 +209,22 @@ impl SandboxBuilder {
             sandbox_path: sandbox_path.into(),
             perm: kind,
         });
+        self
+    }
+
+    /// Sets how the source directory is mounted for reusable sandbox commands.
+    ///
+    /// The default mount kind is read-only.
+    ///
+    /// ## Security
+    ///
+    /// Be sure you understand the implications of setting this. If you set
+    /// this to read-write, and the source directory may potentially be
+    /// reused, then subsequent invocations may see those changes. Beware of
+    /// trusting those previous invocations or the contents of the source
+    /// directory.
+    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
+        self.source_dir_mount_kind = mount_kind;
         self
     }
 
@@ -280,7 +297,6 @@ impl SandboxBuilder {
             builder: self,
             source_dir: Some(source_dir),
             target_dir: Some(target_dir),
-            mount_kind: None,
             container: None,
         }
     }
@@ -310,7 +326,6 @@ impl SandboxBuilder {
             builder: self,
             source_dir: None,
             target_dir: None,
-            mount_kind: None,
             container: None,
         }
     }
@@ -583,7 +598,7 @@ impl<'w> Sandbox<'w> {
         Some(container_dirs::WORK_DIR.join(relative))
     }
 
-    fn container_for(&mut self, mount_kind: MountKind) -> Result<&Container<'w>, CommandError> {
+    fn reusable_container(&mut self) -> Result<&Container<'w>, CommandError> {
         let source_dir = self
             .source_dir
             .as_ref()
@@ -592,13 +607,7 @@ impl<'w> Sandbox<'w> {
             .target_dir
             .as_ref()
             .expect("reused containers require a target dir");
-
-        if let Some(existing_mount_kind) = self.mount_kind {
-            assert_eq!(
-                existing_mount_kind, mount_kind,
-                "reused sandbox cannot change source mount kind between commands"
-            );
-        }
+        let mount_kind = self.builder.source_dir_mount_kind;
 
         if self.container.is_none() {
             let container = self
@@ -621,7 +630,6 @@ impl<'w> Sandbox<'w> {
                     MountKind::ReadOnly,
                 )
                 .create_started(self.workspace)?;
-            self.mount_kind = Some(mount_kind);
             self.container = Some(container);
         }
 
@@ -631,7 +639,6 @@ impl<'w> Sandbox<'w> {
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     pub(crate) fn run(
         &mut self,
-        mount_kind: MountKind,
         command: SandboxCommand<'_>,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
@@ -648,7 +655,7 @@ impl<'w> Sandbox<'w> {
                 workdir: Some(container_workdir.to_str().unwrap()),
                 ..command
             };
-            return self.container_for(mount_kind)?.run_command(
+            return self.reusable_container()?.run_command(
                 command,
                 timeout,
                 no_output_timeout,
@@ -660,6 +667,7 @@ impl<'w> Sandbox<'w> {
         }
 
         let workdir = command.workdir.unwrap_or(".");
+        let mount_kind = self.builder.source_dir_mount_kind;
         let mut ephemeral = self
             .builder
             .clone()
@@ -734,8 +742,6 @@ impl<'w> Sandbox<'w> {
     }
 
     pub(crate) fn cleanup(&mut self) -> Result<(), CommandError> {
-        self.mount_kind = None;
-
         if let Some(container) = self.container.take() {
             container.delete()?;
         }
