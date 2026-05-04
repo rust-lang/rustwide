@@ -177,6 +177,7 @@ fn test_memory_peak() {
                 Ok(())
             },
         )?
+        .statistics()
         .memory_peak_bytes()
         .inspect(|peak| {
             assert!(

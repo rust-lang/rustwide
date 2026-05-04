@@ -62,11 +62,6 @@ impl<T> BuildResult<T> {
     pub fn statistics(&self) -> &SandboxStatistics {
         &self.statistics
     }
-
-    /// Return the peak memory usage in bytes observed across the whole build, if available.
-    pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.statistics.memory_peak_bytes()
-    }
 }
 
 impl<T> Deref for BuildResult<T> {
@@ -172,7 +167,7 @@ impl BuildBuilder<'_> {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
-    /// let _peak = result.memory_peak_bytes();
+    /// let _peak = result.statistics().memory_peak_bytes();
     /// # Ok(())
     /// # }
     pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
@@ -369,15 +364,6 @@ impl<'ws> Build<'ws> {
     pub fn cargo<'pl>(&self) -> Command<'ws, 'pl> {
         self.cmd(self.toolchain.cargo())
     }
-
-    /// Return the peak memory usage in bytes observed across the sandbox so far, if available.
-    ///
-    /// Unlike [`BuildResult::memory_peak_bytes`], this can be queried while the build closure is
-    /// still running.
-    pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.sandbox.borrow().statistics().memory_peak_bytes()
-    }
-
     /// Get the path to the source code on the host machine (outside the sandbox).
     pub fn host_source_dir(&self) -> PathBuf {
         self.dir.source_dir()
