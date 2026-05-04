@@ -586,6 +586,14 @@ impl Container<'_> {
 }
 
 impl<'w> Sandbox<'w> {
+    fn update_memory_peak(peak: &Cell<Option<u64>>, memory_peak: Option<u64>) {
+        let updated = match (peak.get(), memory_peak) {
+            (Some(lhs), Some(rhs)) => Some(lhs.max(rhs)),
+            (lhs, rhs) => lhs.or(rhs),
+        };
+        peak.set(updated);
+    }
+
     pub(crate) fn memory_peak_bytes(&self) -> Option<u64> {
         self.memory_peak.get()
     }
@@ -660,13 +668,7 @@ impl<'w> Sandbox<'w> {
             let peak = &self.memory_peak;
             return container.run_command(
                 command,
-                |memory_peak| {
-                    let updated = match (peak.get(), memory_peak) {
-                        (Some(lhs), Some(rhs)) => Some(lhs.max(rhs)),
-                        (lhs, rhs) => lhs.or(rhs),
-                    };
-                    peak.set(updated);
-                },
+                |memory_peak| Self::update_memory_peak(peak, memory_peak),
                 timeout,
                 no_output_timeout,
                 process_lines,
@@ -741,13 +743,7 @@ impl<'w> Sandbox<'w> {
         let peak = &self.memory_peak;
         container.run_command(
             command,
-            |memory_peak| {
-                let updated = match (peak.get(), memory_peak) {
-                    (Some(lhs), Some(rhs)) => Some(lhs.max(rhs)),
-                    (lhs, rhs) => lhs.or(rhs),
-                };
-                peak.set(updated);
-            },
+            |memory_peak| Self::update_memory_peak(peak, memory_peak),
             timeout,
             no_output_timeout,
             process_lines,
