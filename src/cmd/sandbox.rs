@@ -602,8 +602,9 @@ impl<'w> Sandbox<'w> {
             .container
             .as_ref()
             .is_some_and(|container| !container.is_running())
+            && let Some(container) = self.container.take()
         {
-            self.container.take();
+            container.delete()?;
         }
 
         if self.container.is_none() {
