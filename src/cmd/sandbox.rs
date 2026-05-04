@@ -300,8 +300,8 @@ impl SandboxBuilder {
         Sandbox {
             workspace,
             builder: self,
-            source_dir,
-            target_dir,
+            source_dir: crate::utils::normalize_path(&source_dir),
+            target_dir: crate::utils::normalize_path(&target_dir),
             container: None,
         }
     }
