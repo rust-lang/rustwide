@@ -3,6 +3,7 @@ use crate::{
     cmd::{Command, Runnable, Sandbox, SandboxBuilder, container_dirs},
     prepare::Prepare,
 };
+use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::vec::Vec;
@@ -47,7 +48,7 @@ pub struct BuildBuilder<'a> {
 }
 
 /// Statistics collected for a sandboxed build.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BuildStatistics {
     memory_peak: Option<u64>,
 }
@@ -56,6 +57,21 @@ impl BuildStatistics {
     /// Return the peak memory usage in bytes observed across the whole build, if available.
     pub fn memory_peak_bytes(&self) -> Option<u64> {
         self.memory_peak
+    }
+
+    /// Merge two `BuildStatistics` into one, keeping the highest observed peak memory.
+    pub fn merge(self, other: Self) -> Self {
+        Self {
+            memory_peak: match (self.memory_peak, other.memory_peak) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+
+    /// Merge another `BuildStatistics` into `self` in place.
+    pub fn merge_mut(&mut self, other: Self) {
+        *self = mem::take(self).merge(other);
     }
 }
 
@@ -93,6 +109,46 @@ impl<T> Deref for BuildResult<T> {
 impl<T> DerefMut for BuildResult<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BuildStatistics;
+    use test_case::test_case;
+
+    const fn stats(peak: Option<u64>) -> BuildStatistics {
+        BuildStatistics { memory_peak: peak }
+    }
+
+    #[test_case(stats(None), stats(None), stats(None))]
+    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
+    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
+    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
+    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
+    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
+    fn test_merge(lhs: BuildStatistics, rhs: BuildStatistics, expected: BuildStatistics) {
+        {
+            let lhs = lhs.clone();
+            let rhs = rhs.clone();
+            assert_eq!(lhs.merge(rhs), expected);
+        }
+
+        {
+            let mut lhs = lhs.clone();
+            lhs.merge_mut(rhs);
+            assert_eq!(lhs, expected);
+        }
+    }
+
+    #[test]
+    fn merge_mut_accumulate_over_multiple() {
+        let mut s = stats(None);
+        s.merge_mut(stats(Some(50)));
+        s.merge_mut(stats(Some(200)));
+        s.merge_mut(stats(None));
+        s.merge_mut(stats(Some(150)));
+        assert_eq!(s.memory_peak, Some(200));
     }
 }
 
