@@ -6,6 +6,7 @@ use crate::Workspace;
 use log::info;
 use std::path::Path;
 
+#[cfg(feature = "alternate-registries")]
 pub use registry::AlternativeRegistry;
 
 trait CrateTrait: std::fmt::Display {
@@ -25,6 +26,7 @@ pub struct Crate(CrateType);
 
 impl Crate {
     /// Load a crate from specified registry.
+    #[cfg(feature = "alternate-registries")]
     pub fn registry(registry: AlternativeRegistry, name: &str, version: &str) -> Self {
         Crate(CrateType::Registry(registry::RegistryCrate::new(
             registry::Registry::Alternative(registry),

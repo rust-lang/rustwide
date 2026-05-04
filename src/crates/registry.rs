@@ -1,5 +1,6 @@
 use super::CrateTrait;
 use crate::Workspace;
+#[cfg(feature = "alternate-registries")]
 use anyhow::Context as _;
 use flate2::read::GzDecoder;
 use log::info;
@@ -11,11 +12,13 @@ use tar::Archive;
 static CRATES_ROOT: &str = "https://static.crates.io/crates";
 
 /// A type for alternative registry as described in rust-lang/rfcs#2141
+#[cfg(feature = "alternate-registries")]
 pub struct AlternativeRegistry {
     registry_index: String,
     key: Option<String>,
 }
 
+#[cfg(feature = "alternate-registries")]
 impl AlternativeRegistry {
     /// Registry for specified registry index
     pub fn new(registry_index: impl Into<String>) -> AlternativeRegistry {
@@ -41,6 +44,7 @@ impl AlternativeRegistry {
 
 pub(crate) enum Registry {
     CratesIo,
+    #[cfg(feature = "alternate-registries")]
     Alternative(AlternativeRegistry),
 }
 
@@ -48,6 +52,7 @@ impl Registry {
     fn cache_folder(&self) -> String {
         match self {
             Registry::CratesIo => "cratesio-sources".into(),
+            #[cfg(feature = "alternate-registries")]
             Registry::Alternative(alt) => format!("{}-sources", alt.index_folder()),
         }
     }
@@ -55,6 +60,7 @@ impl Registry {
     fn name(&self) -> String {
         match self {
             Registry::CratesIo => "crates.io".into(),
+            #[cfg(feature = "alternate-registries")]
             Registry::Alternative(alt) => alt.index().to_string(),
         }
     }
@@ -66,6 +72,7 @@ pub(super) struct RegistryCrate {
     version: String,
 }
 
+#[cfg(feature = "alternate-registries")]
 #[derive(serde::Deserialize)]
 struct IndexConfig {
     dl: String,
@@ -88,12 +95,14 @@ impl RegistryCrate {
             .join(format!("{}-{}.crate", self.name, self.version))
     }
 
+    #[allow(unused_variables)]
     fn fetch_url(&self, workspace: &Workspace) -> anyhow::Result<String> {
         match &self.registry {
             Registry::CratesIo => Ok(format!(
                 "{0}/{1}/{1}-{2}.crate",
                 CRATES_ROOT, self.name, self.version
             )),
+            #[cfg(feature = "alternate-registries")]
             Registry::Alternative(alt) => {
                 let index_path = workspace
                     .cache_dir()

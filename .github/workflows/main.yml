@@ -37,6 +37,7 @@ jobs:
         os: [ubuntu-22.04, windows-latest]
         cargo_flags:
           - ""
+          - "--no-default-features"
           - "--all-features"
         include:
           # Integration tests are disabled on Windows as they take *way* too
