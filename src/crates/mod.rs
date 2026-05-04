@@ -55,11 +55,19 @@ impl Crate {
 
     /// Fetch the crate's source code and cache it in the workspace. This method will reach out to
     /// the network for some crate types.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(krate = %self))
+    )]
     pub fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
         self.as_trait().fetch(workspace)
     }
 
     /// Remove the cached copy of this crate. The method will do nothing if the crate isn't cached.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(krate = %self))
+    )]
     pub fn purge_from_cache(&self, workspace: &Workspace) -> anyhow::Result<()> {
         self.as_trait().purge_from_cache(workspace)
     }
@@ -77,6 +85,10 @@ impl Crate {
     /// copy the source of this crate to the specified destination path.
     ///
     /// Will delete the target directory if it already exists.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(krate = %self, dest = %dest.display()))
+    )]
     pub fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         if dest.exists() {
             info!(
