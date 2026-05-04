@@ -1,8 +1,11 @@
-use crate::cmd::{Command, MountKind, Runnable, SandboxBuilder};
-use crate::prepare::Prepare;
-use crate::{Crate, PrepareError, Toolchain, Workspace};
+use crate::{
+    Crate, PrepareError, Toolchain, Workspace,
+    cmd::{Command, Runnable, Sandbox, SandboxBuilder, container_dirs},
+    prepare::Prepare,
+};
 use std::path::PathBuf;
 use std::vec::Vec;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone)]
 pub(crate) enum CratePatch {
@@ -203,6 +206,18 @@ impl BuildDirectory {
         })?;
 
         std::fs::create_dir_all(self.target_dir())?;
+        let sandbox = Rc::new(RefCell::new(sandbox.clone().start_session(
+            &self.workspace,
+            source_dir.clone(),
+            self.target_dir(),
+        )));
+        let sandbox_cleanup = sandbox.clone();
+        scopeguard::defer! {{
+            if let Err(err) = sandbox_cleanup.borrow_mut().cleanup() {
+                log::error!("failed to clean up reused sandbox containers");
+                log::error!("caused by: {err}");
+            }
+        }}
         let res = f(&Build {
             dir: self,
             toolchain,
@@ -241,7 +256,7 @@ impl BuildDirectory {
 pub struct Build<'ws> {
     dir: &'ws BuildDirectory,
     toolchain: &'ws Toolchain,
-    sandbox: SandboxBuilder,
+    sandbox: Rc<RefCell<Sandbox<'ws>>>,
 }
 
 impl<'ws> Build<'ws> {
@@ -270,17 +285,11 @@ impl<'ws> Build<'ws> {
     /// # }
     /// ```
     pub fn cmd<'pl, R: Runnable>(&self, bin: R) -> Command<'ws, 'pl> {
-        let container_dir = &*crate::cmd::container_dirs::TARGET_DIR;
+        let container_dir = &*container_dirs::TARGET_DIR;
 
-        Command::new_sandboxed(
-            &self.dir.workspace,
-            self.sandbox
-                .clone()
-                .mount(&self.dir.target_dir(), container_dir, MountKind::ReadWrite),
-            bin,
-        )
-        .cd(self.dir.source_dir())
-        .env("CARGO_TARGET_DIR", container_dir)
+        Command::new_in_sandbox(&self.dir.workspace, self.sandbox.clone(), bin)
+            .cd(self.dir.source_dir())
+            .env("CARGO_TARGET_DIR", container_dir)
     }
 
     /// Run `cargo` inside the sandbox, using the toolchain chosen for the build.

@@ -1,8 +1,14 @@
-use crate::Workspace;
-use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics};
+use crate::{
+    Workspace,
+    cmd::{
+        Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics,
+        container_dirs,
+    },
+};
 use log::{error, info};
 use serde::Deserialize;
 use std::{
+    cell::Cell,
     error::Error,
     fmt,
     ops::RangeInclusive,
@@ -140,8 +146,10 @@ impl MountConfig {
     }
 }
 
-/// The sandbox builder allows to configure a sandbox, used later in a
-/// [`Command`](struct.Command.html).
+/// The sandbox builder allows configuring a [`Sandbox`].
+///
+/// Call [`SandboxBuilder::start`] to create a live sandbox, then run commands
+/// inside it with [`Command::new_in_sandbox`](struct.Command.html#method.new_in_sandbox).
 #[derive(Clone)]
 pub struct SandboxBuilder {
     mounts: Vec<MountConfig>,
@@ -153,6 +161,27 @@ pub struct SandboxBuilder {
     user: Option<String>,
     cmd: Vec<String>,
     enable_networking: bool,
+}
+
+/// A live sandbox that can execute one or more commands.
+///
+/// Sandboxes created with [`SandboxBuilder::start`] are lazy: container(s) are
+/// created only when a command is first run. The same sandbox can be reused
+/// across multiple commands.
+pub struct Sandbox<'w> {
+    workspace: &'w Workspace,
+    builder: SandboxBuilder,
+    source_dir: Option<PathBuf>,
+    target_dir: Option<PathBuf>,
+    read_only: Option<Container<'w>>,
+    read_write: Option<Container<'w>>,
+}
+
+pub(crate) struct SandboxCommand<'a> {
+    pub(crate) cmd: Vec<String>,
+    pub(crate) env: &'a [(String, String)],
+    pub(crate) workdir: Option<&'a str>,
+    pub(crate) user: Option<&'a str>,
 }
 
 impl SandboxBuilder {
@@ -240,6 +269,59 @@ impl SandboxBuilder {
         self
     }
 
+    pub(crate) fn start_session<'w>(
+        self,
+        workspace: &'w Workspace,
+        source_dir: PathBuf,
+        target_dir: PathBuf,
+    ) -> Sandbox<'w> {
+        Sandbox {
+            workspace,
+            builder: self,
+            source_dir: Some(source_dir),
+            target_dir: Some(target_dir),
+            read_only: None,
+            read_write: None,
+        }
+    }
+
+    /// Start a live sandbox from this configuration.
+    ///
+    /// The returned sandbox can be used to run one or more commands. Container
+    /// creation is deferred until the first command is executed.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, cmd::{Command, SandboxBuilder}};
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// let sandbox = SandboxBuilder::new().start(&workspace);
+    /// Command::new_in_sandbox(&workspace, std::rc::Rc::new(std::cell::RefCell::new(sandbox)), "cargo")
+    ///     .args(&["--version"])
+    ///     .run()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn start<'w>(self, workspace: &'w Workspace) -> Sandbox<'w> {
+        Sandbox {
+            workspace,
+            builder: self,
+            source_dir: None,
+            target_dir: None,
+            read_only: None,
+            read_write: None,
+        }
+    }
+
+    fn create_started(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
+        let container = self.create(workspace)?;
+        container.start()?;
+        container.record_oom_kill_count();
+        Ok(container)
+    }
+
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
@@ -297,48 +379,8 @@ impl SandboxBuilder {
         Ok(Container {
             id: out.stdout_lines()[0].clone(),
             workspace,
-            cmd: self.cmd,
-            env: self.env,
-            workdir: self.workdir,
-            user: self.user,
+            oom_kill_count: Cell::new(None),
         })
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::type_complexity)]
-    pub(super) fn run(
-        self,
-        workspace: &Workspace,
-        timeout: Option<Duration>,
-        no_output_timeout: Option<Duration>,
-        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
-        log_output: bool,
-        log_command: bool,
-        capture: bool,
-    ) -> Result<ProcessOutput, CommandError> {
-        let container = self.create(workspace)?;
-
-        // Ensure the container is properly deleted even if something panics
-        scopeguard::defer! {{
-            if let Err(err) = container.delete() {
-                error!("failed to delete container {}", container.id);
-                error!("caused by: {err}");
-                let mut err: &dyn Error = &err;
-                while let Some(cause) = err.source() {
-                    error!("caused by: {cause}");
-                    err = cause;
-                }
-            }
-        }}
-
-        container.run(
-            timeout,
-            no_output_timeout,
-            process_lines,
-            log_output,
-            log_command,
-            capture,
-        )
     }
 }
 
@@ -354,16 +396,11 @@ struct InspectState {
     oom_killed: bool,
 }
 
-#[derive(Clone)]
 struct Container<'w> {
     // Docker container ID
     id: String,
     workspace: &'w Workspace,
-    // Command-level config for `docker exec` (not baked into `docker create`)
-    cmd: Vec<String>,
-    env: Vec<(String, String)>,
-    workdir: Option<String>,
-    user: Option<String>,
+    oom_kill_count: Cell<Option<u64>>,
 }
 
 impl fmt::Display for Container<'_> {
@@ -395,15 +432,6 @@ impl Container<'_> {
             .map(|_| ())
     }
 
-    /// Stop a running container. Uses `-t 1` to give `sleep infinity` a short grace period.
-    fn stop(&self) -> Result<(), CommandError> {
-        Command::new(self.workspace, "docker")
-            .args(&["stop", "-t", "1", &self.id])
-            .log_output(false)
-            .run()
-            .map(|_| ())
-    }
-
     /// Helper to `docker exec cat <path>` and return stdout lines on success.
     fn exec_cat_file(&self, path: &str) -> Option<Vec<String>> {
         Command::new(self.workspace, "docker")
@@ -413,6 +441,10 @@ impl Container<'_> {
             .run_capture()
             .ok()
             .map(|o| o.stdout_lines().to_vec())
+    }
+
+    fn record_oom_kill_count(&self) {
+        self.oom_kill_count.set(self.read_oom_kill_count());
     }
 
     /// Best-effort read of peak memory usage from the still-running container.
@@ -439,7 +471,7 @@ impl Container<'_> {
     /// while `sleep infinity` (PID 1) survives. In that case `docker inspect` won't
     /// report `OOMKilled`, so we check the cgroup events directly.
     /// Tries cgroups v2 first, then falls back to cgroups v1.
-    fn check_cgroup_oom(&self) -> bool {
+    fn read_oom_kill_count(&self) -> Option<u64> {
         // Both v1 and v2 expose `oom_kill <count>` — just in different files.
         let paths = [
             "/sys/fs/cgroup/memory.events",             // v2
@@ -447,24 +479,31 @@ impl Container<'_> {
         ];
         for path in paths {
             if let Some(lines) = self.exec_cat_file(path) {
-                let found = lines.iter().any(|line| {
-                    line.strip_prefix("oom_kill ")
+                for line in &lines {
+                    if let Some(count) = line
+                        .strip_prefix("oom_kill ")
                         .and_then(|rest| rest.trim().parse::<u64>().ok())
-                        .is_some_and(|count| count > 0)
-                });
-                if found {
-                    return true;
+                    {
+                        return Some(count);
+                    }
                 }
-                // File existed but no OOM — don't try the other version
-                return false;
+                return Some(0);
             }
         }
-        false
+        None
     }
 
-    #[allow(clippy::type_complexity)]
-    fn run(
+    fn check_cgroup_oom(&self) -> bool {
+        let current = self.read_oom_kill_count();
+        let previous = self.oom_kill_count.replace(current);
+
+        current.unwrap_or_default() > previous.unwrap_or_default()
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    fn run_command(
         &self,
+        command: SandboxCommand<'_>,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
         process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
@@ -472,29 +511,26 @@ impl Container<'_> {
         log_command: bool,
         capture: bool,
     ) -> Result<ProcessOutput, CommandError> {
-        // Start the container in detached mode (runs `sleep infinity`)
-        self.start()?;
-
         // Build the `docker exec` command with env/workdir/user from the sandbox config
         let mut args: Vec<String> = vec!["exec".into()];
 
-        for (var, value) in &self.env {
+        for (var, value) in command.env {
             args.push("-e".into());
             args.push(format!("{var}={value}"));
         }
 
-        if let Some(ref workdir) = self.workdir {
+        if let Some(workdir) = command.workdir {
             args.push("-w".into());
-            args.push(workdir.clone());
+            args.push(workdir.to_string());
         }
 
-        if let Some(ref user) = self.user {
+        if let Some(user) = command.user {
             args.push("--user".into());
-            args.push(user.clone());
+            args.push(user.to_string());
         }
 
         args.push(self.id.clone());
-        args.extend(self.cmd.iter().cloned());
+        args.extend(command.cmd.iter().cloned());
 
         let mut cmd = Command::new(self.workspace, "docker")
             .args(&args)
@@ -515,10 +551,6 @@ impl Container<'_> {
         // Check OOM via cgroup events (catches cases where only the exec'd process
         // was killed, leaving the container's init process alive)
         let cgroup_oom = self.check_cgroup_oom();
-
-        // Explicitly stop the container now that we're done reading metrics.
-        // The scopeguard will still call `docker rm -f` for final cleanup.
-        let _ = self.stop();
 
         let details = self.inspect()?;
 
@@ -541,6 +573,170 @@ impl Container<'_> {
             .args(&["rm", "-f", &self.id])
             .run()
             .map(|_| ())
+    }
+}
+
+impl<'w> Sandbox<'w> {
+    pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
+        let source_dir = self.source_dir.as_ref()?;
+        let relative = path.strip_prefix(source_dir).ok()?;
+        Some(container_dirs::WORK_DIR.join(relative))
+    }
+
+    fn container_for(&mut self, mount_kind: MountKind) -> Result<&Container<'w>, CommandError> {
+        let source_dir = self
+            .source_dir
+            .as_ref()
+            .expect("reused containers require a source dir");
+        let target_dir = self
+            .target_dir
+            .as_ref()
+            .expect("reused containers require a target dir");
+        let slot = match mount_kind {
+            MountKind::ReadOnly => &mut self.read_only,
+            MountKind::ReadWrite => &mut self.read_write,
+        };
+
+        if slot.is_none() {
+            let container = self
+                .builder
+                .clone()
+                .mount(source_dir, &container_dirs::WORK_DIR, mount_kind)
+                .mount(
+                    target_dir,
+                    &container_dirs::TARGET_DIR,
+                    MountKind::ReadWrite,
+                )
+                .mount(
+                    &self.workspace.cargo_home(),
+                    &container_dirs::CARGO_HOME,
+                    MountKind::ReadOnly,
+                )
+                .mount(
+                    &self.workspace.rustup_home(),
+                    &container_dirs::RUSTUP_HOME,
+                    MountKind::ReadOnly,
+                )
+                .create_started(self.workspace)?;
+            *slot = Some(container);
+        }
+
+        Ok(slot.as_ref().unwrap())
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    pub(crate) fn run(
+        &mut self,
+        mount_kind: MountKind,
+        command: SandboxCommand<'_>,
+        timeout: Option<Duration>,
+        no_output_timeout: Option<Duration>,
+        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
+        log_output: bool,
+        log_command: bool,
+        capture: bool,
+    ) -> Result<ProcessOutput, CommandError> {
+        if let Some(container_workdir) = command
+            .workdir
+            .and_then(|workdir| self.container_workdir(Path::new(workdir)))
+        {
+            let command = SandboxCommand {
+                workdir: Some(container_workdir.to_str().unwrap()),
+                ..command
+            };
+            return self.container_for(mount_kind)?.run_command(
+                command,
+                timeout,
+                no_output_timeout,
+                process_lines,
+                log_output,
+                log_command,
+                capture,
+            );
+        }
+
+        let workdir = command.workdir.unwrap_or(".");
+        let mut ephemeral = self
+            .builder
+            .clone()
+            .mount(Path::new(workdir), &container_dirs::WORK_DIR, mount_kind)
+            .mount(
+                &self.workspace.cargo_home(),
+                &container_dirs::CARGO_HOME,
+                MountKind::ReadOnly,
+            )
+            .mount(
+                &self.workspace.rustup_home(),
+                &container_dirs::RUSTUP_HOME,
+                MountKind::ReadOnly,
+            )
+            .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
+            .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
+            .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap())
+            .workdir(container_dirs::WORK_DIR.to_str().unwrap())
+            .cmd(command.cmd.clone());
+        if let Some(target_dir) = &self.target_dir {
+            ephemeral = ephemeral.mount(
+                target_dir,
+                &container_dirs::TARGET_DIR,
+                MountKind::ReadWrite,
+            );
+        }
+        for (key, value) in command.env {
+            if key != "SOURCE_DIR" && key != "CARGO_HOME" && key != "RUSTUP_HOME" {
+                ephemeral = ephemeral.env(key, value);
+            }
+        }
+        if let Some(user) = command.user {
+            let (uid, gid) = user
+                .split_once(':')
+                .and_then(|(uid, gid)| Some((uid.parse::<u32>().ok()?, gid.parse::<u32>().ok()?)))
+                .expect("invalid user format");
+            ephemeral = ephemeral.user(uid, gid);
+        }
+
+        let env = ephemeral.env.clone();
+        let workdir = ephemeral.workdir.clone();
+        let user = ephemeral.user.clone();
+        let command = SandboxCommand {
+            cmd: ephemeral.cmd.clone(),
+            env: &env,
+            workdir: workdir.as_deref(),
+            user: user.as_deref(),
+        };
+        let container = ephemeral.create_started(self.workspace)?;
+
+        scopeguard::defer! {{
+            if let Err(err) = container.delete() {
+                error!("failed to delete container {}", container.id);
+                error!("caused by: {err}");
+                let mut err: &dyn Error = &err;
+                while let Some(cause) = err.source() {
+                    error!("caused by: {cause}");
+                    err = cause;
+                }
+            }
+        }}
+
+        container.run_command(
+            command,
+            timeout,
+            no_output_timeout,
+            process_lines,
+            log_output,
+            log_command,
+            capture,
+        )
+    }
+
+    pub(crate) fn cleanup(&mut self) -> Result<(), CommandError> {
+        if let Some(container) = self.read_only.take() {
+            container.delete()?;
+        }
+        if let Some(container) = self.read_write.take() {
+            container.delete()?;
+        }
+        Ok(())
     }
 }
 

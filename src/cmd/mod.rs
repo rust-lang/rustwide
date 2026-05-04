@@ -14,12 +14,12 @@ use futures_util::{
 };
 use log::{error, info};
 use process_lines_actions::InnerState;
-use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
+use std::{cell::RefCell, env::consts::EXE_SUFFIX, rc::Rc};
 use std::{convert::AsRef, sync::LazyLock};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -200,7 +200,7 @@ impl<B: Runnable> Runnable for &B {
 #[allow(clippy::type_complexity)]
 pub struct Command<'w, 'pl> {
     workspace: Option<&'w Workspace>,
-    sandbox: Option<SandboxBuilder>,
+    sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     binary: Binary,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
@@ -219,10 +219,10 @@ impl<'w> Command<'w, '_> {
         binary.prepare_command(Self::new_inner(binary.name(), Some(workspace), None))
     }
 
-    /// Create a new, sandboxed command.
-    pub fn new_sandboxed<R: Runnable>(
+    /// Create a new command that runs inside an existing sandbox.
+    pub fn new_in_sandbox<R: Runnable>(
         workspace: &'w Workspace,
-        sandbox: SandboxBuilder,
+        sandbox: Rc<RefCell<Sandbox<'w>>>,
         binary: R,
     ) -> Self {
         binary.prepare_command(Self::new_inner(
@@ -239,7 +239,7 @@ impl<'w> Command<'w, '_> {
     fn new_inner(
         binary: Binary,
         workspace: Option<&'w Workspace>,
-        sandbox: Option<SandboxBuilder>,
+        sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     ) -> Self {
         let (timeout, no_output_timeout) = if let Some(workspace) = workspace {
             (
@@ -392,10 +392,7 @@ impl<'w> Command<'w, '_> {
     }
 
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
-        if let Some(mut builder) = self.sandbox {
-            let workspace = self
-                .workspace
-                .expect("sandboxed builds without a workspace are not supported");
+        if let Some(sandbox) = self.sandbox {
             let binary = match self.binary {
                 Binary::Global(path) => path,
                 Binary::ManagedByRustwide(path) => {
@@ -404,53 +401,45 @@ impl<'w> Command<'w, '_> {
             };
 
             let mut cmd = vec![binary.to_string_lossy().as_ref().to_string()];
-
             for arg in self.args {
                 cmd.push(arg.to_string_lossy().to_string());
             }
 
-            let source_dir = match self.cd {
-                Some(path) => path,
+            let workdir = match self.cd {
+                Some(path) => crate::utils::normalize_path(&path),
                 None => PathBuf::from("."),
             };
-
-            builder = builder
-                .mount(
-                    &source_dir,
-                    &container_dirs::WORK_DIR,
-                    self.source_dir_mount_kind,
+            let mut env = vec![
+                (
+                    "SOURCE_DIR".to_string(),
+                    container_dirs::WORK_DIR.to_string_lossy().to_string(),
+                ),
+                (
+                    "CARGO_HOME".to_string(),
+                    container_dirs::CARGO_HOME.to_string_lossy().to_string(),
+                ),
+                (
+                    "RUSTUP_HOME".to_string(),
+                    container_dirs::RUSTUP_HOME.to_string_lossy().to_string(),
+                ),
+            ];
+            env.extend(self.env.iter().map(|(key, value)| {
+                (
+                    key.to_string_lossy().to_string(),
+                    value.to_string_lossy().to_string(),
                 )
-                .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
-                .workdir(container_dirs::WORK_DIR.to_str().unwrap())
-                .cmd(cmd);
-
-            if let Some(user) = native::current_user() {
-                builder = builder.user(user.user_id, user.group_id);
-            }
-
-            for (key, value) in self.env {
-                builder = builder.env(
-                    key.to_string_lossy().as_ref(),
-                    value.to_string_lossy().as_ref(),
-                );
-            }
-
-            builder = builder
-                .mount(
-                    &workspace.cargo_home(),
-                    &container_dirs::CARGO_HOME,
-                    MountKind::ReadOnly,
-                )
-                .mount(
-                    &workspace.rustup_home(),
-                    &container_dirs::RUSTUP_HOME,
-                    MountKind::ReadOnly,
-                )
-                .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
-                .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap());
-
-            builder.run(
-                workspace,
+            }));
+            let user =
+                native::current_user().map(|user| format!("{}:{}", user.user_id, user.group_id));
+            let command = SandboxCommand {
+                cmd,
+                env: &env,
+                workdir: Some(workdir.to_str().unwrap()),
+                user: user.as_deref(),
+            };
+            sandbox.borrow_mut().run(
+                self.source_dir_mount_kind,
+                command,
                 self.timeout,
                 self.no_output_timeout,
                 self.process_lines,
