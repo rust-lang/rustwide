@@ -48,6 +48,9 @@ pub struct BuildBuilder<'a> {
 }
 
 /// Statistics collected for a sandboxed build.
+///
+/// These metrics describe the sandbox as a whole across the build, not an
+/// individual command invocation.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BuildStatistics {
     memory_peak: Option<u64>,
@@ -221,6 +224,9 @@ impl BuildBuilder<'_> {
     /// be provided an instance of [`Build`](struct.Build.html) that allows spawning new processes
     /// inside the sandbox.
     ///
+    /// Returns a [`BuildResult`] containing both the closure's return value and build-level
+    /// statistics gathered across the sandbox lifetime.
+    ///
     /// All the state will be kept on disk as long as the closure doesn't exit: after that things
     /// might be removed.
     /// # Example
@@ -234,10 +240,11 @@ impl BuildBuilder<'_> {
     /// # let krate = Crate::local("".as_ref());
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
-    /// build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+    /// let result = build_dir.build(&toolchain, &krate, sandbox).run(|build| {
     ///     build.cargo().args(&["test", "--all"]).run()?;
     ///     Ok(())
     /// })?;
+    /// let _peak = result.memory_peak_bytes();
     /// # Ok(())
     /// # }
     pub fn run<R, F: FnOnce(&Build) -> anyhow::Result<R>>(
@@ -436,6 +443,9 @@ impl<'ws> Build<'ws> {
     }
 
     /// Return the peak memory usage in bytes observed across the sandbox so far, if available.
+    ///
+    /// Unlike [`BuildResult::memory_peak_bytes`], this can be queried while the build closure is
+    /// still running.
     pub fn memory_peak_bytes(&self) -> Option<u64> {
         self.sandbox.borrow().memory_peak_bytes()
     }
