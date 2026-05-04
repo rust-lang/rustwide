@@ -52,17 +52,17 @@ pub struct BuildBuilder<'a> {
 /// These metrics describe the sandbox as a whole across the build, not an
 /// individual command invocation.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct BuildStatistics {
+pub struct SandboxStatistics {
     memory_peak: Option<u64>,
 }
 
-impl BuildStatistics {
+impl SandboxStatistics {
     /// Return the peak memory usage in bytes observed across the whole build, if available.
     pub fn memory_peak_bytes(&self) -> Option<u64> {
         self.memory_peak
     }
 
-    /// Merge two `BuildStatistics` into one, keeping the highest observed peak memory.
+    /// Merge two `SandboxStatistics` into one, keeping the highest observed peak memory.
     pub fn merge(self, other: Self) -> Self {
         Self {
             memory_peak: match (self.memory_peak, other.memory_peak) {
@@ -72,7 +72,7 @@ impl BuildStatistics {
         }
     }
 
-    /// Merge another `BuildStatistics` into `self` in place.
+    /// Merge another `SandboxStatistics` into `self` in place.
     pub fn merge_mut(&mut self, other: Self) {
         *self = mem::take(self).merge(other);
     }
@@ -81,7 +81,7 @@ impl BuildStatistics {
 /// Output of a completed build together with build-level statistics.
 pub struct BuildResult<T> {
     output: T,
-    statistics: BuildStatistics,
+    statistics: SandboxStatistics,
 }
 
 impl<T> BuildResult<T> {
@@ -91,7 +91,7 @@ impl<T> BuildResult<T> {
     }
 
     /// Borrow the build-level statistics.
-    pub fn statistics(&self) -> &BuildStatistics {
+    pub fn statistics(&self) -> &SandboxStatistics {
         &self.statistics
     }
 
@@ -117,11 +117,11 @@ impl<T> DerefMut for BuildResult<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::BuildStatistics;
+    use super::SandboxStatistics;
     use test_case::test_case;
 
-    const fn stats(peak: Option<u64>) -> BuildStatistics {
-        BuildStatistics { memory_peak: peak }
+    const fn stats(peak: Option<u64>) -> SandboxStatistics {
+        SandboxStatistics { memory_peak: peak }
     }
 
     #[test_case(stats(None), stats(None), stats(None))]
@@ -130,7 +130,7 @@ mod tests {
     #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
     #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
     #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
-    fn test_merge(lhs: BuildStatistics, rhs: BuildStatistics, expected: BuildStatistics) {
+    fn test_merge(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
         {
             let lhs = lhs.clone();
             let rhs = rhs.clone();
@@ -340,7 +340,7 @@ impl BuildDirectory {
             toolchain,
             sandbox: sandbox.clone(),
         })?;
-        let statistics = BuildStatistics {
+        let statistics = SandboxStatistics {
             memory_peak: sandbox.borrow().memory_peak_bytes(),
         };
 
