@@ -306,10 +306,12 @@ impl SandboxBuilder {
     }
 
     fn create_started(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
-        let container = self.create(workspace)?;
+        let container = scopeguard::guard(self.create(workspace)?, |container| {
+            container.delete_or_log();
+        });
         container.start()?;
         container.record_oom_kill_count();
-        Ok(container)
+        Ok(scopeguard::ScopeGuard::into_inner(container))
     }
 
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
@@ -583,6 +585,18 @@ impl Container<'_> {
             .run()
             .map(|_| ())
     }
+
+    fn delete_or_log(&self) {
+        if let Err(err) = self.delete() {
+            error!("failed to delete container {}", self.id);
+            error!("caused by: {err}");
+            let mut err: &dyn Error = &err;
+            while let Some(cause) = err.source() {
+                error!("caused by: {cause}");
+                err = cause;
+            }
+        }
+    }
 }
 
 impl<'w> Sandbox<'w> {
@@ -729,15 +743,7 @@ impl<'w> Sandbox<'w> {
         let container = ephemeral.create_started(self.workspace)?;
 
         scopeguard::defer! {{
-            if let Err(err) = container.delete() {
-                error!("failed to delete container {}", container.id);
-                error!("caused by: {err}");
-                let mut err: &dyn Error = &err;
-                while let Some(cause) = err.source() {
-                    error!("caused by: {cause}");
-                    err = cause;
-                }
-            }
+            container.delete_or_log();
         }}
 
         let peak = &self.memory_peak;
