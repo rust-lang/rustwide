@@ -370,6 +370,8 @@ impl SandboxBuilder {
         Ok(Container {
             id: out.stdout_lines()[0].clone(),
             workspace,
+            running: Cell::new(true),
+            oom_killed: Cell::new(false),
             oom_kill_count: Cell::new(None),
         })
     }
@@ -385,12 +387,16 @@ struct InspectContainer {
 struct InspectState {
     #[serde(rename = "OOMKilled")]
     oom_killed: bool,
+    #[serde(rename = "Running")]
+    running: bool,
 }
 
 struct Container<'w> {
     // Docker container ID
     id: String,
     workspace: &'w Workspace,
+    running: Cell<bool>,
+    oom_killed: Cell<bool>,
     oom_kill_count: Cell<Option<u64>>,
 }
 
@@ -491,6 +497,16 @@ impl Container<'_> {
         current.unwrap_or_default() > previous.unwrap_or_default()
     }
 
+    fn check_container_oom(&self, details: &InspectContainer) -> bool {
+        self.running.set(details.state.running);
+        let previous = self.oom_killed.replace(details.state.oom_killed);
+        details.state.oom_killed && !previous
+    }
+
+    fn is_running(&self) -> bool {
+        self.running.get()
+    }
+
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     fn run_command(
         &self,
@@ -544,9 +560,10 @@ impl Container<'_> {
         let cgroup_oom = self.check_cgroup_oom();
 
         let details = self.inspect()?;
+        let container_oom = self.check_container_oom(&details);
 
         // Return a different error if the container was killed due to an OOM
-        if details.state.oom_killed || cgroup_oom {
+        if container_oom || cgroup_oom {
             Err(match res {
                 Ok(_) | Err(CommandError::ExecutionFailed { .. }) => CommandError::SandboxOOM,
                 Err(err) => err,
@@ -575,6 +592,14 @@ impl<'w> Sandbox<'w> {
 
     fn reusable_container(&mut self) -> Result<&Container<'w>, CommandError> {
         let mount_kind = self.builder.source_dir_mount_kind;
+
+        if self
+            .container
+            .as_ref()
+            .is_some_and(|container| !container.is_running())
+        {
+            self.container.take();
+        }
 
         if self.container.is_none() {
             let container = self
