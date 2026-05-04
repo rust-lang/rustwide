@@ -14,6 +14,9 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["alternate-registries"]
+
+alternate-registries = ["dep:git2"]
 unstable = []
 unstable-toolchain-ci = []
 
@@ -39,7 +42,7 @@ remove_dir_all = "1.0.0"
 base64 = "0.22.0"
 getrandom = { version = "0.4.1", features = ["std"] }
 thiserror = "2.0.17"
-git2 = "0.20.2"
+git2 = { version = "0.20.2", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.30.0", features = ["signal", "user"]}
