@@ -419,15 +419,18 @@ impl<'w> Command<'w, '_> {
                 workdir: Some(workdir.to_str().unwrap()),
                 user: user.as_deref(),
             };
-            sandbox.borrow_mut().run(
-                command,
-                self.timeout,
-                self.no_output_timeout,
-                self.process_lines,
-                self.log_output,
-                self.log_command,
-                capture,
-            )
+            sandbox
+                .try_borrow_mut()
+                .expect("re-entrant sandboxed commands are not supported")
+                .run(
+                    command,
+                    self.timeout,
+                    self.no_output_timeout,
+                    self.process_lines,
+                    self.log_output,
+                    self.log_command,
+                    capture,
+                )
         } else {
             let (binary, managed_by_rustwide) = match self.binary {
                 // global paths should never be normalized
