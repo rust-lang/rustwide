@@ -7,7 +7,7 @@ use serde::Deserialize;
 use std::{
     cell::Cell,
     error::Error,
-    fmt,
+    fmt, mem,
     ops::RangeInclusive,
     path::{Path, PathBuf},
     time::Duration,
@@ -159,6 +159,34 @@ pub struct SandboxBuilder {
     user: Option<String>,
     cmd: Vec<String>,
     enable_networking: bool,
+}
+
+/// Statistics collected for a sandbox.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct SandboxStatistics {
+    memory_peak: Option<u64>,
+}
+
+impl SandboxStatistics {
+    /// Return the peak memory usage in bytes observed across the whole sandbox, if available.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.memory_peak
+    }
+
+    /// Merge two `SandboxStatistics` into one, keeping the highest observed peak memory.
+    pub fn merge(self, other: Self) -> Self {
+        Self {
+            memory_peak: match (self.memory_peak, other.memory_peak) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+
+    /// Merge another `SandboxStatistics` into `self` in place.
+    pub fn merge_mut(&mut self, other: Self) {
+        *self = mem::take(self).merge(other);
+    }
 }
 
 /// A live sandbox that can execute one or more commands.
@@ -608,8 +636,11 @@ impl<'w> Sandbox<'w> {
         peak.set(updated);
     }
 
-    pub(crate) fn memory_peak_bytes(&self) -> Option<u64> {
-        self.memory_peak.get()
+    /// Return the statistics gathered across the sandbox lifetime so far.
+    pub fn statistics(&self) -> SandboxStatistics {
+        SandboxStatistics {
+            memory_peak: self.memory_peak.get(),
+        }
     }
 
     pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
@@ -759,12 +790,14 @@ impl<'w> Sandbox<'w> {
         )
     }
 
-    pub(crate) fn cleanup(&mut self) -> Result<(), CommandError> {
+    /// Remove any live container owned by this sandbox and return the final statistics.
+    pub fn cleanup(&mut self) -> Result<SandboxStatistics, CommandError> {
+        let statistics = self.statistics();
         if let Some(container) = self.container.take() {
             container.delete()?;
         }
 
-        Ok(())
+        Ok(statistics)
     }
 }
 
@@ -789,9 +822,44 @@ fn format_cpuset_cpus(cpus: &RangeInclusive<usize>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
 
     #[test]
     fn formats_cpuset_cpus() {
         assert_eq!(format_cpuset_cpus(&(2..=4)), "2-4");
+    }
+
+    const fn stats(peak: Option<u64>) -> SandboxStatistics {
+        SandboxStatistics { memory_peak: peak }
+    }
+
+    #[test_case(stats(None), stats(None), stats(None))]
+    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
+    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
+    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
+    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
+    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
+    fn test_merge(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
+        {
+            let lhs = lhs.clone();
+            let rhs = rhs.clone();
+            assert_eq!(lhs.merge(rhs), expected);
+        }
+
+        {
+            let mut lhs = lhs.clone();
+            lhs.merge_mut(rhs);
+            assert_eq!(lhs, expected);
+        }
+    }
+
+    #[test]
+    fn merge_mut_accumulate_over_multiple() {
+        let mut s = stats(None);
+        s.merge_mut(stats(Some(50)));
+        s.merge_mut(stats(Some(200)));
+        s.merge_mut(stats(None));
+        s.merge_mut(stats(Some(150)));
+        assert_eq!(s.memory_peak, Some(200));
     }
 }

@@ -1,9 +1,8 @@
 use crate::{
     Crate, PrepareError, Toolchain, Workspace,
-    cmd::{Command, Runnable, Sandbox, SandboxBuilder, container_dirs},
+    cmd::{Command, Runnable, Sandbox, SandboxBuilder, SandboxStatistics, container_dirs},
     prepare::Prepare,
 };
-use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::vec::Vec;
@@ -47,37 +46,6 @@ pub struct BuildBuilder<'a> {
     patches: Vec<CratePatch>,
 }
 
-/// Statistics collected for a sandboxed build.
-///
-/// These metrics describe the sandbox as a whole across the build, not an
-/// individual command invocation.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct SandboxStatistics {
-    memory_peak: Option<u64>,
-}
-
-impl SandboxStatistics {
-    /// Return the peak memory usage in bytes observed across the whole build, if available.
-    pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.memory_peak
-    }
-
-    /// Merge two `SandboxStatistics` into one, keeping the highest observed peak memory.
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            memory_peak: match (self.memory_peak, other.memory_peak) {
-                (Some(a), Some(b)) => Some(a.max(b)),
-                (a, b) => a.or(b),
-            },
-        }
-    }
-
-    /// Merge another `SandboxStatistics` into `self` in place.
-    pub fn merge_mut(&mut self, other: Self) {
-        *self = mem::take(self).merge(other);
-    }
-}
-
 /// Output of a completed build together with build-level statistics.
 pub struct BuildResult<T> {
     output: T,
@@ -112,46 +80,6 @@ impl<T> Deref for BuildResult<T> {
 impl<T> DerefMut for BuildResult<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.output
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::SandboxStatistics;
-    use test_case::test_case;
-
-    const fn stats(peak: Option<u64>) -> SandboxStatistics {
-        SandboxStatistics { memory_peak: peak }
-    }
-
-    #[test_case(stats(None), stats(None), stats(None))]
-    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
-    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
-    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
-    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
-    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
-    fn test_merge(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
-        {
-            let lhs = lhs.clone();
-            let rhs = rhs.clone();
-            assert_eq!(lhs.merge(rhs), expected);
-        }
-
-        {
-            let mut lhs = lhs.clone();
-            lhs.merge_mut(rhs);
-            assert_eq!(lhs, expected);
-        }
-    }
-
-    #[test]
-    fn merge_mut_accumulate_over_multiple() {
-        let mut s = stats(None);
-        s.merge_mut(stats(Some(50)));
-        s.merge_mut(stats(Some(200)));
-        s.merge_mut(stats(None));
-        s.merge_mut(stats(Some(150)));
-        assert_eq!(s.memory_peak, Some(200));
     }
 }
 
@@ -328,21 +256,21 @@ impl BuildDirectory {
             source_dir.clone(),
             self.target_dir(),
         )));
-        let sandbox_cleanup = sandbox.clone();
-        scopeguard::defer! {{
-            if let Err(err) = sandbox_cleanup.borrow_mut().cleanup() {
+        let mut sandbox_cleanup = scopeguard::guard(Some(sandbox.clone()), |mut sandbox| {
+            if let Some(sandbox) = sandbox.take()
+                && let Err(err) = sandbox.borrow_mut().cleanup()
+            {
                 log::error!("failed to clean up reused sandbox containers");
                 log::error!("caused by: {err}");
             }
-        }}
+        });
         let res = f(&Build {
             dir: self,
             toolchain,
             sandbox: sandbox.clone(),
         })?;
-        let statistics = SandboxStatistics {
-            memory_peak: sandbox.borrow().memory_peak_bytes(),
-        };
+        let statistics = sandbox.borrow_mut().cleanup()?;
+        *sandbox_cleanup = None;
 
         crate::utils::remove_dir_all(&source_dir)?;
         Ok(BuildResult {
@@ -447,7 +375,7 @@ impl<'ws> Build<'ws> {
     /// Unlike [`BuildResult::memory_peak_bytes`], this can be queried while the build closure is
     /// still running.
     pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.sandbox.borrow().memory_peak_bytes()
+        self.sandbox.borrow().statistics().memory_peak_bytes()
     }
 
     /// Get the path to the source code on the host machine (outside the sandbox).
