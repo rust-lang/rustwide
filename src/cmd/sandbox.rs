@@ -82,7 +82,7 @@ impl SandboxImage {
 }
 
 /// Whether to mount a path in the sandbox with write permissions or not.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[non_exhaustive]
 pub enum MountKind {
     /// Allow the sandboxed code to change the mounted data.
@@ -173,8 +173,8 @@ pub struct Sandbox<'w> {
     builder: SandboxBuilder,
     source_dir: Option<PathBuf>,
     target_dir: Option<PathBuf>,
-    read_only: Option<Container<'w>>,
-    read_write: Option<Container<'w>>,
+    mount_kind: Option<MountKind>,
+    container: Option<Container<'w>>,
 }
 
 pub(crate) struct SandboxCommand<'a> {
@@ -280,8 +280,8 @@ impl SandboxBuilder {
             builder: self,
             source_dir: Some(source_dir),
             target_dir: Some(target_dir),
-            read_only: None,
-            read_write: None,
+            mount_kind: None,
+            container: None,
         }
     }
 
@@ -310,8 +310,8 @@ impl SandboxBuilder {
             builder: self,
             source_dir: None,
             target_dir: None,
-            read_only: None,
-            read_write: None,
+            mount_kind: None,
+            container: None,
         }
     }
 
@@ -592,12 +592,15 @@ impl<'w> Sandbox<'w> {
             .target_dir
             .as_ref()
             .expect("reused containers require a target dir");
-        let slot = match mount_kind {
-            MountKind::ReadOnly => &mut self.read_only,
-            MountKind::ReadWrite => &mut self.read_write,
-        };
 
-        if slot.is_none() {
+        if let Some(existing_mount_kind) = self.mount_kind {
+            assert_eq!(
+                existing_mount_kind, mount_kind,
+                "reused sandbox cannot change source mount kind between commands"
+            );
+        }
+
+        if self.container.is_none() {
             let container = self
                 .builder
                 .clone()
@@ -618,10 +621,11 @@ impl<'w> Sandbox<'w> {
                     MountKind::ReadOnly,
                 )
                 .create_started(self.workspace)?;
-            *slot = Some(container);
+            self.mount_kind = Some(mount_kind);
+            self.container = Some(container);
         }
 
-        Ok(slot.as_ref().unwrap())
+        Ok(self.container.as_ref().unwrap())
     }
 
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -730,25 +734,13 @@ impl<'w> Sandbox<'w> {
     }
 
     pub(crate) fn cleanup(&mut self) -> Result<(), CommandError> {
-        let mut result = Ok(());
+        self.mount_kind = None;
 
-        if let Some(container) = self.read_only.take()
-            && let Err(err) = container.delete()
-        {
-            result = Err(err);
+        if let Some(container) = self.container.take() {
+            container.delete()?;
         }
 
-        if let Some(container) = self.read_write.take()
-            && let Err(err) = container.delete()
-        {
-            if result.is_err() {
-                error!("failed to cleanup sandbox container: {}", err);
-            } else {
-                result = Err(err);
-            }
-        }
-
-        result
+        Ok(())
     }
 }
 
