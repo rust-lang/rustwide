@@ -143,6 +143,7 @@ impl KillFailedError {
 
 /// Name and kind of a binary executed by [`Command`](struct.Command.html).
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum Binary {
     /// Global binary, available in `$PATH`. Rustwide doesn't apply any tweaks to its execution
     /// environment.
@@ -151,17 +152,6 @@ pub enum Binary {
     /// tweak the environment to use the local rustup instead of the host system one, and will
     /// search the binary in the cargo home.
     ManagedByRustwide(PathBuf),
-}
-
-impl fmt::Debug for Binary {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Binary::Global(path) => f.debug_tuple("Global").field(path).finish(),
-            Binary::ManagedByRustwide(path) => {
-                f.debug_tuple("ManagedByRustwide").field(path).finish()
-            }
-        }
-    }
 }
 
 /// Trait representing a command that can be run by [`Command`](struct.Command.html).
