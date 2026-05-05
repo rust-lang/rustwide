@@ -14,6 +14,7 @@ pub(crate) struct Prepare<'a> {
     krate: &'a Crate,
     source_dir: &'a Path,
     patches: Vec<CratePatch>,
+    extra_cargo_args: Vec<String>,
 }
 
 impl<'a> Prepare<'a> {
@@ -23,6 +24,7 @@ impl<'a> Prepare<'a> {
         krate: &'a Crate,
         source_dir: &'a Path,
         patches: Vec<CratePatch>,
+        extra_cargo_args: Vec<String>,
     ) -> Self {
         Self {
             workspace,
@@ -30,6 +32,7 @@ impl<'a> Prepare<'a> {
             krate,
             source_dir,
             patches,
+            extra_cargo_args,
         }
     }
 
@@ -57,6 +60,7 @@ impl<'a> Prepare<'a> {
 
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
+            .args(&self.extra_cargo_args)
             .cd(self.source_dir)
             .log_output(false)
             .run();
@@ -101,11 +105,9 @@ impl<'a> Prepare<'a> {
             return Ok(());
         }
 
-        let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
-            "generate-lockfile",
-            "--manifest-path",
-            "Cargo.toml",
-        ]);
+        let mut cmd = Command::new(self.workspace, self.toolchain.cargo())
+            .args(&["generate-lockfile", "--manifest-path", "Cargo.toml"])
+            .args(&self.extra_cargo_args);
         if !self.workspace.fetch_registry_index_during_builds() {
             cmd = cmd
                 .args(&["-Zno-index-update"])
@@ -116,7 +118,13 @@ impl<'a> Prepare<'a> {
     }
 
     fn fetch_deps(&mut self) -> anyhow::Result<()> {
-        fetch_deps(self.workspace, self.toolchain, self.source_dir, &[])
+        fetch_deps(
+            self.workspace,
+            self.toolchain,
+            self.source_dir,
+            &[],
+            &self.extra_cargo_args,
+        )
     }
 }
 
@@ -125,9 +133,11 @@ pub(crate) fn fetch_deps(
     toolchain: &Toolchain,
     source_dir: &Path,
     fetch_build_std_targets: &[&str],
+    extra_cargo_args: &[String],
 ) -> anyhow::Result<()> {
     let mut cmd = Command::new(workspace, toolchain.cargo())
         .args(&["fetch", "--manifest-path", "Cargo.toml"])
+        .args(extra_cargo_args)
         .cd(source_dir);
     // Pass `-Zbuild-std` in case a build in the sandbox wants to use it;
     // build-std has to have the source for libstd's dependencies available.
