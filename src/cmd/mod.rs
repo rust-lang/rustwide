@@ -215,13 +215,16 @@ pub struct Command<'w, 'pl> {
     source_dir_mount_kind: MountKind,
 }
 
+// Custom Debug keeps command output focused: environment variables are shown as keys only,
+// since values often contain secrets, and `sandbox`/`process_lines` are summarized as presence
+// flags.
 impl fmt::Debug for Command<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Command")
             .field("is_sandboxed", &self.sandbox.is_some())
             .field("binary", &self.binary)
             .field("args", &self.args)
-            .field("env", &self.env)
+            .field("env", &self.env.iter().map(|(k, _)| k).collect::<Vec<_>>())
             .field("has_process_lines", &self.process_lines.is_some())
             .field("cd", &self.cd)
             .field("timeout", &self.timeout)
