@@ -16,6 +16,7 @@
 //! * **unstable-toolchain-ci**: allow fetching toolchains from rustc's CI artifacts storage. Support for
 //!   them is **incomplete** (not all methods might work), and there is **no stability guarantee**
 //!   when using them!
+//! * **tracing**: emit performance spans for rustwide operations.
 //!
 //! [crater]: https://github.com/rust-lang/crater
 //! [docsrs]: https://github.com/rust-lang/docs.rs

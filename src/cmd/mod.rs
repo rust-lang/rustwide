@@ -16,6 +16,7 @@ use log::{error, info};
 use process_lines_actions::InnerState;
 use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
+use std::fmt;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
@@ -142,6 +143,7 @@ impl KillFailedError {
 
 /// Name and kind of a binary executed by [`Command`](struct.Command.html).
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum Binary {
     /// Global binary, available in `$PATH`. Rustwide doesn't apply any tweaks to its execution
     /// environment.
@@ -211,6 +213,27 @@ pub struct Command<'w, 'pl> {
     log_command: bool,
     log_output: bool,
     source_dir_mount_kind: MountKind,
+}
+
+// Custom Debug keeps command output focused: environment variables are shown as keys only,
+// since values often contain secrets, and `sandbox`/`process_lines` are summarized as presence
+// flags.
+impl fmt::Debug for Command<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Command")
+            .field("is_sandboxed", &self.sandbox.is_some())
+            .field("binary", &self.binary)
+            .field("args", &self.args)
+            .field("env", &self.env.iter().map(|(k, _)| k).collect::<Vec<_>>())
+            .field("has_process_lines", &self.process_lines.is_some())
+            .field("cd", &self.cd)
+            .field("timeout", &self.timeout)
+            .field("no_output_timeout", &self.no_output_timeout)
+            .field("log_command", &self.log_command)
+            .field("log_output", &self.log_output)
+            .field("source_dir_mount_kind", &self.source_dir_mount_kind)
+            .finish()
+    }
 }
 
 impl<'w> Command<'w, '_> {
@@ -391,6 +414,10 @@ impl<'w> Command<'w, '_> {
         self.run_inner(true)
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(self = ?self, capture))
+    )]
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
         if let Some(mut builder) = self.sandbox {
             let workspace = self
