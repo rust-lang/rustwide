@@ -18,7 +18,7 @@ impl GitRepo {
     pub(super) fn git_commit(&self, workspace: &Workspace) -> Option<String> {
         let res = Command::new(workspace, "git")
             .args(&["rev-parse", "HEAD"])
-            .cd(self.cached_path(workspace))
+            .current_directory(self.cached_path(workspace))
             .run_capture();
 
         match res {
@@ -97,7 +97,7 @@ impl CrateTrait for GitRepo {
                 .args(&self.suppress_password_prompt_args(workspace))
                 .args(&["-c", "remote.origin.fetch=refs/heads/*:refs/heads/*"])
                 .args(&["fetch", "origin", "--force", "--prune"])
-                .cd(&path)
+                .current_directory(&path)
                 .process_lines(&mut detect_private_repositories)
                 .run()
                 .with_context(|| format!("failed to update {}", self.url))

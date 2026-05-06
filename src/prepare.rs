@@ -70,7 +70,7 @@ impl<'a> Prepare<'a> {
 
         let res = Command::new(self.workspace, self.toolchain.cargo())
             .args(&["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
-            .cd(self.source_dir)
+            .current_directory(self.source_dir)
             .log_output(false)
             .run();
         if res.is_err() {
@@ -128,7 +128,7 @@ impl<'a> Prepare<'a> {
                 .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly");
         }
 
-        run_command(cmd.cd(self.source_dir))
+        run_command(cmd.current_directory(self.source_dir))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -156,7 +156,7 @@ pub(crate) fn fetch_deps(
 ) -> anyhow::Result<()> {
     let mut cmd = Command::new(workspace, toolchain.cargo())
         .args(&["fetch", "--manifest-path", "Cargo.toml"])
-        .cd(source_dir);
+        .current_directory(source_dir);
     // Pass `-Zbuild-std` in case a build in the sandbox wants to use it;
     // build-std has to have the source for libstd's dependencies available.
     if !fetch_build_std_targets.is_empty() {
