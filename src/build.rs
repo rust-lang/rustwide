@@ -295,7 +295,7 @@ impl<'ws> Build<'ws> {
                 .mount(&self.dir.target_dir(), container_dir, MountKind::ReadWrite),
             bin,
         )
-        .cd(self.dir.source_dir())
+        .current_directory(self.dir.source_dir())
         .env("CARGO_TARGET_DIR", container_dir)
     }
 

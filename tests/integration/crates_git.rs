@@ -20,7 +20,7 @@ fn test_fetch() -> anyhow::Result<()> {
             .run(|build| {
                 Ok(Command::new(&workspace, "git")
                     .args(&["rev-parse", "HEAD"])
-                    .cd(build.host_source_dir())
+                    .current_directory(build.host_source_dir())
                     .run_capture()?
                     .stdout_lines()[0]
                     .to_string())
@@ -99,7 +99,7 @@ impl Repo {
     fn commit(&mut self, workspace: &Workspace) -> anyhow::Result<()> {
         Command::new(workspace, "git")
             .args(&["add", "."])
-            .cd(self.source.path())
+            .current_directory(self.source.path())
             .run()?;
         Command::new(workspace, "git")
             .args(&["-c", "commit.gpgsign=false"])
@@ -107,17 +107,17 @@ impl Repo {
             .args(&["-c", "user.email=test@example.com"])
             .args(&["commit", "-m", "auto commit"])
             .args(&["--allow-empty"])
-            .cd(self.source.path())
+            .current_directory(self.source.path())
             .run()?;
         Command::new(workspace, "git")
             .args(&["update-server-info"])
-            .cd(self.source.path())
+            .current_directory(self.source.path())
             .run()?;
 
         self.last_commit_sha = Some(
             Command::new(workspace, "git")
                 .args(&["rev-parse", "HEAD"])
-                .cd(self.source.path())
+                .current_directory(self.source.path())
                 .run_capture()?
                 .stdout_lines()[0]
                 .to_string(),

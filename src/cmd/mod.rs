@@ -207,7 +207,7 @@ pub struct Command<'w, 'pl> {
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     process_lines: Option<&'pl mut dyn FnMut(&str, &mut ProcessLinesActions)>,
-    cd: Option<PathBuf>,
+    current_directory: Option<PathBuf>,
     timeout: Option<Duration>,
     no_output_timeout: Option<Duration>,
     log_command: bool,
@@ -226,7 +226,7 @@ impl fmt::Debug for Command<'_, '_> {
             .field("args", &self.args)
             .field("env", &self.env.iter().map(|(k, _)| k).collect::<Vec<_>>())
             .field("has_process_lines", &self.process_lines.is_some())
-            .field("cd", &self.cd)
+            .field("current_directory", &self.current_directory)
             .field("timeout", &self.timeout)
             .field("no_output_timeout", &self.no_output_timeout)
             .field("log_command", &self.log_command)
@@ -279,7 +279,7 @@ impl<'w> Command<'w, '_> {
             args: Vec::new(),
             env: Vec::new(),
             process_lines: None,
-            cd: None,
+            current_directory: None,
             timeout,
             no_output_timeout,
             log_output: true,
@@ -306,8 +306,8 @@ impl<'w> Command<'w, '_> {
     }
 
     /// Change the directory where the command will be executed in.
-    pub fn cd<P: AsRef<Path>>(mut self, path: P) -> Self {
-        self.cd = Some(path.as_ref().to_path_buf());
+    pub fn current_directory<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.current_directory = Some(path.as_ref().to_path_buf());
         self
     }
 
@@ -436,7 +436,7 @@ impl<'w> Command<'w, '_> {
                 cmd.push(arg.to_string_lossy().to_string());
             }
 
-            let source_dir = match self.cd {
+            let source_dir = match self.current_directory {
                 Some(path) => path,
                 None => PathBuf::from("."),
             };
@@ -534,8 +534,8 @@ impl<'w> Command<'w, '_> {
 
             let cmdstr = format!("{cmd:?}");
 
-            if let Some(ref cd) = self.cd {
-                cmd.current_dir(cd);
+            if let Some(ref current_directory) = self.current_directory {
+                cmd.current_dir(current_directory);
             }
 
             if self.log_command {
