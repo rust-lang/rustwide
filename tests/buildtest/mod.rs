@@ -316,6 +316,12 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
+test_prepare_error!(test_checksum_mismatch, "checksum-mismatch", Uncategorized);
+
+test_prepare_error!(test_missing_feature, "missing-feature", Uncategorized);
+
+test_prepare_error!(test_links_collision, "links-collision", Uncategorized);
+
 test_prepare_error_stderr!(
     test_yanked_deps,
     "yanked-deps",
