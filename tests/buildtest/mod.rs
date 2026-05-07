@@ -316,7 +316,12 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
-test_prepare_error!(test_checksum_mismatch, "checksum-mismatch", Uncategorized);
+test_prepare_error_stderr!(
+    test_checksum_mismatch,
+    "checksum-mismatch",
+    InvalidCargoLock,
+    "error: checksum for `empty-library v1.0.0` changed between lock files"
+);
 
 test_prepare_error_stderr!(
     test_missing_feature,

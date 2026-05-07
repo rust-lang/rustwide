@@ -10,3 +10,5 @@ edition = "2018"
 empty-library = "1.0.0"
 
 [features]
+
+# attempts to replicate error such as https://crater-reports.s3.amazonaws.com/beta-1.96-1/1.95.0/gh/Deltafall-Community.deltafall-clicker/log.txt
