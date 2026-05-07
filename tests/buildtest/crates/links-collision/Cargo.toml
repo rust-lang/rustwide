@@ -1,0 +1,14 @@
+[package]
+name = "links-collision"
+version = "0.1.0"
+authors = ["Pietro Albini <pietro@pietroalbini.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# both specify sqlite3 as their links key
+sqlite3-src = { version = "=0.6.1" }
+libsqlite3-sys = { version = "=0.32.0" }
+
+# replicates the error from e.g. https://crater-reports.s3.amazonaws.com/beta-1.96-1/1.95.0/gh/07CalC.rustodo/log.txt
