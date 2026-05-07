@@ -207,6 +207,8 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
             || line.contains(
                 "error: Attempting to resolve a dependency with more than one crate with links=",
             )
+            || (line.contains("error: checksum for ")
+                && line.contains(" changed between lock files"))
         {
             broken_lockfile = true;
         }
