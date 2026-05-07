@@ -199,6 +199,8 @@ fn run_command(cmd: Command) -> anyhow::Result<()> {
                 && line.contains(
                     " are different, but only one can be written to lockfile unambiguously",
                 ))
+            || (line.contains("failed to select a version for ")
+                && line.contains(" which could resolve this conflict"))
         {
             broken_deps = true;
         } else if line.contains("error: failed to parse lock file at")

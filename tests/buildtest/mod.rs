@@ -318,9 +318,19 @@ test_prepare_error!(
 
 test_prepare_error!(test_checksum_mismatch, "checksum-mismatch", Uncategorized);
 
-test_prepare_error!(test_missing_feature, "missing-feature", Uncategorized);
+test_prepare_error_stderr!(
+    test_missing_feature,
+    "missing-feature",
+    BrokenDependencies,
+    "failed to select a version for `empty-library` which could resolve this conflict"
+);
 
-test_prepare_error!(test_links_collision, "links-collision", Uncategorized);
+test_prepare_error_stderr!(
+    test_links_collision,
+    "links-collision",
+    BrokenDependencies,
+    "failed to select a version for `sqlite3-src` which could resolve this conflict"
+);
 
 test_prepare_error_stderr!(
     test_yanked_deps,
