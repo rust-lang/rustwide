@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.24.0] - 2026-05-12
+
+* make alternate registry support optional to reduce dependencies
+* add optional tracing performance spans
+* **BREAKING** Rename `Command::cd` into `Command::current_directory`
+* **BREAKING** categorize more prepare errors
+
 ## [0.23.1] - 2026-04-19
 
 * extend `ProcessStatistics` struct with some traits & helper functions
