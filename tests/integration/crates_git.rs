@@ -19,12 +19,13 @@ fn test_fetch() -> anyhow::Result<()> {
         dir.build(&toolchain, &krate, SandboxBuilder::new())
             .run(|build| {
                 Ok(Command::new(&workspace, "git")
-                    .args(&["rev-parse", "HEAD"])
+                    .args(["rev-parse", "HEAD"])
                     .current_directory(build.host_source_dir())
                     .run_capture()?
                     .stdout_lines()[0]
                     .to_string())
             })
+            .map(|result| result.into_inner())
     };
 
     // Check if the initial commit was fetched
@@ -78,8 +79,8 @@ impl Repo {
 
         // Initialize a cargo project with a git repo in it.
         Command::new(workspace, "cargo")
-            .args(&["init", "--name", "foo", "--bin"])
-            .args(&[source.path()])
+            .args(["init", "--name", "foo", "--bin"])
+            .args([source.path()])
             .run()?;
 
         let mut repo = Repo {
@@ -98,25 +99,25 @@ impl Repo {
 
     fn commit(&mut self, workspace: &Workspace) -> anyhow::Result<()> {
         Command::new(workspace, "git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_directory(self.source.path())
             .run()?;
         Command::new(workspace, "git")
-            .args(&["-c", "commit.gpgsign=false"])
-            .args(&["-c", "user.name=test"])
-            .args(&["-c", "user.email=test@example.com"])
-            .args(&["commit", "-m", "auto commit"])
-            .args(&["--allow-empty"])
+            .args(["-c", "commit.gpgsign=false"])
+            .args(["-c", "user.name=test"])
+            .args(["-c", "user.email=test@example.com"])
+            .args(["commit", "-m", "auto commit"])
+            .args(["--allow-empty"])
             .current_directory(self.source.path())
             .run()?;
         Command::new(workspace, "git")
-            .args(&["update-server-info"])
+            .args(["update-server-info"])
             .current_directory(self.source.path())
             .run()?;
 
         self.last_commit_sha = Some(
             Command::new(workspace, "git")
-                .args(&["rev-parse", "HEAD"])
+                .args(["rev-parse", "HEAD"])
                 .current_directory(self.source.path())
                 .run_capture()?
                 .stdout_lines()[0]

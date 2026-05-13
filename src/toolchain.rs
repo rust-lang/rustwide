@@ -43,7 +43,7 @@ impl DistToolchain {
     fn init(&self, workspace: &Workspace) -> anyhow::Result<()> {
         info!("installing toolchain {}", self.name());
         Command::new(workspace, &RUSTUP)
-            .args(&[
+            .args([
                 "toolchain",
                 "install",
                 self.name(),
@@ -370,7 +370,7 @@ impl Toolchain {
         let action = action.to_string();
 
         Command::new(workspace, &RUSTUP)
-            .args(&[
+            .args([
                 thing.as_str(),
                 action.as_str(),
                 "--toolchain",
@@ -404,7 +404,7 @@ impl Toolchain {
 
         let mut not_installed = false;
         let result = Command::new(workspace, &RUSTUP)
-            .args(&[thing.as_str(), "list", "--installed", "--toolchain", name])
+            .args([thing.as_str(), "list", "--installed", "--toolchain", name])
             .log_output(false)
             .process_lines(&mut |line, _| {
                 if line.starts_with("error: toolchain ") && line.ends_with(" is not installed") {
@@ -431,7 +431,7 @@ impl Toolchain {
     pub fn uninstall(&self, workspace: &Workspace) -> anyhow::Result<()> {
         let name = self.rustup_name();
         Command::new(workspace, &RUSTUP)
-            .args(&["toolchain", "uninstall", &name])
+            .args(["toolchain", "uninstall", &name])
             .run()
             .with_context(|| format!("unable to uninstall toolchain {name} via rustup"))?;
         Ok(())

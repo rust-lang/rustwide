@@ -1,12 +1,16 @@
-use crate::Workspace;
-use crate::cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, ProcessStatistics};
+use crate::{
+    Workspace,
+    cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, container_dirs},
+};
 use log::{error, info};
 use serde::Deserialize;
 use std::{
-    error::Error,
-    fmt,
+    cell::RefCell,
+    ffi::OsString,
+    fmt, mem,
     ops::RangeInclusive,
     path::{Path, PathBuf},
+    rc::Rc,
     time::Duration,
 };
 
@@ -35,7 +39,7 @@ impl SandboxImage {
         let mut image = SandboxImage { name: name.into() };
         info!("pulling image {name} from Docker Hub");
         Command::new_workspaceless("docker")
-            .args(&["pull", name])
+            .args(["pull", name])
             .run()
             .map_err(|e| CommandError::SandboxImagePullFailed(Box::new(e)))?;
         if let Some(name_with_hash) = image.get_name_with_hash() {
@@ -49,7 +53,7 @@ impl SandboxImage {
     fn ensure_exists_locally(&self) -> Result<(), CommandError> {
         info!("checking the image {} is available locally", self.name);
         Command::new_workspaceless("docker")
-            .args(&["image", "inspect", &self.name])
+            .args(["image", "inspect", &self.name])
             .log_output(false)
             .run()
             .map_err(|e| CommandError::SandboxImageMissing(Box::new(e)))?;
@@ -61,7 +65,7 @@ impl SandboxImage {
     ///    ghcr.io/rust-lang/crates-build-env/linux@sha256:61361fe0a...
     pub fn get_name_with_hash(&self) -> Option<String> {
         Command::new_workspaceless("docker")
-            .args(&[
+            .args([
                 "inspect",
                 &self.name,
                 "--format",
@@ -141,19 +145,125 @@ impl MountConfig {
     }
 }
 
-/// The sandbox builder allows to configure a sandbox, used later in a
-/// [`Command`](struct.Command.html).
+/// The sandbox builder allows configuring a [`Sandbox`].
+///
+/// Call [`SandboxBuilder::start`] to create a live sandbox, then run commands
+/// inside it with [`Command::new_in_sandbox`](struct.Command.html#method.new_in_sandbox).
 #[derive(Clone)]
 pub struct SandboxBuilder {
     mounts: Vec<MountConfig>,
-    env: Vec<(String, String)>,
+    source_dir_mount_kind: MountKind,
     memory_limit: Option<usize>,
     cpu_limit: Option<f32>,
     cpuset_cpus: Option<RangeInclusive<usize>>,
-    workdir: Option<String>,
-    user: Option<String>,
-    cmd: Vec<String>,
     enable_networking: bool,
+}
+
+/// Statistics collected for a sandbox.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct SandboxStatistics {
+    memory_peak: Option<u64>,
+}
+
+impl SandboxStatistics {
+    /// Return the peak memory usage in bytes observed across the whole sandbox, if available.
+    pub fn memory_peak_bytes(&self) -> Option<u64> {
+        self.memory_peak
+    }
+
+    /// Merge two `SandboxStatistics` into one, keeping the highest observed peak memory.
+    pub fn merge(self, other: Self) -> Self {
+        Self {
+            memory_peak: match (self.memory_peak, other.memory_peak) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+
+    /// Merge another `SandboxStatistics` into `self` in place.
+    pub fn merge_mut(&mut self, other: Self) {
+        *self = mem::take(self).merge(other);
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct SandboxStatisticsState {
+    statistics: RefCell<SandboxStatistics>,
+}
+
+impl SandboxStatisticsState {
+    pub(crate) fn snapshot(&self) -> SandboxStatistics {
+        self.statistics.borrow().clone()
+    }
+
+    fn merge_mut(&self, statistics: SandboxStatistics) {
+        self.statistics.borrow_mut().merge_mut(statistics);
+    }
+}
+
+/// A live sandbox that can execute one or more commands.
+///
+/// Sandboxes are returned already started by [`SandboxBuilder::start`] and
+/// can be reused across multiple commands. If a command exhausts the
+/// container's memory limit and kills the container, the next command
+/// transparently recreates it.
+pub struct Sandbox<'w> {
+    workspace: &'w Workspace,
+    builder: SandboxBuilder,
+    source_dir: PathBuf,
+    target_dir: PathBuf,
+    container: Option<Container<'w>>,
+    statistics: Rc<SandboxStatisticsState>,
+}
+
+pub(crate) struct SandboxCommand {
+    pub(crate) cmd: Vec<OsString>,
+    pub(crate) env: Vec<(OsString, OsString)>,
+    pub(crate) workdir: Option<PathBuf>,
+    pub(crate) user: Option<String>,
+}
+
+impl SandboxCommand {
+    pub(crate) fn new(program: impl Into<OsString>) -> SandboxCommand {
+        Self {
+            cmd: vec![program.into()],
+            env: Vec::new(),
+            workdir: None,
+            user: None,
+        }
+    }
+
+    pub(crate) fn user(mut self, user: u32, group: u32) -> Self {
+        self.user = Some(format!("{user}:{group}"));
+        self
+    }
+
+    pub(crate) fn workdir(mut self, workdir: impl AsRef<Path>) -> Self {
+        self.workdir = Some(crate::utils::normalize_path(workdir.as_ref()));
+        self
+    }
+
+    pub(crate) fn env(mut self, k: impl Into<OsString>, v: impl Into<OsString>) -> Self {
+        self.env.push((k.into(), v.into()));
+        self
+    }
+
+    pub(crate) fn arg(mut self, arg: impl Into<OsString>) -> Self {
+        self.cmd.push(arg.into());
+        self
+    }
+
+    pub(crate) fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<OsString>,
+    {
+        for arg in args {
+            self = self.arg(arg);
+        }
+        self
+    }
 }
 
 impl SandboxBuilder {
@@ -161,13 +271,10 @@ impl SandboxBuilder {
     pub fn new() -> Self {
         Self {
             mounts: Vec::new(),
-            env: Vec::new(),
-            workdir: None,
+            source_dir_mount_kind: MountKind::ReadOnly,
             memory_limit: None,
             cpu_limit: None,
             cpuset_cpus: None,
-            user: None,
-            cmd: Vec::new(),
             enable_networking: true,
         }
     }
@@ -180,6 +287,24 @@ impl SandboxBuilder {
             sandbox_path: sandbox_path.into(),
             perm: kind,
         });
+        self
+    }
+
+    /// Sets how the source directory is mounted for reusable sandbox commands.
+    ///
+    /// The default mount kind is read-only.
+    ///
+    /// ## Security
+    ///
+    /// Be sure you understand the implications of setting this. The same container
+    /// backs every command spawned inside a single
+    /// [`BuildBuilder::run`](../build/struct.BuildBuilder.html#method.run) closure, so with
+    /// `MountKind::ReadWrite` any mutation made by an earlier command persists into all
+    /// later commands in that build — and across reuse of the same source directory by
+    /// later builds. Do not trust the source directory's contents to be untouched if you
+    /// opt in to a writable mount.
+    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
+        self.source_dir_mount_kind = mount_kind;
         self
     }
 
@@ -221,24 +346,51 @@ impl SandboxBuilder {
         self
     }
 
-    pub(super) fn env<S1: Into<String>, S2: Into<String>>(mut self, key: S1, value: S2) -> Self {
-        self.env.push((key.into(), value.into()));
-        self
+    /// Start a live sandbox from this configuration.
+    ///
+    /// The returned sandbox can be used to run one or more commands against a
+    /// fixed source directory and target directory. The underlying container is
+    /// created and started before this returns, so any docker errors surface here
+    /// rather than on the first command.
+    pub fn start<'w>(
+        self,
+        workspace: &'w Workspace,
+        source_dir: impl AsRef<Path>,
+        target_dir: impl AsRef<Path>,
+    ) -> Result<Sandbox<'w>, CommandError> {
+        self.start_with_statistics(
+            workspace,
+            source_dir,
+            target_dir,
+            Rc::new(SandboxStatisticsState::default()),
+        )
     }
 
-    pub(super) fn cmd(mut self, cmd: Vec<String>) -> Self {
-        self.cmd = cmd;
-        self
+    pub(crate) fn start_with_statistics<'w>(
+        self,
+        workspace: &'w Workspace,
+        source_dir: impl AsRef<Path>,
+        target_dir: impl AsRef<Path>,
+        statistics: Rc<SandboxStatisticsState>,
+    ) -> Result<Sandbox<'w>, CommandError> {
+        let source_dir = crate::utils::normalize_path(source_dir.as_ref());
+        let target_dir = crate::utils::normalize_path(target_dir.as_ref());
+        let container = Sandbox::create_container(&self, workspace, &source_dir, &target_dir)?;
+        Ok(Sandbox {
+            workspace,
+            builder: self,
+            source_dir,
+            target_dir,
+            container: Some(container),
+            statistics,
+        })
     }
 
-    pub(super) fn workdir<S: Into<String>>(mut self, workdir: S) -> Self {
-        self.workdir = Some(workdir.into());
-        self
-    }
-
-    pub(super) fn user(mut self, user: u32, group: u32) -> Self {
-        self.user = Some(format!("{user}:{group}"));
-        self
+    fn create_started(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
+        let mut container = self.create(workspace)?;
+        container.start()?;
+        container.record_oom_kill_count();
+        Ok(container)
     }
 
     #[cfg_attr(
@@ -248,12 +400,10 @@ impl SandboxBuilder {
             fields(
                 image = %workspace.sandbox_image().name,
                 mounts = self.mounts.len(),
-                env = self.env.len(),
                 memory_limit = ?self.memory_limit,
                 cpu_limit = ?self.cpu_limit,
                 cpuset_cpus = ?self.cpuset_cpus,
                 enable_networking = self.enable_networking,
-                command = ?self.cmd,
             )
         )
     )]
@@ -312,69 +462,12 @@ impl SandboxBuilder {
             .run_capture()
             .map_err(|err| CommandError::SandboxContainerCreate(Box::new(err)))?;
         Ok(Container {
-            id: out.stdout_lines()[0].clone(),
+            id: Some(out.stdout_lines()[0].clone()),
             workspace,
-            cmd: self.cmd,
-            env: self.env,
-            workdir: self.workdir,
-            user: self.user,
+            running: true,
+            oom_killed: false,
+            oom_kill_count: None,
         })
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::type_complexity)]
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                image = %workspace.sandbox_image().name,
-                mounts = self.mounts.len(),
-                env = self.env.len(),
-                memory_limit = ?self.memory_limit,
-                cpu_limit = ?self.cpu_limit,
-                cpuset_cpus = ?self.cpuset_cpus,
-                enable_networking = self.enable_networking,
-                command = ?self.cmd,
-                capture,
-                timeout_secs = ?timeout.map(|timeout| timeout.as_secs()),
-                no_output_timeout_secs = ?no_output_timeout.map(|timeout| timeout.as_secs()),
-            )
-        )
-    )]
-    pub(super) fn run(
-        self,
-        workspace: &Workspace,
-        timeout: Option<Duration>,
-        no_output_timeout: Option<Duration>,
-        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
-        log_output: bool,
-        log_command: bool,
-        capture: bool,
-    ) -> Result<ProcessOutput, CommandError> {
-        let container = self.create(workspace)?;
-
-        // Ensure the container is properly deleted even if something panics
-        scopeguard::defer! {{
-            if let Err(err) = container.delete() {
-                error!("failed to delete container {}", container.id);
-                error!("caused by: {err}");
-                let mut err: &dyn Error = &err;
-                while let Some(cause) = err.source() {
-                    error!("caused by: {cause}");
-                    err = cause;
-                }
-            }
-        }}
-
-        container.run(
-            timeout,
-            no_output_timeout,
-            process_lines,
-            log_output,
-            log_command,
-            capture,
-        )
     }
 }
 
@@ -388,23 +481,32 @@ struct InspectContainer {
 struct InspectState {
     #[serde(rename = "OOMKilled")]
     oom_killed: bool,
+    #[serde(rename = "Running")]
+    running: bool,
 }
 
-#[derive(Clone)]
 struct Container<'w> {
-    // Docker container ID
-    id: String,
+    /// Docker container ID. `Some` while the container is live; `take`n by a
+    /// successful [`Container::delete`] so that [`Drop`] knows there's
+    /// nothing left to remove.
+    id: Option<String>,
     workspace: &'w Workspace,
-    // Command-level config for `docker exec` (not baked into `docker create`)
-    cmd: Vec<String>,
-    env: Vec<(String, String)>,
-    workdir: Option<String>,
-    user: Option<String>,
+    running: bool,
+    oom_killed: bool,
+    oom_kill_count: Option<u64>,
+}
+
+impl Container<'_> {
+    fn id(&self) -> &str {
+        self.id
+            .as_deref()
+            .expect("container has already been deleted")
+    }
 }
 
 impl fmt::Display for Container<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.id.fmt(f)
+        self.id().fmt(f)
     }
 }
 
@@ -412,7 +514,7 @@ impl Container<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn inspect(&self) -> Result<InspectContainer, CommandError> {
         let output = Command::new(self.workspace, "docker")
-            .args(&["inspect", &self.id])
+            .args(["inspect", self.id()])
             .log_output(false)
             .run_capture()?;
 
@@ -427,17 +529,7 @@ impl Container<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn start(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
-            .args(&["start", &self.id])
-            .log_output(false)
-            .run()
-            .map(|_| ())
-    }
-
-    /// Stop a running container. Uses `-t 1` to give `sleep infinity` a short grace period.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn stop(&self) -> Result<(), CommandError> {
-        Command::new(self.workspace, "docker")
-            .args(&["stop", "-t", "1", &self.id])
+            .args(["start", self.id()])
             .log_output(false)
             .run()
             .map(|_| ())
@@ -447,12 +539,16 @@ impl Container<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn exec_cat_file(&self, path: &str) -> Option<Vec<String>> {
         Command::new(self.workspace, "docker")
-            .args(&["exec", &self.id, "cat", path])
+            .args(["exec", self.id(), "cat", path])
             .log_output(false)
             .log_command(false)
             .run_capture()
             .ok()
             .map(|o| o.stdout_lines().to_vec())
+    }
+
+    fn record_oom_kill_count(&mut self) {
+        self.oom_kill_count = self.read_oom_kill_count();
     }
 
     /// Best-effort read of peak memory usage from the still-running container.
@@ -481,7 +577,7 @@ impl Container<'_> {
     /// report `OOMKilled`, so we check the cgroup events directly.
     /// Tries cgroups v2 first, then falls back to cgroups v1.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn check_cgroup_oom(&self) -> bool {
+    fn read_oom_kill_count(&self) -> Option<u64> {
         // Both v1 and v2 expose `oom_kill <count>` — just in different files.
         let paths = [
             "/sys/fs/cgroup/memory.events",             // v2
@@ -489,61 +585,77 @@ impl Container<'_> {
         ];
         for path in paths {
             if let Some(lines) = self.exec_cat_file(path) {
-                let found = lines.iter().any(|line| {
-                    line.strip_prefix("oom_kill ")
+                for line in &lines {
+                    if let Some(count) = line
+                        .strip_prefix("oom_kill ")
                         .and_then(|rest| rest.trim().parse::<u64>().ok())
-                        .is_some_and(|count| count > 0)
-                });
-                if found {
-                    return true;
+                    {
+                        return Some(count);
+                    }
                 }
-                // File existed but no OOM — don't try the other version
-                return false;
+                return Some(0);
             }
         }
-        false
+        None
     }
 
-    #[allow(clippy::type_complexity)]
+    fn check_cgroup_oom(&mut self) -> bool {
+        let current = self.read_oom_kill_count();
+        let previous = self.oom_kill_count;
+        self.oom_kill_count = current;
+
+        current.unwrap_or_default() > previous.unwrap_or_default()
+    }
+
+    fn check_container_oom(&mut self, details: &InspectContainer) -> bool {
+        self.running = details.state.running;
+        // `OOMKilled` can stay true after the first failure. Treat it as an
+        // edge-triggered signal so later commands in the same container don't
+        // keep being reported as fresh OOMs.
+        let previous = self.oom_killed;
+        self.oom_killed = details.state.oom_killed;
+        details.state.oom_killed && !previous
+    }
+
+    fn is_running(&self) -> bool {
+        self.running
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument(skip_all, fields(container_id = %self.id, capture))
+        tracing::instrument(skip_all, fields(container_id = %self.id(), capture))
     )]
-    fn run(
-        &self,
+    fn run_command(
+        &mut self,
+        command: SandboxCommand,
         timeout: Option<Duration>,
         no_output_timeout: Option<Duration>,
         process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
         log_output: bool,
         log_command: bool,
         capture: bool,
-    ) -> Result<ProcessOutput, CommandError> {
-        // Start the container in detached mode (runs `sleep infinity`)
-        self.start()?;
-
+    ) -> (SandboxStatistics, Result<ProcessOutput, CommandError>) {
         // Build the `docker exec` command with env/workdir/user from the sandbox config
-        let mut args: Vec<String> = vec!["exec".into()];
+        let mut cmd = Command::new(self.workspace, "docker").arg("exec");
 
-        for (var, value) in &self.env {
-            args.push("-e".into());
-            args.push(format!("{var}={value}"));
+        for (var, value) in command.env {
+            cmd = cmd
+                .arg("-e")
+                .arg(format!("{}={}", var.display(), value.display()));
         }
 
-        if let Some(ref workdir) = self.workdir {
-            args.push("-w".into());
-            args.push(workdir.clone());
+        if let Some(workdir) = command.workdir {
+            cmd = cmd.arg("-w").arg(workdir);
         }
 
-        if let Some(ref user) = self.user {
-            args.push("--user".into());
-            args.push(user.clone());
+        if let Some(user) = command.user {
+            cmd = cmd.arg("--user").arg(user);
         }
 
-        args.push(self.id.clone());
-        args.extend(self.cmd.iter().cloned());
-
-        let mut cmd = Command::new(self.workspace, "docker")
-            .args(&args)
+        cmd = cmd
+            .arg(self.id())
+            .args(command.cmd)
             .timeout(timeout)
             .log_output(log_output)
             .log_command(log_command)
@@ -556,38 +668,213 @@ impl Container<'_> {
         let res = cmd.run_inner(capture);
 
         // Read peak memory usage while the container is still running (best-effort)
-        let memory_peak = self.read_memory_peak();
+        let statistics = SandboxStatistics {
+            memory_peak: self.read_memory_peak(),
+        };
 
         // Check OOM via cgroup events (catches cases where only the exec'd process
         // was killed, leaving the container's init process alive)
         let cgroup_oom = self.check_cgroup_oom();
 
-        // Explicitly stop the container now that we're done reading metrics.
-        // The scopeguard will still call `docker rm -f` for final cleanup.
-        let _ = self.stop();
-
-        let details = self.inspect()?;
+        let details = match self.inspect() {
+            Ok(details) => details,
+            Err(err) => return (statistics, Err(err)),
+        };
+        let container_oom = self.check_container_oom(&details);
 
         // Return a different error if the container was killed due to an OOM
-        if details.state.oom_killed || cgroup_oom {
+        let res = if container_oom || cgroup_oom {
             Err(match res {
                 Ok(_) | Err(CommandError::ExecutionFailed { .. }) => CommandError::SandboxOOM,
                 Err(err) => err,
             })
         } else {
-            res.map(|mut output| {
-                output.statistics = ProcessStatistics { memory_peak };
-                output
-            })
-        }
+            res
+        };
+        (statistics, res)
     }
 
+    /// Run `docker rm -f` for this container, idempotently. On success the
+    /// stored id is taken (so subsequent calls — including the one in
+    /// [`Drop`] — are no-ops). On failure the id is restored so [`Drop`]
+    /// (or a later call) can retry.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn delete(&self) -> Result<(), CommandError> {
-        Command::new(self.workspace, "docker")
-            .args(&["rm", "-f", &self.id])
+    fn delete(&mut self) -> Result<(), CommandError> {
+        let Some(id) = self.id.take() else {
+            return Ok(());
+        };
+        if let Err(err) = Command::new(self.workspace, "docker")
+            .args(["rm", "-f", &id])
             .run()
-            .map(|_| ())
+        {
+            self.id = Some(id);
+            return Err(err);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Container<'_> {
+    fn drop(&mut self) {
+        if let Err(err) = self.delete() {
+            error!(
+                "docker rm failed, leaked sandbox container {}:\n{:?}",
+                self.id.as_deref().unwrap_or_default(),
+                err
+            );
+        }
+    }
+}
+
+impl<'w> Sandbox<'w> {
+    fn command_timed_out(res: &Result<ProcessOutput, CommandError>) -> bool {
+        matches!(
+            res,
+            Err(CommandError::NoOutputFor(_))
+                | Err(CommandError::Timeout(_))
+                | Err(CommandError::KillAfterTimeoutFailed(_))
+        )
+    }
+
+    /// Return the statistics gathered across the sandbox lifetime so far.
+    pub fn statistics(&self) -> SandboxStatistics {
+        self.statistics.snapshot()
+    }
+
+    pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
+        let relative = path.strip_prefix(&self.source_dir).ok()?;
+        Some(container_dirs::WORK_DIR.join(relative))
+    }
+
+    fn create_container(
+        builder: &SandboxBuilder,
+        workspace: &'w Workspace,
+        source_dir: &Path,
+        target_dir: &Path,
+    ) -> Result<Container<'w>, CommandError> {
+        builder
+            .clone()
+            .mount(
+                source_dir,
+                &container_dirs::WORK_DIR,
+                builder.source_dir_mount_kind,
+            )
+            .mount(
+                target_dir,
+                &container_dirs::TARGET_DIR,
+                MountKind::ReadWrite,
+            )
+            .mount(
+                &workspace.cargo_home(),
+                &container_dirs::CARGO_HOME,
+                MountKind::ReadOnly,
+            )
+            .mount(
+                &workspace.rustup_home(),
+                &container_dirs::RUSTUP_HOME,
+                MountKind::ReadOnly,
+            )
+            .create_started(workspace)
+    }
+
+    fn ensure_reusable_container(&mut self) -> Result<(), CommandError> {
+        // The container can be stopped if a previous command got OOM-killed
+        // at the container level, or missing after an explicit `cleanup()`.
+        // Either way, recreate before attempting another `docker exec`.
+        // Assigning the new value drops the old `Container`, whose `Drop`
+        // impl runs `docker rm`.
+        let needs_recreate = self
+            .container
+            .as_ref()
+            .is_none_or(|container| !container.is_running());
+        if needs_recreate {
+            self.container = Some(Self::create_container(
+                &self.builder,
+                self.workspace,
+                &self.source_dir,
+                &self.target_dir,
+            )?);
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(
+            skip_all,
+            fields(
+                image = %self.workspace.sandbox_image().name,
+                mounts = self.builder.mounts.len(),
+                memory_limit = ?self.builder.memory_limit,
+                cpu_limit = ?self.builder.cpu_limit,
+                cpuset_cpus = ?self.builder.cpuset_cpus,
+                enable_networking = self.builder.enable_networking,
+                capture,
+                timeout_secs = ?timeout.map(|timeout| timeout.as_secs()),
+                no_output_timeout_secs = ?no_output_timeout.map(|timeout| timeout.as_secs()),
+            )
+        )
+    )]
+    pub(crate) fn run(
+        &mut self,
+        command: SandboxCommand,
+        timeout: Option<Duration>,
+        no_output_timeout: Option<Duration>,
+        process_lines: Option<&mut dyn FnMut(&str, &mut ProcessLinesActions)>,
+        log_output: bool,
+        log_command: bool,
+        capture: bool,
+    ) -> Result<ProcessOutput, CommandError> {
+        let container_workdir = match command.workdir {
+            Some(workdir) => self
+                .container_workdir(&workdir)
+                .expect("explicit workdir must be inside the sandbox source directory"),
+            None => container_dirs::WORK_DIR.clone(),
+        };
+        let command = SandboxCommand {
+            workdir: Some(container_workdir),
+            ..command
+        };
+        self.ensure_reusable_container()?;
+        let (statistics, res) = self.container.as_mut().unwrap().run_command(
+            command,
+            timeout,
+            no_output_timeout,
+            process_lines,
+            log_output,
+            log_command,
+            capture,
+        );
+        self.statistics.merge_mut(statistics);
+
+        // On timeout we kill the host-side `docker exec` process, but the
+        // command inside the container keeps running on the container's
+        // `sleep infinity` init. Reusing the container would let the
+        // abandoned process race the next command (sharing files, target
+        // dir, CPU/memory budget). Tear the container down so the next
+        // command in this build gets a clean one via
+        // `ensure_reusable_container`.
+        if Self::command_timed_out(&res)
+            && let Some(mut container) = self.container.take()
+        {
+            container.delete()?;
+        }
+
+        res
+    }
+
+    /// Remove the live container owned by this sandbox and return the final
+    /// statistics. Returns an error if `docker rm` fails; the container is
+    /// also torn down by [`Drop`] as a fallback if this method is not called
+    /// (or if its `docker rm` failed and a retry on drop succeeds).
+    pub fn cleanup(&mut self) -> Result<SandboxStatistics, CommandError> {
+        if let Some(container) = self.container.as_mut() {
+            container.delete()?;
+        }
+        self.container = None;
+        Ok(self.statistics())
     }
 }
 
@@ -599,7 +886,7 @@ impl Container<'_> {
 pub fn docker_running(workspace: &Workspace) -> bool {
     info!("checking if the docker daemon is running");
     Command::new(workspace, "docker")
-        .args(&["info"])
+        .args(["info"])
         .log_output(false)
         .run()
         .is_ok()
@@ -612,9 +899,44 @@ fn format_cpuset_cpus(cpus: &RangeInclusive<usize>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
 
     #[test]
     fn formats_cpuset_cpus() {
         assert_eq!(format_cpuset_cpus(&(2..=4)), "2-4");
+    }
+
+    const fn stats(peak: Option<u64>) -> SandboxStatistics {
+        SandboxStatistics { memory_peak: peak }
+    }
+
+    #[test_case(stats(None), stats(None), stats(None))]
+    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
+    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
+    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
+    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
+    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
+    fn test_merge(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
+        {
+            let lhs = lhs.clone();
+            let rhs = rhs.clone();
+            assert_eq!(lhs.merge(rhs), expected);
+        }
+
+        {
+            let mut lhs = lhs.clone();
+            lhs.merge_mut(rhs);
+            assert_eq!(lhs, expected);
+        }
+    }
+
+    #[test]
+    fn merge_mut_accumulate_over_multiple() {
+        let mut s = stats(None);
+        s.merge_mut(stats(Some(50)));
+        s.merge_mut(stats(Some(200)));
+        s.merge_mut(stats(None));
+        s.merge_mut(stats(Some(150)));
+        assert_eq!(s.memory_peak, Some(200));
     }
 }

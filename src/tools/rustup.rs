@@ -57,7 +57,7 @@ impl Tool for Rustup {
         }
 
         Command::new(workspace, installer.to_string_lossy().as_ref())
-            .args(&[
+            .args([
                 "-y",
                 "--no-modify-path",
                 "--default-toolchain",
@@ -75,11 +75,11 @@ impl Tool for Rustup {
 
     fn update(&self, workspace: &Workspace, _fast_install: bool) -> anyhow::Result<()> {
         Command::new(workspace, &RUSTUP)
-            .args(&["self", "update"])
+            .args(["self", "update"])
             .run()
             .context("failed to update rustup")?;
         Command::new(workspace, &RUSTUP)
-            .args(&["update", MAIN_TOOLCHAIN_NAME])
+            .args(["update", MAIN_TOOLCHAIN_NAME])
             .run()
             .with_context(|| format!("failed to update main toolchain {MAIN_TOOLCHAIN_NAME}"))?;
         Ok(())

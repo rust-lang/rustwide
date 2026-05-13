@@ -14,7 +14,7 @@ impl CurrentContainer {
         if let Some(id) = probe_container_id(workspace)? {
             info!("inspecting the current container");
             let inspect = Command::new(workspace, "docker")
-                .args(&["inspect", &id])
+                .args(["inspect", &id])
                 .log_output(false)
                 .log_command(false)
                 .run_capture()?;
@@ -56,7 +56,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
 
     // Check if the probe exists on any of the currently running containers.
     let out = Command::new(workspace, "docker")
-        .args(&["ps", "--format", "{{.ID}}", "--no-trunc"])
+        .args(["ps", "--format", "{{.ID}}", "--no-trunc"])
         .log_output(false)
         .log_command(false)
         .run_capture()?;
@@ -64,7 +64,7 @@ pub(crate) fn probe_container_id(workspace: &Workspace) -> anyhow::Result<Option
         info!("probing container id {id}");
 
         let res = Command::new(workspace, "docker")
-            .args(&["exec", id, "cat", probe_path_str])
+            .args(["exec", id, "cat", probe_path_str])
             .log_output(false)
             .log_command(false)
             .run_capture();

@@ -1,5 +1,7 @@
 use rand::{RngExt as _, distr::Alphanumeric};
-use rustwide::{Build, BuildBuilder, Crate, Toolchain, Workspace, cmd::SandboxBuilder};
+use rustwide::{
+    Build, BuildBuilder, BuildResult, Crate, Toolchain, Workspace, cmd::SandboxBuilder,
+};
 use std::path::Path;
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> anyhow::Result<()>) {
@@ -58,7 +60,7 @@ impl Runner {
         &self,
         sandbox: SandboxBuilder,
         f: impl FnOnce(&Build) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+    ) -> anyhow::Result<BuildResult<T>> {
         self.build(sandbox, |builder| builder.run(f))
     }
 }

@@ -69,7 +69,7 @@ impl<'a> Prepare<'a> {
         }
 
         let res = Command::new(self.workspace, self.toolchain.cargo())
-            .args(&["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
+            .args(["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
             .current_directory(self.source_dir)
             .log_output(false)
             .run();
@@ -117,14 +117,14 @@ impl<'a> Prepare<'a> {
             return Ok(());
         }
 
-        let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args(&[
+        let mut cmd = Command::new(self.workspace, self.toolchain.cargo()).args([
             "generate-lockfile",
             "--manifest-path",
             "Cargo.toml",
         ]);
         if !self.workspace.fetch_registry_index_during_builds() {
             cmd = cmd
-                .args(&["-Zno-index-update"])
+                .args(["-Zno-index-update"])
                 .env("__CARGO_TEST_CHANNEL_OVERRIDE_DO_NOT_USE_THIS", "nightly");
         }
 
@@ -155,16 +155,16 @@ pub(crate) fn fetch_deps(
     fetch_build_std_targets: &[&str],
 ) -> anyhow::Result<()> {
     let mut cmd = Command::new(workspace, toolchain.cargo())
-        .args(&["fetch", "--manifest-path", "Cargo.toml"])
+        .args(["fetch", "--manifest-path", "Cargo.toml"])
         .current_directory(source_dir);
     // Pass `-Zbuild-std` in case a build in the sandbox wants to use it;
     // build-std has to have the source for libstd's dependencies available.
     if !fetch_build_std_targets.is_empty() {
         toolchain.add_component(workspace, "rust-src")?;
-        cmd = cmd.args(&["-Zbuild-std"]).env("RUSTC_BOOTSTRAP", "1");
+        cmd = cmd.args(["-Zbuild-std"]).env("RUSTC_BOOTSTRAP", "1");
     }
     for target in fetch_build_std_targets {
-        cmd = cmd.args(&["--target", target]);
+        cmd = cmd.args(["--target", target]);
     }
 
     run_command(cmd)

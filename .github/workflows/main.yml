@@ -38,6 +38,7 @@ jobs:
         cargo_flags:
           - ""
           - "--no-default-features"
+          - "--features tracing"
           - "--all-features"
         include:
           # Integration tests are disabled on Windows as they take *way* too

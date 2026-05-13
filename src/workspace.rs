@@ -337,7 +337,7 @@ impl Workspace {
         // https://github.com/rust-lang/cargo/pull/5961 is ready
 
         let _ = Command::new(self, Toolchain::MAIN.cargo())
-            .args(&["install", "lazy_static"])
+            .args(["install", "lazy_static"])
             .no_output_timeout(None)
             .run();
 

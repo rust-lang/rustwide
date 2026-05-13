@@ -14,13 +14,12 @@ use futures_util::{
 };
 use log::{error, info};
 use process_lines_actions::InnerState;
-use std::env::consts::EXE_SUFFIX;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
-use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
+use std::{cell::RefCell, env::consts::EXE_SUFFIX, rc::Rc};
 use std::{convert::AsRef, sync::LazyLock};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -86,6 +85,14 @@ pub enum CommandError {
     /// The sandbox ran out of memory and was killed.
     #[error("container ran out of memory")]
     SandboxOOM,
+
+    /// A sandboxed command was spawned while another sandboxed command on the
+    /// same sandbox was still running (typically from inside a
+    /// [`process_lines`](struct.Command.html#method.process_lines) callback).
+    /// The reused-container model serializes commands through a single
+    /// `&mut Sandbox`, so this nesting is not supported.
+    #[error("re-entrant sandboxed commands are not supported")]
+    ReentrantSandbox,
 
     /// Pulling a sandbox image from the registry failed
     #[error("failed to pull the sandbox image from the registry: {0}")]
@@ -202,7 +209,7 @@ impl<B: Runnable> Runnable for &B {
 #[allow(clippy::type_complexity)]
 pub struct Command<'w, 'pl> {
     workspace: Option<&'w Workspace>,
-    sandbox: Option<SandboxBuilder>,
+    sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     binary: Binary,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
@@ -212,7 +219,6 @@ pub struct Command<'w, 'pl> {
     no_output_timeout: Option<Duration>,
     log_command: bool,
     log_output: bool,
-    source_dir_mount_kind: MountKind,
 }
 
 // Custom Debug keeps command output focused: environment variables are shown as keys only,
@@ -231,7 +237,6 @@ impl fmt::Debug for Command<'_, '_> {
             .field("no_output_timeout", &self.no_output_timeout)
             .field("log_command", &self.log_command)
             .field("log_output", &self.log_output)
-            .field("source_dir_mount_kind", &self.source_dir_mount_kind)
             .finish()
     }
 }
@@ -242,10 +247,15 @@ impl<'w> Command<'w, '_> {
         binary.prepare_command(Self::new_inner(binary.name(), Some(workspace), None))
     }
 
-    /// Create a new, sandboxed command.
-    pub fn new_sandboxed<R: Runnable>(
+    /// Create a new command that runs inside an existing sandbox.
+    ///
+    /// By default the command's working directory is the sandbox's source directory; call
+    /// [`current_directory`](#method.current_directory) to override it. Any explicit path
+    /// must point inside the sandbox source directory — paths outside it will panic at
+    /// runtime.
+    pub fn new_in_sandbox<R: Runnable>(
         workspace: &'w Workspace,
-        sandbox: SandboxBuilder,
+        sandbox: Rc<RefCell<Sandbox<'w>>>,
         binary: R,
     ) -> Self {
         binary.prepare_command(Self::new_inner(
@@ -262,7 +272,7 @@ impl<'w> Command<'w, '_> {
     fn new_inner(
         binary: Binary,
         workspace: Option<&'w Workspace>,
-        sandbox: Option<SandboxBuilder>,
+        sandbox: Option<Rc<RefCell<Sandbox<'w>>>>,
     ) -> Self {
         let (timeout, no_output_timeout) = if let Some(workspace) = workspace {
             (
@@ -284,30 +294,34 @@ impl<'w> Command<'w, '_> {
             no_output_timeout,
             log_output: true,
             log_command: true,
-            source_dir_mount_kind: MountKind::ReadOnly,
         }
+    }
+
+    /// Add a command-line argument to the command. This method can be called multiple times to add
+    /// additional args.
+    pub fn arg(mut self, arg: impl Into<OsString>) -> Self {
+        self.args.push(arg.into());
+        self
     }
 
     /// Add command-line arguments to the command. This method can be called multiple times to add
     /// additional args.
-    pub fn args<S: AsRef<OsStr>>(mut self, args: &[S]) -> Self {
+    pub fn args<S: Into<OsString>>(mut self, args: impl IntoIterator<Item = S>) -> Self {
         for arg in args {
-            self.args.push(arg.as_ref().to_os_string());
+            self = self.arg(arg);
         }
-
         self
     }
 
     /// Add an environment variable to the command.
-    pub fn env<S1: AsRef<OsStr>, S2: AsRef<OsStr>>(mut self, key: S1, value: S2) -> Self {
-        self.env
-            .push((key.as_ref().to_os_string(), value.as_ref().to_os_string()));
+    pub fn env<S1: Into<OsString>, S2: Into<OsString>>(mut self, key: S1, value: S2) -> Self {
+        self.env.push((key.into(), value.into()));
         self
     }
 
     /// Change the directory where the command will be executed in.
-    pub fn current_directory<P: AsRef<Path>>(mut self, path: P) -> Self {
-        self.current_directory = Some(path.as_ref().to_path_buf());
+    pub fn current_directory<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.current_directory = Some(path.into());
         self
     }
 
@@ -332,6 +346,11 @@ impl<'w> Command<'w, '_> {
 
     /// Set the function that will be called each time a line is outputted to either the standard
     /// output or the standard error. Only one function can be set at any time for a command.
+    ///
+    /// For sandboxed commands, the callback runs while the underlying [`Sandbox`] is mutably
+    /// borrowed. Spawning another sandboxed command (e.g. via [`Build::cmd`](../build/struct.Build.html#method.cmd))
+    /// from inside the callback is not supported with the reused-container model and will return
+    /// [`CommandError::ReentrantSandbox`](enum.CommandError.html#variant.ReentrantSandbox).
     ///
     /// The method is useful to analyze the command's output without storing all of it in memory.
     /// This example builds a crate and detects compiler errors (ICEs):
@@ -381,27 +400,11 @@ impl<'w> Command<'w, '_> {
         self
     }
 
-    /// Sets how the source directory is mounted.
-    ///
-    /// The default mount kind is read-only.
-    ///
-    /// ## Security
-    ///
-    /// Be sure you understand the implications of setting this. If you set
-    /// this to read-write, and the source directory may potentially be
-    /// reused, then subsequent invocations may see those changes. Beware of
-    /// trusting those previous invocations or the contents of the source
-    /// directory.
-    pub fn source_dir_mount_kind(mut self, mount_kind: MountKind) -> Self {
-        self.source_dir_mount_kind = mount_kind;
-        self
-    }
-
     /// Run the prepared command and return an error if it fails (for example with a non-zero exit
     /// code or a timeout).
-    pub fn run(self) -> Result<ProcessStatistics, CommandError> {
-        let output = self.run_inner(false)?;
-        Ok(output.statistics)
+    pub fn run(self) -> Result<(), CommandError> {
+        self.run_inner(false)?;
+        Ok(())
     }
 
     /// Run the prepared command and return its output if it succeedes. If it fails (for example
@@ -419,10 +422,7 @@ impl<'w> Command<'w, '_> {
         tracing::instrument(skip_all, fields(self = ?self, capture))
     )]
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
-        if let Some(mut builder) = self.sandbox {
-            let workspace = self
-                .workspace
-                .expect("sandboxed builds without a workspace are not supported");
+        if let Some(sandbox) = self.sandbox {
             let binary = match self.binary {
                 Binary::Global(path) => path,
                 Binary::ManagedByRustwide(path) => {
@@ -430,61 +430,36 @@ impl<'w> Command<'w, '_> {
                 }
             };
 
-            let mut cmd = vec![binary.to_string_lossy().as_ref().to_string()];
-
-            for arg in self.args {
-                cmd.push(arg.to_string_lossy().to_string());
-            }
-
-            let source_dir = match self.current_directory {
-                Some(path) => path,
-                None => PathBuf::from("."),
-            };
-
-            builder = builder
-                .mount(
-                    &source_dir,
-                    &container_dirs::WORK_DIR,
-                    self.source_dir_mount_kind,
-                )
-                .env("SOURCE_DIR", container_dirs::WORK_DIR.to_str().unwrap())
-                .workdir(container_dirs::WORK_DIR.to_str().unwrap())
-                .cmd(cmd);
-
-            if let Some(user) = native::current_user() {
-                builder = builder.user(user.user_id, user.group_id);
-            }
+            let mut command = SandboxCommand::new(binary)
+                .args(self.args)
+                .env("SOURCE_DIR", &*container_dirs::WORK_DIR)
+                .env("CARGO_HOME", &*container_dirs::CARGO_HOME)
+                .env("RUSTUP_HOME", &*container_dirs::RUSTUP_HOME);
 
             for (key, value) in self.env {
-                builder = builder.env(
-                    key.to_string_lossy().as_ref(),
-                    value.to_string_lossy().as_ref(),
-                );
+                command = command.env(key, value);
             }
 
-            builder = builder
-                .mount(
-                    &workspace.cargo_home(),
-                    &container_dirs::CARGO_HOME,
-                    MountKind::ReadOnly,
-                )
-                .mount(
-                    &workspace.rustup_home(),
-                    &container_dirs::RUSTUP_HOME,
-                    MountKind::ReadOnly,
-                )
-                .env("CARGO_HOME", container_dirs::CARGO_HOME.to_str().unwrap())
-                .env("RUSTUP_HOME", container_dirs::RUSTUP_HOME.to_str().unwrap());
+            if let Some(workdir) = self.current_directory {
+                command = command.workdir(workdir);
+            }
 
-            builder.run(
-                workspace,
-                self.timeout,
-                self.no_output_timeout,
-                self.process_lines,
-                self.log_output,
-                self.log_command,
-                capture,
-            )
+            if let Some(user) = native::current_user() {
+                command = command.user(user.user_id, user.group_id);
+            }
+
+            sandbox
+                .try_borrow_mut()
+                .map_err(|_| CommandError::ReentrantSandbox)?
+                .run(
+                    command,
+                    self.timeout,
+                    self.no_output_timeout,
+                    self.process_lines,
+                    self.log_output,
+                    self.log_command,
+                    capture,
+                )
         } else {
             let (binary, managed_by_rustwide) = match self.binary {
                 // global paths should never be normalized
@@ -579,41 +554,7 @@ impl From<InnerProcessOutput> for ProcessOutput {
         ProcessOutput {
             stdout: orig.stdout,
             stderr: orig.stderr,
-            statistics: ProcessStatistics::default(),
         }
-    }
-}
-
-/// collected statistics about the process execution.
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-pub struct ProcessStatistics {
-    /// peak memory usage in bytes.
-    /// This is populated for sandboxed commands on systems
-    /// with cgroups v1/v2.
-    pub memory_peak: Option<u64>,
-}
-
-impl ProcessStatistics {
-    /// Merge two `ProcessStatistics` into one, following a fixed set of aggregation rules:
-    ///
-    /// - `memory_peak`: the maximum of the two values is kept, since a merged peak
-    ///   should reflect the highest peak observed across all runs. If only one side
-    ///   has a value and the other is `None`, that value is used as-is.
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            memory_peak: match (self.memory_peak, other.memory_peak) {
-                (Some(a), Some(b)) => Some(a.max(b)),
-                (a, b) => a.or(b),
-            },
-        }
-    }
-
-    /// Merge another `ProcessStatistics` into `self` in place.
-    ///
-    /// See [`merge`](Self::merge) for the aggregation rules.
-    pub fn merge_mut(&mut self, other: Self) {
-        *self = mem::take(self).merge(other);
     }
 }
 
@@ -622,7 +563,6 @@ impl ProcessStatistics {
 pub struct ProcessOutput {
     stdout: Vec<String>,
     stderr: Vec<String>,
-    statistics: ProcessStatistics,
 }
 
 impl ProcessOutput {
@@ -634,14 +574,6 @@ impl ProcessOutput {
     /// Return a list of the lines printed by the process on the standard error.
     pub fn stderr_lines(&self) -> &[String] {
         &self.stderr
-    }
-
-    /// Return the peak memory usage in bytes of the sandbox container, if available.
-    ///
-    /// This is populated for sandboxed commands on systems with cgroups v2. Returns `None` for
-    /// non-sandboxed commands or when the metric could not be read.
-    pub fn memory_peak_bytes(&self) -> Option<u64> {
-        self.statistics.memory_peak
     }
 }
 
@@ -783,44 +715,4 @@ fn exe_suffix(file: &OsStr) -> OsString {
     let mut path = OsString::from(file);
     path.push(EXE_SUFFIX);
     path
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ProcessStatistics;
-    use test_case::test_case;
-
-    const fn stats(peak: Option<u64>) -> ProcessStatistics {
-        ProcessStatistics { memory_peak: peak }
-    }
-
-    #[test_case(stats(None), stats(None), stats(None))]
-    #[test_case(stats(Some(100)), stats(None), stats(Some(100)))]
-    #[test_case(stats(None), stats(Some(100)), stats(Some(100)))]
-    #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
-    #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
-    #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
-    fn test_merge(lhs: ProcessStatistics, rhs: ProcessStatistics, expected: ProcessStatistics) {
-        {
-            let lhs = lhs.clone();
-            let rhs = rhs.clone();
-            assert_eq!(lhs.merge(rhs), expected);
-        }
-
-        {
-            let mut lhs = lhs.clone();
-            lhs.merge_mut(rhs);
-            assert_eq!(lhs, expected);
-        }
-    }
-
-    #[test]
-    fn merge_mut_accumulate_over_multiple() {
-        let mut s = stats(None);
-        s.merge_mut(stats(Some(50)));
-        s.merge_mut(stats(Some(200)));
-        s.merge_mut(stats(None));
-        s.merge_mut(stats(Some(150)));
-        assert_eq!(s.memory_peak, Some(200));
-    }
 }
