@@ -171,8 +171,8 @@ impl SandboxStatistics {
         self.memory_peak
     }
 
-    /// Merge two `SandboxStatistics` into one, keeping the highest observed peak memory.
-    pub fn merge(self, other: Self) -> Self {
+    /// Combine two `SandboxStatistics` into one, keeping the highest observed peak memory.
+    pub fn combine(self, other: Self) -> Self {
         Self {
             memory_peak: match (self.memory_peak, other.memory_peak) {
                 (Some(a), Some(b)) => Some(a.max(b)),
@@ -182,8 +182,8 @@ impl SandboxStatistics {
     }
 
     /// Merge another `SandboxStatistics` into `self` in place.
-    pub fn merge_mut(&mut self, other: Self) {
-        *self = mem::take(self).merge(other);
+    pub fn merge(&mut self, other: Self) {
+        *self = mem::take(self).combine(other);
     }
 }
 
@@ -197,8 +197,8 @@ impl SandboxStatisticsState {
         self.statistics.borrow().clone()
     }
 
-    fn merge_mut(&self, statistics: SandboxStatistics) {
-        self.statistics.borrow_mut().merge_mut(statistics);
+    fn merge(&self, statistics: SandboxStatistics) {
+        self.statistics.borrow_mut().merge(statistics);
     }
 }
 
@@ -847,7 +847,7 @@ impl<'w> Sandbox<'w> {
             log_command,
             capture,
         );
-        self.statistics.merge_mut(statistics);
+        self.statistics.merge(statistics);
 
         // On timeout we kill the host-side `docker exec` process, but the
         // command inside the container keeps running on the container's
@@ -916,27 +916,27 @@ mod tests {
     #[test_case(stats(Some(300)), stats(Some(100)), stats(Some(300)))]
     #[test_case(stats(Some(100)), stats(Some(300)), stats(Some(300)))]
     #[test_case(stats(Some(42)), stats(Some(42)), stats(Some(42)))]
-    fn test_merge(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
+    fn test_combine(lhs: SandboxStatistics, rhs: SandboxStatistics, expected: SandboxStatistics) {
         {
             let lhs = lhs.clone();
             let rhs = rhs.clone();
-            assert_eq!(lhs.merge(rhs), expected);
+            assert_eq!(lhs.combine(rhs), expected);
         }
 
         {
             let mut lhs = lhs.clone();
-            lhs.merge_mut(rhs);
+            lhs.merge(rhs);
             assert_eq!(lhs, expected);
         }
     }
 
     #[test]
-    fn merge_mut_accumulate_over_multiple() {
+    fn merge_accumulate_over_multiple() {
         let mut s = stats(None);
-        s.merge_mut(stats(Some(50)));
-        s.merge_mut(stats(Some(200)));
-        s.merge_mut(stats(None));
-        s.merge_mut(stats(Some(150)));
+        s.merge(stats(Some(50)));
+        s.merge(stats(Some(200)));
+        s.merge(stats(None));
+        s.merge(stats(Some(150)));
         assert_eq!(s.memory_peak, Some(200));
     }
 }
