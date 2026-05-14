@@ -57,7 +57,7 @@ fn test_hello_world() {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
-                build.cargo().args(&["run"]).run()?;
+                build.cargo().args(["run"]).run()?;
                 Ok(())
             })?;
 
@@ -89,7 +89,7 @@ fn test_fetch_build_std() {
                 build
                     .cargo()
                     .env("RUSTC_BOOTSTRAP", "1")
-                    .args(&["run", "-Zbuild-std", "--target", &target])
+                    .args(["run", "-Zbuild-std", "--target", &target])
                     .run()?;
                 Ok(())
             })?;
@@ -115,7 +115,7 @@ fn path_based_patch() {
                 .run(move |build| {
                     let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
                     rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
-                        build.cargo().args(&["run"]).run()?;
+                        build.cargo().args(["run"]).run()?;
                         Ok(())
                     })?;
 
@@ -138,10 +138,18 @@ fn test_process_lines() {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             let mut ex = false;
+            let mut saw_reentrant_error = false;
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
                 build
                     .cargo()
                     .process_lines(&mut |line: &str, actions: &mut ProcessLinesActions| {
+                        let _ = build.statistics();
+                        if !saw_reentrant_error {
+                            saw_reentrant_error = matches!(
+                                build.cmd("true").run(),
+                                Err(rustwide::cmd::CommandError::ReentrantSandbox)
+                            );
+                        }
                         if line.contains("Hello, world again!") {
                             ex = true;
                             actions.replace_with_lines(line.split(','));
@@ -149,12 +157,16 @@ fn test_process_lines() {
                             actions.remove_line();
                         }
                     })
-                    .args(&["run"])
+                    .args(["run"])
                     .run()?;
                 Ok(())
             })?;
 
             assert!(ex);
+            assert!(
+                saw_reentrant_error,
+                "nested sandboxed command should report ReentrantSandbox"
+            );
             assert!(!storage.to_string().contains("[stdout] Hello, world!\n"));
             assert!(storage.to_string().contains("[stdout]  world again!\n"));
             assert!(storage.to_string().contains("[stdout] Hello\n"));
@@ -173,18 +185,20 @@ fn test_memory_peak() {
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
             |build| {
-                let output = build.cargo().args(&["run", "--", "400"]).run_capture()?;
-                let peak = output.memory_peak_bytes().expect("missing memory peak");
-
-                assert!(
-                    peak > 400_000_000 && peak < 450_000_000,
-                    "memory peak roughly be 400 MiB, but it is {}",
-                    peak
-                );
-
+                build.cargo().args(["run", "--", "400"]).run_capture()?;
                 Ok(())
             },
-        )?;
+        )?
+        .statistics()
+        .memory_peak_bytes()
+        .inspect(|peak| {
+            assert!(
+                *peak > 400_000_000 && *peak < 450_000_000,
+                "memory peak roughly be 400 MiB, but it is {}",
+                peak
+            );
+        })
+        .expect("missing memory peak");
         Ok(())
     });
 }
@@ -200,7 +214,7 @@ fn test_sandbox_oom() {
                 .enable_networking(false)
                 .memory_limit(Some(512 * 1024 * 1024)),
             |build| {
-                build.cargo().args(&["run", "--", "1024"]).run()?;
+                build.cargo().args(["run", "--", "1024"]).run()?;
                 Ok(())
             },
         );
@@ -253,7 +267,7 @@ fn test_cpuset_cpus_applied() {
             |build| {
                 let output = build
                     .cmd("sh")
-                    .args(&["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
+                    .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
                     .run_capture()?;
 
                 assert_eq!(output.stdout_lines(), ["Cpus_allowed_list:\t0-1"]);
@@ -265,18 +279,47 @@ fn test_cpuset_cpus_applied() {
 }
 
 #[test]
+#[cfg(not(windows))]
+fn test_sandbox_current_directory_inside_source() {
+    runner::run("hello-world", |run| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+            let output = build
+                .cmd("pwd")
+                .current_directory(build.host_source_dir().join("src"))
+                .run_capture()?;
+            assert_eq!(output.stdout_lines(), ["/opt/rustwide/workdir/src"]);
+            Ok(())
+        })?;
+        Ok(())
+    });
+}
+
+#[test]
+#[cfg(not(windows))]
+#[should_panic(expected = "explicit workdir must be inside the sandbox source directory")]
+fn test_sandbox_current_directory_outside_source_panics() {
+    runner::run("hello-world", |run| {
+        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+            build.cmd("pwd").current_directory("/tmp").run()?;
+            Ok(())
+        })?;
+        Ok(())
+    });
+}
+
+#[test]
 fn test_override_files() {
     runner::run("cargo-config", |run| {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
-                build.cargo().args(&["--version"]).run()?;
+                build.cargo().args(["--version"]).run()?;
                 Ok(())
             })?;
             let output = storage.to_string();
             assert!(output.contains("cargo 1."));
             assert!(!output.contains("1.0.0"));
-            build.cargo().args(&["run"]).run()?;
+            build.cargo().args(["run"]).run()?;
             Ok(())
         })?;
         Ok(())
@@ -289,7 +332,7 @@ fn test_cargo_workspace() {
         run.run(SandboxBuilder::new().enable_networking(false), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
-                build.cargo().args(&["run"]).run()?;
+                build.cargo().args(["run"]).run()?;
                 Ok(())
             })?;
             Ok(())

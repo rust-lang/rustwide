@@ -17,7 +17,7 @@ impl GitRepo {
 
     pub(super) fn git_commit(&self, workspace: &Workspace) -> Option<String> {
         let res = Command::new(workspace, "git")
-            .args(&["rev-parse", "HEAD"])
+            .args(["rev-parse", "HEAD"])
             .current_directory(self.cached_path(workspace))
             .run_capture();
 
@@ -94,9 +94,9 @@ impl CrateTrait for GitRepo {
         let res = if cache_hit {
             info!("updating cached repository {}", self.url);
             Command::new(workspace, "git")
-                .args(&self.suppress_password_prompt_args(workspace))
-                .args(&["-c", "remote.origin.fetch=refs/heads/*:refs/heads/*"])
-                .args(&["fetch", "origin", "--force", "--prune"])
+                .args(self.suppress_password_prompt_args(workspace))
+                .args(["-c", "remote.origin.fetch=refs/heads/*:refs/heads/*"])
+                .args(["fetch", "origin", "--force", "--prune"])
                 .current_directory(&path)
                 .process_lines(&mut detect_private_repositories)
                 .run()
@@ -104,9 +104,9 @@ impl CrateTrait for GitRepo {
         } else {
             info!("cloning repository {}", self.url);
             Command::new(workspace, "git")
-                .args(&self.suppress_password_prompt_args(workspace))
-                .args(&["clone", "--bare", &self.url])
-                .args(&[&path])
+                .args(self.suppress_password_prompt_args(workspace))
+                .args(["clone", "--bare", &self.url])
+                .args([&path])
                 .process_lines(&mut detect_private_repositories)
                 .run()
                 .with_context(|| format!("failed to clone {}", self.url))
@@ -133,8 +133,8 @@ impl CrateTrait for GitRepo {
     )]
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         Command::new(workspace, "git")
-            .args(&["clone"])
-            .args(&[self.cached_path(workspace).as_path(), dest])
+            .args(["clone"])
+            .args([self.cached_path(workspace).as_path(), dest])
             .run()
             .with_context(|| format!("failed to checkout {}", self.url))?;
         Ok(())

@@ -5,6 +5,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* Sandbox containers are now reused across commands within a single build,
+  avoiding per-command `docker create`/`docker rm` overhead. Every `Command`
+  spawned inside a `BuildBuilder::run` closure runs in the same container,
+  and the container is recreated transparently if a previous command's OOM
+  kill brought it down or if the container was otherwise stopped.
+
+* Timed-out sandboxed commands now tear down the reused container before the
+  next command runs. This prevents abandoned processes left behind by a killed
+  host-side `docker exec` from racing later commands or leaking filesystem
+  changes into them.
+
+* Added the public `Sandbox`, `SandboxStatistics`, and `BuildResult` types,
+  plus `SandboxBuilder::start` for direct sandbox construction. The
+  underlying container is created and started before `start` returns, so
+  docker errors surface there rather than on the first command.
+
+* Added `Build::statistics()` for taking a snapshot of sandbox statistics
+  while a build is still running. This can be used for per-step reporting
+  from inside the build closure, including from `process_lines` callbacks.
+
+* Added `Command::arg` and relaxed `Command::args`,
+  `Command::env`, and `Command::current_directory` to accept owned values
+  directly (`Into<OsString>` / `Into<PathBuf>`) instead of requiring borrowed
+  slices or references.
+
+* **BREAKING**: `BuildBuilder::run` now returns `BuildResult<R>` instead of
+  `R`. The result wraps the closure's return value together with
+  `SandboxStatistics` gathered over the whole build:
+
+    ```rust
+    let result = build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+        build.cargo().args(&["test"]).run()?;
+        Ok(())
+    })?;
+    let peak = result.statistics().memory_peak_bytes();
+    let value = result.into_inner();
+    ```
+
+* **BREAKING**: `Command::run` returns `()` instead of `ProcessStatistics`.
+  Peak memory is no longer tracked per command; the cumulative maximum
+  across all commands in the build is exposed via the `BuildResult`
+  returned from `BuildBuilder::run`:
+
+    ```rust
+    let result = build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+        build.cargo().args(&["test"]).run()?;
+        build.cargo().args(&["doc"]).run()?;
+        Ok(())
+    })?;
+    let peak = result.statistics().memory_peak_bytes();
+    ```
+
+* **BREAKING**: `ProcessOutput::memory_peak_bytes` and the
+  `ProcessStatistics` type were removed. Use
+  `BuildResult::statistics().memory_peak_bytes()` (or
+  `Sandbox::statistics()` when using the sandbox API directly).
+
+* **BREAKING**: `Command::source_dir_mount_kind` moved to
+  `SandboxBuilder::source_dir_mount_kind`. The mount kind now applies to
+  every command spawned in the build, since they share one container:
+
+    ```rust
+    let sandbox = SandboxBuilder::new()
+        .source_dir_mount_kind(MountKind::ReadWrite);
+    build_dir.build(&toolchain, &krate, sandbox).run(|build| {
+        build.cargo().args(&["test"]).run()?;
+        Ok(())
+    })?;
+    ```
+
+    With a writable source mount, mutations from an earlier command
+    persist into all later commands in the same build (and across reuse
+    of the source directory by later builds) — only opt in if you trust
+    every step to leave the source in a sensible state.
+
+* **BREAKING**: `Command::new_sandboxed` was renamed to
+  `Command::new_in_sandbox` and now takes an `Rc<RefCell<Sandbox>>`
+  produced by `SandboxBuilder::start`, instead of a `SandboxBuilder`.
+  Most callers should use `BuildBuilder::run` instead; the lower-level
+  form is:
+
+    ```rust
+    use std::{cell::RefCell, rc::Rc};
+
+    let sandbox = Rc::new(RefCell::new(
+        SandboxBuilder::new().start(&workspace, source_dir, target_dir)?,
+    ));
+    Command::new_in_sandbox(&workspace, sandbox, "cargo")
+        .args(&["test"])
+        .run()?;
+    ```
+
+    By default the command's working directory is the sandbox's source
+    directory; an explicit `current_directory(...)` path must point inside
+    the source directory or it will panic at runtime.
+
+
 ## [0.24.0] - 2026-05-12
 
 * make alternate registry support optional to reduce dependencies

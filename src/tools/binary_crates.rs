@@ -26,7 +26,7 @@ impl Runnable for BinaryCrate {
 
     fn prepare_command<'w, 'pl>(&self, mut cmd: Command<'w, 'pl>) -> Command<'w, 'pl> {
         if let Some(subcommand) = self.cargo_subcommand {
-            cmd = cmd.args(&[subcommand]);
+            cmd = cmd.args([subcommand]);
         }
         cmd
     }
@@ -48,10 +48,10 @@ impl Tool for BinaryCrate {
 
     fn install(&self, workspace: &Workspace, fast_install: bool) -> anyhow::Result<()> {
         let mut cmd = Command::new(workspace, Toolchain::MAIN.cargo())
-            .args(&["install", self.crate_name])
+            .args(["install", self.crate_name])
             .timeout(None);
         if fast_install {
-            cmd = cmd.args(&["--debug"]);
+            cmd = cmd.args(["--debug"]);
         }
         cmd.run()?;
         Ok(())

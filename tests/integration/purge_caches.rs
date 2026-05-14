@@ -31,7 +31,7 @@ fn test_purge_caches() -> anyhow::Result<()> {
         let sandbox = SandboxBuilder::new().enable_networking(false);
         let mut build_dir = workspace.build_dir("shared");
         build_dir.build(&toolchain, krate, sandbox).run(|build| {
-            build.cargo().args(&["check"]).run()?;
+            build.cargo().args(["check"]).run()?;
             Ok(())
         })?;
     }

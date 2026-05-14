@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut build_dir = workspace.build_dir("docs");
     build_dir.build(&toolchain, &krate, sandbox).run(|build| {
-        build.cargo().args(&["doc", "--no-deps"]).run()?;
+        build.cargo().arg("doc").arg("--no-deps").run()?;
         Ok(())
     })?;
 

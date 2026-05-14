@@ -33,7 +33,8 @@ mod tools;
 mod utils;
 mod workspace;
 
-pub use crate::build::{Build, BuildBuilder, BuildDirectory};
+pub use crate::build::{Build, BuildBuilder, BuildDirectory, BuildResult};
+pub use crate::cmd::SandboxStatistics;
 #[cfg(feature = "alternate-registries")]
 pub use crate::crates::AlternativeRegistry;
 pub use crate::crates::Crate;

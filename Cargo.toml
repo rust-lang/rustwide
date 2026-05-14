@@ -30,7 +30,6 @@ tokio = { version = "1.0", features = ["process", "time", "io-util", "rt", "rt-m
 tokio-stream = { version = "0.1", features = ["io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-scopeguard = "1.0.0"
 tempfile = "3.0.0"
 attohttpc = "0.30.1"
 flate2 = "1"
