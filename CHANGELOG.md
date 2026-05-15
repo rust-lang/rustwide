@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.25.0] - 2026-05-16
+
+* upgrade `toml` dependency
+
 * Sandbox containers are now reused across commands within a single build,
   avoiding per-command `docker create`/`docker rm` overhead. Every `Command`
   spawned inside a `BuildBuilder::run` closure runs in the same container,
