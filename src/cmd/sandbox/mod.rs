@@ -1,7 +1,12 @@
+mod docker;
+
+#[cfg(test)]
+use crate::cmd::sandbox::docker::HostCgroup;
 use crate::{
     Workspace,
     cmd::{Command, CommandError, ProcessLinesActions, ProcessOutput, container_dirs},
 };
+use docker::CgroupStatsReader;
 use log::{error, info};
 use serde::Deserialize;
 use std::{
@@ -389,7 +394,9 @@ impl SandboxBuilder {
     fn create_started(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut container = self.create(workspace)?;
         container.start()?;
-        container.record_oom_kill_count();
+        container.refresh_state(&container.inspect()?);
+        container.cgroup.detect_host_cgroup();
+        container.cgroup.record_oom_kill_count();
         Ok(container)
     }
 
@@ -461,12 +468,13 @@ impl SandboxBuilder {
             .args(&args)
             .run_capture()
             .map_err(|err| CommandError::SandboxContainerCreate(Box::new(err)))?;
+        let id = out.stdout_lines().first().cloned().unwrap_or_default();
         Ok(Container {
-            id: Some(out.stdout_lines()[0].clone()),
+            id: Some(id.clone()),
             workspace,
             running: true,
             oom_killed: false,
-            oom_kill_count: None,
+            cgroup: CgroupStatsReader::new(workspace, id),
         })
     }
 }
@@ -481,6 +489,8 @@ struct InspectContainer {
 struct InspectState {
     #[serde(rename = "OOMKilled")]
     oom_killed: bool,
+    #[serde(rename = "Pid")]
+    pid: u32,
     #[serde(rename = "Running")]
     running: bool,
 }
@@ -493,7 +503,7 @@ struct Container<'w> {
     workspace: &'w Workspace,
     running: bool,
     oom_killed: bool,
-    oom_kill_count: Option<u64>,
+    cgroup: CgroupStatsReader<'w>,
 }
 
 impl Container<'_> {
@@ -535,80 +545,13 @@ impl Container<'_> {
             .map(|_| ())
     }
 
-    /// Helper to `docker exec cat <path>` and return stdout lines on success.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn exec_cat_file(&self, path: &str) -> Option<Vec<String>> {
-        Command::new(self.workspace, "docker")
-            .args(["exec", self.id(), "cat", path])
-            .log_output(false)
-            .log_command(false)
-            .run_capture()
-            .ok()
-            .map(|o| o.stdout_lines().to_vec())
-    }
-
-    fn record_oom_kill_count(&mut self) {
-        self.oom_kill_count = self.read_oom_kill_count();
-    }
-
-    /// Best-effort read of peak memory usage from the still-running container.
-    /// Tries cgroups v2 first, then falls back to cgroups v1.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn read_memory_peak(&self) -> Option<u64> {
-        let paths = [
-            "/sys/fs/cgroup/memory.peak",                      // v2
-            "/sys/fs/cgroup/memory/memory.max_usage_in_bytes", // v1
-        ];
-        for path in paths {
-            if let Some(val) = self
-                .exec_cat_file(path)
-                .and_then(|lines| lines.first()?.trim().parse::<u64>().ok())
-            {
-                return Some(val);
-            }
-        }
-        None
-    }
-
-    /// Check if any OOM kills occurred in the container's cgroup.
-    ///
-    /// With the `docker exec` model, the OOM killer may only kill the exec'd process
-    /// while `sleep infinity` (PID 1) survives. In that case `docker inspect` won't
-    /// report `OOMKilled`, so we check the cgroup events directly.
-    /// Tries cgroups v2 first, then falls back to cgroups v1.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn read_oom_kill_count(&self) -> Option<u64> {
-        // Both v1 and v2 expose `oom_kill <count>` — just in different files.
-        let paths = [
-            "/sys/fs/cgroup/memory.events",             // v2
-            "/sys/fs/cgroup/memory/memory.oom_control", // v1
-        ];
-        for path in paths {
-            if let Some(lines) = self.exec_cat_file(path) {
-                for line in &lines {
-                    if let Some(count) = line
-                        .strip_prefix("oom_kill ")
-                        .and_then(|rest| rest.trim().parse::<u64>().ok())
-                    {
-                        return Some(count);
-                    }
-                }
-                return Some(0);
-            }
-        }
-        None
-    }
-
-    fn check_cgroup_oom(&mut self) -> bool {
-        let current = self.read_oom_kill_count();
-        let previous = self.oom_kill_count;
-        self.oom_kill_count = current;
-
-        current.unwrap_or_default() > previous.unwrap_or_default()
+    fn refresh_state(&mut self, details: &InspectContainer) {
+        self.running = details.state.running;
+        self.cgroup.pid = Some(details.state.pid);
     }
 
     fn check_container_oom(&mut self, details: &InspectContainer) -> bool {
-        self.running = details.state.running;
+        self.refresh_state(details);
         // `OOMKilled` can stay true after the first failure. Treat it as an
         // edge-triggered signal so later commands in the same container don't
         // keep being reported as fresh OOMs.
@@ -669,12 +612,12 @@ impl Container<'_> {
 
         // Read peak memory usage while the container is still running (best-effort)
         let statistics = SandboxStatistics {
-            memory_peak: self.read_memory_peak(),
+            memory_peak: self.cgroup.read_memory_peak(),
         };
 
         // Check OOM via cgroup events (catches cases where only the exec'd process
         // was killed, leaving the container's init process alive)
-        let cgroup_oom = self.check_cgroup_oom();
+        let cgroup_oom = self.cgroup.check_cgroup_oom();
 
         let details = match self.inspect() {
             Ok(details) => details,
@@ -739,6 +682,13 @@ impl<'w> Sandbox<'w> {
     /// Return the statistics gathered across the sandbox lifetime so far.
     pub fn statistics(&self) -> SandboxStatistics {
         self.statistics.snapshot()
+    }
+
+    #[cfg(test)]
+    fn detect_host_cgroup(&mut self) -> Option<&HostCgroup> {
+        self.container
+            .as_mut()
+            .and_then(|container| container.cgroup.detect_host_cgroup())
     }
 
     pub(crate) fn container_workdir(&self, path: &Path) -> Option<PathBuf> {
@@ -899,7 +849,12 @@ fn format_cpuset_cpus(cpus: &RangeInclusive<usize>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Workspace, WorkspaceBuilder, cmd::SandboxImage};
+    use std::{env, path::Path};
+    use tempfile::tempdir;
     use test_case::test_case;
+
+    const USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";
 
     #[test]
     fn formats_cpuset_cpus() {
@@ -938,5 +893,113 @@ mod tests {
         s.merge(stats(None));
         s.merge(stats(Some(150)));
         assert_eq!(s.memory_peak, Some(200));
+    }
+
+    fn init_test_workspace(name: &str) -> anyhow::Result<Workspace> {
+        let workspace_path = Path::new(".workspaces").join(name);
+        let mut builder = WorkspaceBuilder::new(&workspace_path, USER_AGENT).fast_init(true);
+
+        if env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {
+            builder = builder.running_inside_docker(true);
+        }
+
+        if cfg!(target_os = "linux") {
+            builder = builder.sandbox_image(SandboxImage::remote(
+                "ghcr.io/rust-lang/crates-build-env/linux-micro",
+            )?);
+        }
+
+        builder.init()
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn detects_host_cgroup_files() -> anyhow::Result<()> {
+        let workspace = init_test_workspace("build-unit")?;
+        let source_dir = tempdir()?;
+        let target_dir = tempdir()?;
+        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
+            &workspace,
+            source_dir.path(),
+            target_dir.path(),
+        )?;
+        let host_cgroup = sandbox
+            .detect_host_cgroup()
+            .expect("sandbox should resolve host cgroup files");
+
+        assert!(host_cgroup.memory_peak_file.is_file());
+        assert!(host_cgroup.oom_kill_count_file.is_file());
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn host_and_exec_memory_peaks_are_nonzero_and_close() -> anyhow::Result<()> {
+        let workspace = init_test_workspace("build-unit")?;
+        let source_dir = tempdir()?;
+        let target_dir = tempdir()?;
+        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
+            &workspace,
+            source_dir.path(),
+            target_dir.path(),
+        )?;
+        let host_cgroup = sandbox
+            .detect_host_cgroup()
+            .expect("sandbox should resolve host cgroup files");
+
+        let host_peak = host_cgroup
+            .read_memory_peak()
+            .expect("host-side memory peak should be readable");
+        let exec_peak = sandbox
+            .container
+            .as_mut()
+            .expect("sandbox container should be present")
+            .cgroup
+            .read_memory_peak_from_container()
+            .expect("exec-side memory peak should be readable");
+
+        assert!(host_peak > 0, "host-side memory peak should be nonzero");
+        assert!(exec_peak > 0, "exec-side memory peak should be nonzero");
+
+        let min_peak = host_peak.min(exec_peak);
+        let max_peak = host_peak.max(exec_peak);
+        assert!(
+            max_peak <= min_peak + 8 * 1024 * 1024,
+            "host and exec peaks should be in the same ballpark: host={host_peak}, exec={exec_peak}",
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn host_and_exec_oom_kill_counts_match() -> anyhow::Result<()> {
+        let workspace = init_test_workspace("build-unit")?;
+        let source_dir = tempdir()?;
+        let target_dir = tempdir()?;
+        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
+            &workspace,
+            source_dir.path(),
+            target_dir.path(),
+        )?;
+        let host_cgroup = sandbox
+            .detect_host_cgroup()
+            .expect("sandbox should resolve host cgroup files");
+
+        let host_oom_kill_count = host_cgroup
+            .read_oom_kill_count()
+            .expect("host-side oom_kill count should be readable");
+        let exec_oom_kill_count = sandbox
+            .container
+            .as_mut()
+            .expect("sandbox container should be present")
+            .cgroup
+            .read_oom_kill_count_from_container()
+            .expect("exec-side oom_kill count should be readable");
+
+        assert_eq!(host_oom_kill_count, exec_oom_kill_count);
+
+        Ok(())
     }
 }
