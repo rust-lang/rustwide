@@ -5,6 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+
+## [0.25.1] - 2026-05-22
+
+* LogStorage: fix log limits (lines/length/size) with multi-line log msgs
+* improve performance of reading sandbox stats (oom, peak memory)
+* remove `http` and `fs2` dependencies
+
+
 ## [0.25.0] - 2026-05-16
 
 * upgrade `toml` dependency
