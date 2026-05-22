@@ -3,6 +3,7 @@ use crate::build::BuildDirectory;
 use crate::cmd::{Command, SandboxImage};
 use crate::inside_docker::CurrentContainer;
 use anyhow::Context as _;
+use attohttpc::header;
 use log::info;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -153,7 +154,7 @@ impl WorkspaceBuilder {
             };
 
             let mut agent = attohttpc::Session::new();
-            agent.header(http::header::USER_AGENT, self.user_agent);
+            agent.header(header::USER_AGENT, self.user_agent);
 
             let mut ws = Workspace {
                 inner: Arc::new(WorkspaceInner {
