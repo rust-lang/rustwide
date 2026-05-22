@@ -1,7 +1,6 @@
-use fs2::FileExt;
 use log::warn;
 use percent_encoding::{AsciiSet, CONTROLS};
-use std::fs::OpenOptions;
+use std::fs::{OpenOptions, TryLockError};
 use std::path::{Component, Path, PathBuf, Prefix, PrefixComponent};
 
 const ENCODE_SET: AsciiSet = CONTROLS
@@ -32,13 +31,13 @@ pub(crate) fn file_lock<T>(
         .truncate(true)
         .open(path)?;
 
-    let mut message_displayed = false;
-    while let Err(err) = file.try_lock_exclusive() {
-        if !message_displayed && err.kind() == fs2::lock_contended_error().kind() {
+    match file.try_lock() {
+        Ok(_) => {}
+        Err(TryLockError::WouldBlock) => {
             warn!("blocking on other processes finishing to {msg}");
-            message_displayed = true;
+            file.lock()?;
         }
-        file.lock_exclusive()?;
+        Err(err) => return Err(err.into()),
     }
 
     let res = std::panic::catch_unwind(f);
