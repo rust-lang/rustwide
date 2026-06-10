@@ -560,6 +560,7 @@ impl From<InnerProcessOutput> for ProcessOutput {
 
 /// Output of a [`Command`](struct.Command.html) when it was executed with the
 /// [`run_capture`](struct.Command.html#method.run_capture) method.
+#[derive(Debug)]
 pub struct ProcessOutput {
     stdout: Vec<String>,
     stderr: Vec<String>,
