@@ -186,6 +186,9 @@ impl DockerRuntime {
         }
     }
 
+    /// to see if the used docker engine also exposes the cgroup files
+    /// inside the container.
+    /// If not, we have to rely on the host-level files.
     fn supports_cgroup_files_inside_container(&self) -> bool {
         match self {
             DockerRuntime::Default => true,
