@@ -1,5 +1,5 @@
 use log::LevelFilter;
-use rustwide::cmd::{ProcessLinesActions, SandboxBuilder};
+use rustwide::cmd::ProcessLinesActions;
 
 mod container_cleanup;
 #[macro_use]
@@ -54,7 +54,7 @@ fn buildtest_crate_name_matches_folder_name() {
 #[test]
 fn test_hello_world() {
     runner::run("hello-world", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
                 build.cargo().args(["run"]).run()?;
@@ -82,7 +82,7 @@ fn test_fetch_build_std() {
     let target = std::fs::read_to_string(target_file).unwrap();
 
     runner::run("hello-world", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             build.fetch_build_std_dependencies(&[target.as_str()])?;
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
@@ -109,7 +109,7 @@ fn test_fetch_build_std() {
 #[test]
 fn path_based_patch() {
     runner::run("path-based-patch", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+        run.build(crate::utils::sandbox_builder(), |builder| {
             builder
                 .patch_with_path("empty-library", "./patch")
                 .run(move |build| {
@@ -135,7 +135,7 @@ fn path_based_patch() {
 #[test]
 fn test_process_lines() {
     runner::run("process-lines", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             let mut ex = false;
             let mut saw_reentrant_error = false;
@@ -181,9 +181,7 @@ fn test_process_lines() {
 fn test_memory_peak() {
     runner::run("allocate", |run| {
         run.run(
-            SandboxBuilder::new()
-                .enable_networking(false)
-                .memory_limit(Some(512 * 1024 * 1024)),
+            crate::utils::sandbox_builder().memory_limit(Some(512 * 1024 * 1024)),
             |build| {
                 build.cargo().args(["run", "--", "400"]).run_capture()?;
                 Ok(())
@@ -210,9 +208,7 @@ fn test_sandbox_oom() {
 
     runner::run("allocate", |run| {
         let res = run.run(
-            SandboxBuilder::new()
-                .enable_networking(false)
-                .memory_limit(Some(512 * 1024 * 1024)),
+            crate::utils::sandbox_builder().memory_limit(Some(512 * 1024 * 1024)),
             |build| {
                 build.cargo().args(["run", "--", "1024"]).run()?;
                 Ok(())
@@ -234,9 +230,7 @@ fn test_invalid_cpuset_cpus() {
 
     runner::run("hello-world", |run| {
         let res = run.run(
-            SandboxBuilder::new()
-                .enable_networking(false)
-                .cpuset_cpus(Some(999_999..=999_999)),
+            crate::utils::sandbox_builder().cpuset_cpus(Some(999_999..=999_999)),
             |build| {
                 build.cmd("true").run()?;
                 Ok(())
@@ -261,9 +255,7 @@ fn test_invalid_cpuset_cpus() {
 fn test_cpuset_cpus_applied() {
     runner::run("hello-world", |run| {
         run.run(
-            SandboxBuilder::new()
-                .enable_networking(false)
-                .cpuset_cpus(Some(0..=1)),
+            crate::utils::sandbox_builder().cpuset_cpus(Some(0..=1)),
             |build| {
                 let output = build
                     .cmd("sh")
@@ -282,7 +274,7 @@ fn test_cpuset_cpus_applied() {
 #[cfg(not(windows))]
 fn test_sandbox_current_directory_inside_source() {
     runner::run("hello-world", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             let output = build
                 .cmd("pwd")
                 .current_directory(build.host_source_dir().join("src"))
@@ -299,7 +291,7 @@ fn test_sandbox_current_directory_inside_source() {
 #[should_panic(expected = "explicit workdir must be inside the sandbox source directory")]
 fn test_sandbox_current_directory_outside_source_panics() {
     runner::run("hello-world", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             build.cmd("pwd").current_directory("/tmp").run()?;
             Ok(())
         })?;
@@ -310,7 +302,7 @@ fn test_sandbox_current_directory_outside_source_panics() {
 #[test]
 fn test_override_files() {
     runner::run("cargo-config", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
                 build.cargo().args(["--version"]).run()?;
@@ -329,7 +321,7 @@ fn test_override_files() {
 #[test]
 fn test_cargo_workspace() {
     runner::run("cargo-workspace", |run| {
-        run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        run.run(crate::utils::sandbox_builder(), |build| {
             let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
             rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
                 build.cargo().args(["run"]).run()?;

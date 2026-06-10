@@ -5,6 +5,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* Added `DockerRuntime`, `ParseDockerRuntimeError`, and
+  `SandboxBuilder::docker_runtime` for selecting a Docker runtime such as
+  gVisor's `runsc` for sandbox containers.
 
 ## [0.25.1] - 2026-05-22
 

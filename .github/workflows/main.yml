@@ -40,11 +40,16 @@ jobs:
           - "--no-default-features"
           - "--features tracing"
           - "--all-features"
+        docker_runtime:
+          - ""
         include:
           # Integration tests are disabled on Windows as they take *way* too
           # long to pull the Docker image
           - os: windows-latest
             test_flags: --skip buildtest --skip integration --skip run_binary_with_same_name_as_file
+          - os: ubuntu-22.04
+            cargo_flags: ""
+            docker_runtime: runsc
     steps:
       - name: Checkout the source code
         uses: actions/checkout@main
@@ -57,11 +62,26 @@ jobs:
       - name: Build rustwide
         run: cargo build --all ${{ matrix.cargo_flags }}
 
+      - name: Install gVisor
+        if: matrix.docker_runtime == 'runsc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
+          curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | sudo tee /etc/apt/sources.list.d/gvisor.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y runsc
+          sudo runsc install
+          sudo systemctl restart docker
+          docker run --rm --runtime=runsc hello-world
+
       # Having swap enabled causes problems with the OOM detector, so let's
       # disable all swapfiles before running the build.
       - name: Disable swap on Linux
         run: sudo swapoff -a
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu-')
 
       - name: Test rustwide
         run: cargo test --all ${{ matrix.cargo_flags }} -- ${{ matrix.test_flags }}
+        env:
+          RUSTWIDE_DOCKER_RUNTIME: ${{ matrix.docker_runtime }}
