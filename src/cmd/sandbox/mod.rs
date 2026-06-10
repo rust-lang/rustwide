@@ -163,6 +163,7 @@ pub struct SandboxBuilder {
     cpu_limit: Option<f32>,
     cpuset_cpus: Option<RangeInclusive<usize>>,
     enable_networking: bool,
+    /// Docker runtime selected for this sandbox.
     pub docker_runtime: DockerRuntime,
 }
 
@@ -206,6 +207,8 @@ impl DockerRuntime {
         }
     }
 
+    /// Whether the runtime exposes the current process status file inside the
+    /// sandbox container.
     pub fn exposes_self_status_inside_container(&self) -> bool {
         match self {
             DockerRuntime::Default => true,
@@ -783,6 +786,10 @@ impl<'w> Sandbox<'w> {
         )
     }
 
+    fn command_needs_fresh_container(res: &Result<ProcessOutput, CommandError>) -> bool {
+        Self::command_timed_out(res) || matches!(res, Err(CommandError::SandboxOOM))
+    }
+
     /// Return the statistics gathered across the sandbox lifetime so far.
     pub fn statistics(&self) -> SandboxStatistics {
         self.statistics.snapshot()
@@ -908,10 +915,12 @@ impl<'w> Sandbox<'w> {
         // command inside the container keeps running on the container's
         // `sleep infinity` init. Reusing the container would let the
         // abandoned process race the next command (sharing files, target
-        // dir, CPU/memory budget). Tear the container down so the next
-        // command in this build gets a clean one via
+        // dir, CPU/memory budget). OOMs can also leave the container's
+        // exec path unusable even when Docker still reports it as running
+        // (for example with gVisor/runsc). Tear the container down so the
+        // next command in this build gets a clean one via
         // `ensure_reusable_container`.
-        if Self::command_timed_out(&res)
+        if Self::command_needs_fresh_container(&res)
             && let Some(mut container) = self.container.take()
         {
             container.delete()?;
