@@ -425,7 +425,7 @@ test_prepare_error_stderr!(
     test_missing_deps_typo,
     "missing-deps-typo",
     MissingDependencies,
-    "error: no matching package found"
+    "error: no matching package"
 );
 
 test_prepare_error_stderr!(
