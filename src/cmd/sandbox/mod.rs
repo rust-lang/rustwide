@@ -185,6 +185,13 @@ impl DockerRuntime {
             Self::Runsc => Some("runsc"),
         }
     }
+
+    fn supports_cgroup_files_inside_container(&self) -> bool {
+        match self {
+            DockerRuntime::Default => true,
+            DockerRuntime::Runsc => false,
+        }
+    }
 }
 
 impl fmt::Display for DockerRuntime {
@@ -418,14 +425,6 @@ impl SandboxBuilder {
         self
     }
 
-    /// Use Docker's configured default runtime for the sandbox container.
-    ///
-    /// This clears any runtime selected with [`SandboxBuilder::docker_runtime`].
-    pub fn default_docker_runtime(mut self) -> Self {
-        self.docker_runtime = DockerRuntime::Default;
-        self
-    }
-
     /// Start a live sandbox from this configuration.
     ///
     /// The returned sandbox can be used to run one or more commands against a
@@ -555,7 +554,7 @@ impl SandboxBuilder {
             workspace,
             running: true,
             oom_killed: false,
-            cgroup: CgroupStatsReader::new(workspace, id),
+            cgroup: CgroupStatsReader::new(workspace, id, self.docker_runtime),
         })
     }
 }
@@ -1043,8 +1042,13 @@ mod tests {
         let workspace = init_test_workspace("build-unit")?;
         let source_dir = tempdir()?;
         let target_dir = tempdir()?;
-        let mut sandbox =
-            sandbox_builder().start(&workspace, source_dir.path(), target_dir.path())?;
+
+        let builder = sandbox_builder();
+        let supports_cgroup_files_inside_container = builder
+            .docker_runtime
+            .supports_cgroup_files_inside_container();
+
+        let mut sandbox = builder.start(&workspace, source_dir.path(), target_dir.path())?;
         let host_cgroup = sandbox
             .detect_host_cgroup()
             .expect("sandbox should resolve host cgroup files");
@@ -1052,6 +1056,13 @@ mod tests {
         let host_peak = host_cgroup
             .read_memory_peak()
             .expect("host-side memory peak should be readable");
+
+        assert!(host_peak > 0, "host-side memory peak should be nonzero");
+
+        if !supports_cgroup_files_inside_container {
+            return Ok(());
+        }
+
         let exec_peak = sandbox
             .container
             .as_mut()
@@ -1060,7 +1071,6 @@ mod tests {
             .read_memory_peak_from_container()
             .expect("exec-side memory peak should be readable");
 
-        assert!(host_peak > 0, "host-side memory peak should be nonzero");
         assert!(exec_peak > 0, "exec-side memory peak should be nonzero");
 
         let min_peak = host_peak.min(exec_peak);
@@ -1079,8 +1089,16 @@ mod tests {
         let workspace = init_test_workspace("build-unit")?;
         let source_dir = tempdir()?;
         let target_dir = tempdir()?;
-        let mut sandbox =
-            sandbox_builder().start(&workspace, source_dir.path(), target_dir.path())?;
+
+        let builder = sandbox_builder();
+        if !builder
+            .docker_runtime
+            .supports_cgroup_files_inside_container()
+        {
+            return Ok(());
+        }
+
+        let mut sandbox = builder.start(&workspace, source_dir.path(), target_dir.path())?;
         let host_cgroup = sandbox
             .detect_host_cgroup()
             .expect("sandbox should resolve host cgroup files");
