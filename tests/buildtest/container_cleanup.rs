@@ -110,7 +110,7 @@ fn test_reused_container_oom_does_not_poison_later_commands() {
                     "expected first command to OOM, got {first:?}"
                 );
 
-                build.cmd("true").run()?;
+                dbg!(build.cmd("true").run())?;
                 Ok(())
             },
         )?;

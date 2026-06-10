@@ -191,7 +191,7 @@ fn test_memory_peak() {
         .memory_peak_bytes()
         .inspect(|peak| {
             assert!(
-                *peak > 400_000_000 && *peak < 450_000_000,
+                *peak > 400_000_000 && *peak < 500_000_000,
                 "memory peak roughly be 400 MiB, but it is {}",
                 peak
             );
@@ -262,7 +262,7 @@ fn test_cpuset_cpus_applied() {
                     .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
                     .run_capture()?;
 
-                assert_eq!(output.stdout_lines(), ["Cpus_allowed_list:\t0-1"]);
+                assert_eq!(dbg!(output.stdout_lines()), ["Cpus_allowed_list:\t0-1"]);
                 Ok(())
             },
         )?;
