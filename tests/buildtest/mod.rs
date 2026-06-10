@@ -257,10 +257,12 @@ fn test_cpuset_cpus_applied() {
         run.run(
             crate::utils::sandbox_builder().cpuset_cpus(Some(0..=1)),
             |build| {
-                let output = build
-                    .cmd("sh")
-                    .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
-                    .run_capture()?;
+                let output = dbg!(
+                    build
+                        .cmd("sh")
+                        .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
+                        .run_capture()
+                )?;
 
                 assert_eq!(dbg!(output.stdout_lines()), ["Cpus_allowed_list:\t0-1"]);
                 Ok(())

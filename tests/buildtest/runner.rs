@@ -1,3 +1,4 @@
+use log::error;
 use rand::{RngExt as _, distr::Alphanumeric};
 use rustwide::{
     Build, BuildBuilder, BuildResult, Crate, Toolchain, Workspace, cmd::SandboxBuilder,
@@ -6,7 +7,9 @@ use std::path::Path;
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> anyhow::Result<()>) {
     let mut runner = Runner::new(crate_name).unwrap();
-    f(&mut runner).unwrap();
+    if let Err(err) = f(&mut runner) {
+        error!("error running command: \n{:?}", err);
+    }
 }
 
 pub(crate) struct Runner {
