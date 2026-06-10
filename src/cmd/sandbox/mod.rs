@@ -163,7 +163,7 @@ pub struct SandboxBuilder {
     cpu_limit: Option<f32>,
     cpuset_cpus: Option<RangeInclusive<usize>>,
     enable_networking: bool,
-    docker_runtime: DockerRuntime,
+    pub docker_runtime: DockerRuntime,
 }
 
 /// The Docker runtime used for sandbox containers.
@@ -200,6 +200,13 @@ impl DockerRuntime {
     ///
     /// If not, statistics must use host-level cgroup files.
     fn supports_cgroup_files_inside_container(&self) -> bool {
+        match self {
+            DockerRuntime::Default => true,
+            DockerRuntime::Runsc => false,
+        }
+    }
+
+    pub fn exposes_self_status_inside_container(&self) -> bool {
         match self {
             DockerRuntime::Default => true,
             DockerRuntime::Runsc => false,

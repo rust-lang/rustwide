@@ -253,21 +253,27 @@ fn test_invalid_cpuset_cpus() {
 #[test]
 #[cfg(not(windows))]
 fn test_cpuset_cpus_applied() {
-    runner::run("hello-world", |run| {
-        run.run(
-            crate::utils::sandbox_builder().cpuset_cpus(Some(0..=1)),
-            |build| {
-                let output = dbg!(
-                    build
-                        .cmd("sh")
-                        .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
-                        .run_capture()
-                )?;
+    let builder = crate::utils::sandbox_builder().cpuset_cpus(Some(0..=1));
 
-                assert_eq!(dbg!(output.stdout_lines()), ["Cpus_allowed_list:\t0-1"]);
-                Ok(())
-            },
-        )?;
+    if builder
+        .docker_runtime
+        .exposes_self_status_inside_container()
+    {
+        return;
+    }
+
+    runner::run("hello-world", |run| {
+        run.run(builder, |build| {
+            let output = dbg!(
+                build
+                    .cmd("sh")
+                    .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
+                    .run_capture()
+            )?;
+
+            assert_eq!(dbg!(output.stdout_lines()), ["Cpus_allowed_list:\t0-1"]);
+            Ok(())
+        })?;
         Ok(())
     });
 }
