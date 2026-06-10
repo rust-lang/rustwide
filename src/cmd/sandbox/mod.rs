@@ -167,18 +167,27 @@ pub struct SandboxBuilder {
 }
 
 /// The Docker runtime used for sandbox containers.
+///
+/// This controls Docker's `--runtime` option on sandbox container creation.
+/// [`DockerRuntime::Default`] omits the option and lets the Docker daemon use
+/// its configured default runtime.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DockerRuntime {
     /// Let Docker use the daemon's configured default runtime.
+    ///
+    /// This does not pass a `--runtime` argument to Docker.
     #[default]
     Default,
+
     /// Use gVisor's `runsc` runtime.
+    ///
+    /// This passes `--runtime runsc` to Docker.
     Runsc,
 }
 
 impl DockerRuntime {
-    /// name of the runtime for the `--runtime` docker arg.
+    /// Name of the runtime for Docker's `--runtime` argument.
     fn docker_name(self) -> Option<&'static str> {
         match self {
             Self::Default => None,
@@ -186,9 +195,10 @@ impl DockerRuntime {
         }
     }
 
-    /// to see if the used docker engine also exposes the cgroup files
-    /// inside the container.
-    /// If not, we have to rely on the host-level files.
+    /// Whether the runtime exposes the host-managed cgroup files inside the
+    /// sandbox container.
+    ///
+    /// If not, statistics must use host-level cgroup files.
     fn supports_cgroup_files_inside_container(&self) -> bool {
         match self {
             DockerRuntime::Default => true,
@@ -209,6 +219,10 @@ impl fmt::Display for DockerRuntime {
 impl str::FromStr for DockerRuntime {
     type Err = ParseDockerRuntimeError;
 
+    /// Parse a Docker runtime name.
+    ///
+    /// Accepts `""` and `"default"` for [`DockerRuntime::Default`], and
+    /// `"runsc"` for [`DockerRuntime::Runsc`].
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "" | "default" => Ok(Self::Default),
@@ -218,7 +232,7 @@ impl str::FromStr for DockerRuntime {
     }
 }
 
-/// Error returned when parsing a Docker runtime name fails.
+/// Error returned when parsing an unsupported Docker runtime name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseDockerRuntimeError;
 
@@ -421,8 +435,8 @@ impl SandboxBuilder {
     /// Use a specific Docker runtime for the sandbox container.
     ///
     /// [`DockerRuntime::Runsc`] maps to Docker's `--runtime runsc` flag. By
-    /// default no runtime is passed, so Docker uses the daemon's configured
-    /// default runtime.
+    /// default, [`DockerRuntime::Default`] is used and no runtime is passed, so
+    /// Docker uses the daemon's configured default runtime.
     pub fn docker_runtime(mut self, runtime: DockerRuntime) -> Self {
         self.docker_runtime = runtime;
         self
