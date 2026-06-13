@@ -16,6 +16,7 @@ use std::{
     ops::RangeInclusive,
     path::{Path, PathBuf},
     rc::Rc,
+    str,
     time::Duration,
 };
 
@@ -162,7 +163,96 @@ pub struct SandboxBuilder {
     cpu_limit: Option<f32>,
     cpuset_cpus: Option<RangeInclusive<usize>>,
     enable_networking: bool,
+    /// Docker runtime selected for this sandbox.
+    pub docker_runtime: DockerRuntime,
 }
+
+/// The Docker runtime used for sandbox containers.
+///
+/// This controls Docker's `--runtime` option on sandbox container creation.
+/// [`DockerRuntime::Default`] omits the option and lets the Docker daemon use
+/// its configured default runtime.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DockerRuntime {
+    /// Let Docker use the daemon's configured default runtime.
+    ///
+    /// This does not pass a `--runtime` argument to Docker.
+    #[default]
+    Default,
+
+    /// Use gVisor's `runsc` runtime.
+    ///
+    /// This passes `--runtime runsc` to Docker.
+    Runsc,
+}
+
+impl DockerRuntime {
+    /// Name of the runtime for Docker's `--runtime` argument.
+    fn docker_name(self) -> Option<&'static str> {
+        match self {
+            Self::Default => None,
+            Self::Runsc => Some("runsc"),
+        }
+    }
+
+    /// Whether the runtime exposes the host-managed cgroup files inside the
+    /// sandbox container.
+    ///
+    /// If not, statistics must use host-level cgroup files.
+    fn supports_cgroup_files_inside_container(&self) -> bool {
+        match self {
+            DockerRuntime::Default => true,
+            DockerRuntime::Runsc => false,
+        }
+    }
+
+    /// Whether the runtime exposes the current process status file inside the
+    /// sandbox container.
+    pub fn exposes_self_status_inside_container(&self) -> bool {
+        match self {
+            DockerRuntime::Default => true,
+            DockerRuntime::Runsc => false,
+        }
+    }
+}
+
+impl fmt::Display for DockerRuntime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Default => "default".fmt(f),
+            Self::Runsc => "runsc".fmt(f),
+        }
+    }
+}
+
+impl str::FromStr for DockerRuntime {
+    type Err = ParseDockerRuntimeError;
+
+    /// Parse a Docker runtime name.
+    ///
+    /// Accepts `""` and `"default"` for [`DockerRuntime::Default`], and
+    /// `"runsc"` for [`DockerRuntime::Runsc`].
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "" | "default" => Ok(Self::Default),
+            "runsc" => Ok(Self::Runsc),
+            _ => Err(ParseDockerRuntimeError),
+        }
+    }
+}
+
+/// Error returned when parsing an unsupported Docker runtime name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParseDockerRuntimeError;
+
+impl fmt::Display for ParseDockerRuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        "unsupported Docker runtime".fmt(f)
+    }
+}
+
+impl std::error::Error for ParseDockerRuntimeError {}
 
 /// Statistics collected for a sandbox.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -281,6 +371,7 @@ impl SandboxBuilder {
             cpu_limit: None,
             cpuset_cpus: None,
             enable_networking: true,
+            docker_runtime: DockerRuntime::default(),
         }
     }
 
@@ -351,6 +442,16 @@ impl SandboxBuilder {
         self
     }
 
+    /// Use a specific Docker runtime for the sandbox container.
+    ///
+    /// [`DockerRuntime::Runsc`] maps to Docker's `--runtime runsc` flag. By
+    /// default, [`DockerRuntime::Default`] is used and no runtime is passed, so
+    /// Docker uses the daemon's configured default runtime.
+    pub fn docker_runtime(mut self, runtime: DockerRuntime) -> Self {
+        self.docker_runtime = runtime;
+        self
+    }
+
     /// Start a live sandbox from this configuration.
     ///
     /// The returned sandbox can be used to run one or more commands against a
@@ -411,6 +512,7 @@ impl SandboxBuilder {
                 cpu_limit = ?self.cpu_limit,
                 cpuset_cpus = ?self.cpuset_cpus,
                 enable_networking = self.enable_networking,
+                docker_runtime = ?self.docker_runtime,
             )
         )
     )]
@@ -457,6 +559,11 @@ impl SandboxBuilder {
             args.push("--isolation=process".into());
         }
 
+        if let Some(runtime) = self.docker_runtime.docker_name() {
+            args.push("--runtime".into());
+            args.push(runtime.into());
+        }
+
         args.push(workspace.sandbox_image().name.clone());
 
         // Use an idle command; the real command runs via `docker exec` so the container stays
@@ -474,7 +581,7 @@ impl SandboxBuilder {
             workspace,
             running: true,
             oom_killed: false,
-            cgroup: CgroupStatsReader::new(workspace, id),
+            cgroup: CgroupStatsReader::new(workspace, id, self.docker_runtime),
         })
     }
 }
@@ -679,6 +786,10 @@ impl<'w> Sandbox<'w> {
         )
     }
 
+    fn command_needs_fresh_container(res: &Result<ProcessOutput, CommandError>) -> bool {
+        Self::command_timed_out(res) || matches!(res, Err(CommandError::SandboxOOM))
+    }
+
     /// Return the statistics gathered across the sandbox lifetime so far.
     pub fn statistics(&self) -> SandboxStatistics {
         self.statistics.snapshot()
@@ -761,6 +872,7 @@ impl<'w> Sandbox<'w> {
                 cpu_limit = ?self.builder.cpu_limit,
                 cpuset_cpus = ?self.builder.cpuset_cpus,
                 enable_networking = self.builder.enable_networking,
+                docker_runtime = ?self.builder.docker_runtime,
                 capture,
                 timeout_secs = ?timeout.map(|timeout| timeout.as_secs()),
                 no_output_timeout_secs = ?no_output_timeout.map(|timeout| timeout.as_secs()),
@@ -803,10 +915,12 @@ impl<'w> Sandbox<'w> {
         // command inside the container keeps running on the container's
         // `sleep infinity` init. Reusing the container would let the
         // abandoned process race the next command (sharing files, target
-        // dir, CPU/memory budget). Tear the container down so the next
-        // command in this build gets a clean one via
+        // dir, CPU/memory budget). OOMs can also leave the container's
+        // exec path unusable even when Docker still reports it as running
+        // (for example with gVisor/runsc). Tear the container down so the
+        // next command in this build gets a clean one via
         // `ensure_reusable_container`.
-        if Self::command_timed_out(&res)
+        if Self::command_needs_fresh_container(&res)
             && let Some(mut container) = self.container.take()
         {
             container.delete()?;
@@ -856,9 +970,34 @@ mod tests {
 
     const USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";
 
+    fn sandbox_builder() -> SandboxBuilder {
+        let builder = SandboxBuilder::new().enable_networking(false);
+        let Ok(runtime) = env::var("RUSTWIDE_DOCKER_RUNTIME") else {
+            return builder;
+        };
+        builder.docker_runtime(runtime.parse().expect("invalid RUSTWIDE_DOCKER_RUNTIME"))
+    }
+
     #[test]
     fn formats_cpuset_cpus() {
         assert_eq!(format_cpuset_cpus(&(2..=4)), "2-4");
+    }
+
+    #[test_case("", Ok(DockerRuntime::Default))]
+    #[test_case("default", Ok(DockerRuntime::Default))]
+    #[test_case("runsc", Ok(DockerRuntime::Runsc))]
+    #[test_case("runc", Err(ParseDockerRuntimeError))]
+    fn parses_docker_runtime_values(
+        value: &str,
+        expected: Result<DockerRuntime, ParseDockerRuntimeError>,
+    ) {
+        assert_eq!(value.parse(), expected);
+    }
+
+    #[test_case(DockerRuntime::Default, None)]
+    #[test_case(DockerRuntime::Runsc, Some("runsc"))]
+    fn renders_docker_runtime_names(runtime: DockerRuntime, expected: Option<&str>) {
+        assert_eq!(runtime.docker_name(), expected);
     }
 
     const fn stats(peak: Option<u64>) -> SandboxStatistics {
@@ -918,11 +1057,8 @@ mod tests {
         let workspace = init_test_workspace("build-unit")?;
         let source_dir = tempdir()?;
         let target_dir = tempdir()?;
-        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
-            &workspace,
-            source_dir.path(),
-            target_dir.path(),
-        )?;
+        let mut sandbox =
+            sandbox_builder().start(&workspace, source_dir.path(), target_dir.path())?;
         let host_cgroup = sandbox
             .detect_host_cgroup()
             .expect("sandbox should resolve host cgroup files");
@@ -939,11 +1075,13 @@ mod tests {
         let workspace = init_test_workspace("build-unit")?;
         let source_dir = tempdir()?;
         let target_dir = tempdir()?;
-        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
-            &workspace,
-            source_dir.path(),
-            target_dir.path(),
-        )?;
+
+        let builder = sandbox_builder();
+        let supports_cgroup_files_inside_container = builder
+            .docker_runtime
+            .supports_cgroup_files_inside_container();
+
+        let mut sandbox = builder.start(&workspace, source_dir.path(), target_dir.path())?;
         let host_cgroup = sandbox
             .detect_host_cgroup()
             .expect("sandbox should resolve host cgroup files");
@@ -951,6 +1089,13 @@ mod tests {
         let host_peak = host_cgroup
             .read_memory_peak()
             .expect("host-side memory peak should be readable");
+
+        assert!(host_peak > 0, "host-side memory peak should be nonzero");
+
+        if !supports_cgroup_files_inside_container {
+            return Ok(());
+        }
+
         let exec_peak = sandbox
             .container
             .as_mut()
@@ -959,7 +1104,6 @@ mod tests {
             .read_memory_peak_from_container()
             .expect("exec-side memory peak should be readable");
 
-        assert!(host_peak > 0, "host-side memory peak should be nonzero");
         assert!(exec_peak > 0, "exec-side memory peak should be nonzero");
 
         let min_peak = host_peak.min(exec_peak);
@@ -978,11 +1122,16 @@ mod tests {
         let workspace = init_test_workspace("build-unit")?;
         let source_dir = tempdir()?;
         let target_dir = tempdir()?;
-        let mut sandbox = SandboxBuilder::new().enable_networking(false).start(
-            &workspace,
-            source_dir.path(),
-            target_dir.path(),
-        )?;
+
+        let builder = sandbox_builder();
+        if !builder
+            .docker_runtime
+            .supports_cgroup_files_inside_container()
+        {
+            return Ok(());
+        }
+
+        let mut sandbox = builder.start(&workspace, source_dir.path(), target_dir.path())?;
         let host_cgroup = sandbox
             .detect_host_cgroup()
             .expect("sandbox should resolve host cgroup files");

@@ -1,4 +1,3 @@
-use rustwide::cmd::SandboxBuilder;
 use rustwide::{Crate, Toolchain};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -28,7 +27,7 @@ fn test_purge_caches() -> anyhow::Result<()> {
     for krate in &crates {
         krate.fetch(&workspace)?;
 
-        let sandbox = SandboxBuilder::new().enable_networking(false);
+        let sandbox = crate::utils::sandbox_builder();
         let mut build_dir = workspace.build_dir("shared");
         build_dir.build(&toolchain, krate, sandbox).run(|build| {
             build.cargo().args(["check"]).run()?;

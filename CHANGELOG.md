@@ -5,6 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* Added `DockerRuntime`, `ParseDockerRuntimeError`, and
+  `SandboxBuilder::docker_runtime` for selecting a Docker runtime such as
+  gVisor's `runsc` for sandbox containers. Runtime-aware sandbox statistics
+  now avoid in-container cgroup reads when the runtime does not expose those
+  files.
+
+* Added a CI test variant that runs the Linux sandbox tests with gVisor's
+  `runsc` Docker runtime.
 
 ## [0.25.1] - 2026-05-22
 

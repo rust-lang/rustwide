@@ -1,10 +1,9 @@
-use rustwide::cmd::SandboxBuilder;
 use std::time::Duration;
 
 #[test]
 fn test_container_cleanup_on_success() {
     super::runner::run("hello-world", |run| {
-        let container_id = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_id = run.run(crate::utils::sandbox_builder(), |build| {
             // Verify we are running inside a Docker container
             let dockerenv = build.cmd("test").args(["-f", "/.dockerenv"]).run_capture();
             assert!(
@@ -29,7 +28,7 @@ fn test_container_cleanup_on_success() {
 #[test]
 fn test_container_reused_across_commands() {
     super::runner::run("hello-world", |run| {
-        let container_ids = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_ids = run.run(crate::utils::sandbox_builder(), |build| {
             let first = build.cmd("cat").args(["/etc/hostname"]).run_capture()?;
             let second = build.cmd("cat").args(["/etc/hostname"]).run_capture()?;
 
@@ -55,7 +54,7 @@ fn test_container_reused_across_commands() {
 #[cfg(not(windows))]
 fn test_container_recreated_when_previous_dies() {
     super::runner::run("hello-world", |run| {
-        let container_ids = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_ids = run.run(crate::utils::sandbox_builder(), |build| {
             // Capture the original container's short ID via /etc/hostname.
             let first = build.cmd("cat").args(["/etc/hostname"]).run_capture()?;
             let first_id = first.stdout_lines()[0].trim().to_string();
@@ -103,9 +102,7 @@ fn test_reused_container_oom_does_not_poison_later_commands() {
 
     super::runner::run("allocate", |run| {
         run.run(
-            SandboxBuilder::new()
-                .enable_networking(false)
-                .memory_limit(Some(512 * 1024 * 1024)),
+            crate::utils::sandbox_builder().memory_limit(Some(512 * 1024 * 1024)),
             |build| {
                 let first = build.cargo().args(["run", "--", "1024"]).run();
                 assert!(
@@ -127,7 +124,7 @@ fn test_reused_container_timeout_recreates_container() {
     use rustwide::cmd::CommandError;
 
     super::runner::run("hello-world", |run| {
-        let container_ids = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_ids = run.run(crate::utils::sandbox_builder(), |build| {
             let first = build.cmd("cat").args(["/etc/hostname"]).run_capture()?;
             let first_id = first.stdout_lines()[0].trim().to_string();
 
@@ -177,7 +174,7 @@ fn test_reused_container_no_output_timeout_recreates_container() {
     use rustwide::cmd::CommandError;
 
     super::runner::run("hello-world", |run| {
-        let container_ids = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_ids = run.run(crate::utils::sandbox_builder(), |build| {
             let first = build.cmd("cat").args(["/etc/hostname"]).run_capture()?;
             let first_id = first.stdout_lines()[0].trim().to_string();
 
@@ -222,7 +219,7 @@ fn test_reused_container_no_output_timeout_recreates_container() {
 #[test]
 fn test_container_cleanup_on_command_failure() {
     super::runner::run("hello-world", |run| {
-        let container_id = run.run(SandboxBuilder::new().enable_networking(false), |build| {
+        let container_id = run.run(crate::utils::sandbox_builder(), |build| {
             // Verify we are running inside a Docker container
             let dockerenv = build.cmd("test").args(["-f", "/.dockerenv"]).run_capture();
             assert!(

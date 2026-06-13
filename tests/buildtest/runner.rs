@@ -6,7 +6,9 @@ use std::path::Path;
 
 pub(crate) fn run(crate_name: &str, f: impl FnOnce(&mut Runner) -> anyhow::Result<()>) {
     let mut runner = Runner::new(crate_name).unwrap();
-    f(&mut runner).unwrap();
+    if let Err(err) = f(&mut runner) {
+        panic!("error running command: \n{:?}", err);
+    }
 }
 
 pub(crate) struct Runner {
@@ -70,10 +72,7 @@ macro_rules! test_prepare_error {
         #[test]
         fn $name() {
             runner::run($krate, |run| {
-                let res = run.run(
-                    rustwide::cmd::SandboxBuilder::new().enable_networking(false),
-                    |_| Ok(()),
-                );
+                let res = run.run(crate::utils::sandbox_builder(), |_| Ok(()));
                 match res.err().and_then(|err| err.downcast().ok()) {
                     Some(rustwide::PrepareError::$expected) => {
                         // Everything is OK!
@@ -103,10 +102,7 @@ macro_rules! test_prepare_error_stderr {
         #[test]
         fn $name() {
             runner::run($krate, |run| {
-                let res = run.run(
-                    rustwide::cmd::SandboxBuilder::new().enable_networking(false),
-                    |_| Ok(()),
-                );
+                let res = run.run(crate::utils::sandbox_builder(), |_| Ok(()));
                 match res.err().and_then(|err| err.downcast().ok()) {
                     Some(rustwide::PrepareError::$expected(output)) => {
                         assert!(output.contains($expected_output), "output: {:?}", output);

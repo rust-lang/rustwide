@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail};
-use rustwide::cmd::{Command, CommandError, SandboxBuilder};
+use rustwide::cmd::{Command, CommandError};
 use rustwide::{Crate, PrepareError, Toolchain, Workspace};
 
 #[test]
@@ -16,7 +16,7 @@ fn test_fetch() -> anyhow::Result<()> {
     let cloned_commit = || -> anyhow::Result<String> {
         let mut dir = workspace.build_dir("integration-crates_git-test_fetch");
         dir.purge()?;
-        dir.build(&toolchain, &krate, SandboxBuilder::new())
+        dir.build(&toolchain, &krate, crate::utils::sandbox_builder())
             .run(|build| {
                 Ok(Command::new(&workspace, "git")
                     .args(["rev-parse", "HEAD"])

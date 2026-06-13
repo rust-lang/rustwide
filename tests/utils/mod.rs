@@ -1,5 +1,8 @@
 use log::LevelFilter;
-use rustwide::{Workspace, WorkspaceBuilder, cmd::SandboxImage};
+use rustwide::{
+    Workspace, WorkspaceBuilder,
+    cmd::{SandboxBuilder, SandboxImage},
+};
 use std::path::{Path, PathBuf};
 
 static USER_AGENT: &str = "rustwide-tests (https://github.com/rust-lang/rustwide)";
@@ -29,6 +32,18 @@ pub(crate) fn init_named_workspace(name: &str) -> anyhow::Result<Workspace> {
     }
 
     builder.init()
+}
+
+#[allow(dead_code)]
+pub(crate) fn sandbox_builder() -> SandboxBuilder {
+    configure_sandbox_builder(SandboxBuilder::new().enable_networking(false))
+}
+
+pub(crate) fn configure_sandbox_builder(builder: SandboxBuilder) -> SandboxBuilder {
+    let Ok(runtime) = std::env::var("RUSTWIDE_DOCKER_RUNTIME") else {
+        return builder;
+    };
+    builder.docker_runtime(runtime.parse().expect("invalid RUSTWIDE_DOCKER_RUNTIME"))
 }
 
 fn init_logs() {

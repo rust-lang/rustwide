@@ -1,4 +1,7 @@
-use crate::{Workspace, cmd::Command};
+use crate::{
+    Workspace,
+    cmd::{Command, DockerRuntime},
+};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -219,10 +222,15 @@ pub(super) struct CgroupStatsReader<'w> {
     workspace: &'w Workspace,
     container_id: String,
     pub(super) pid: Option<u32>,
+    docker_runtime: DockerRuntime,
 }
 
 impl<'w> CgroupStatsReader<'w> {
-    pub(super) fn new(workspace: &'w Workspace, container_id: impl Into<String>) -> Self {
+    pub(super) fn new(
+        workspace: &'w Workspace,
+        container_id: impl Into<String>,
+        docker_runtime: DockerRuntime,
+    ) -> Self {
         Self {
             oom_kill_count: None,
             cgroup_version: None,
@@ -230,6 +238,7 @@ impl<'w> CgroupStatsReader<'w> {
             workspace,
             container_id: container_id.into(),
             pid: None,
+            docker_runtime,
         }
     }
 
@@ -270,18 +279,26 @@ impl<'w> CgroupStatsReader<'w> {
     }
 
     pub(super) fn read_memory_peak_from_container(&mut self) -> Option<u64> {
-        self.exec_cat_cgroup_file(
-            "/sys/fs/cgroup/memory.peak",
-            "/sys/fs/cgroup/memory/memory.max_usage_in_bytes",
-        )
-        .and_then(parse_memory_peak)
+        if self.docker_runtime.supports_cgroup_files_inside_container() {
+            self.exec_cat_cgroup_file(
+                "/sys/fs/cgroup/memory.peak",
+                "/sys/fs/cgroup/memory/memory.max_usage_in_bytes",
+            )
+            .and_then(parse_memory_peak)
+        } else {
+            None
+        }
     }
 
     pub(super) fn read_oom_kill_count_from_container(&mut self) -> Option<u64> {
-        Some(parse_oom_kill_count(self.exec_cat_cgroup_file(
-            "/sys/fs/cgroup/memory.events",
-            "/sys/fs/cgroup/memory/memory.oom_control",
-        )?))
+        if self.docker_runtime.supports_cgroup_files_inside_container() {
+            Some(parse_oom_kill_count(self.exec_cat_cgroup_file(
+                "/sys/fs/cgroup/memory.events",
+                "/sys/fs/cgroup/memory/memory.oom_control",
+            )?))
+        } else {
+            None
+        }
     }
 
     pub(super) fn detect_host_cgroup(&mut self) -> Option<&HostCgroup> {
