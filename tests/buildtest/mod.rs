@@ -255,7 +255,7 @@ fn test_invalid_cpuset_cpus() {
 fn test_cpuset_cpus_applied() {
     let builder = crate::utils::sandbox_builder().cpuset_cpus(Some(0..=1));
 
-    if builder
+    if !builder
         .docker_runtime
         .exposes_self_status_inside_container()
     {
