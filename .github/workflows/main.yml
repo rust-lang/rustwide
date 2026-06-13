@@ -50,7 +50,6 @@ jobs:
           - os: ubuntu-22.04
             cargo_flags: ""
             docker_runtime: runsc
-            test_flags: "--nocapture"
     steps:
       - name: Checkout the source code
         uses: actions/checkout@main

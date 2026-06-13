@@ -264,14 +264,12 @@ fn test_cpuset_cpus_applied() {
 
     runner::run("hello-world", |run| {
         run.run(builder, |build| {
-            let output = dbg!(
-                build
-                    .cmd("sh")
-                    .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
-                    .run_capture()
-            )?;
+            let output = build
+                .cmd("sh")
+                .args(["-c", "grep '^Cpus_allowed_list:' /proc/self/status"])
+                .run_capture()?;
 
-            assert_eq!(dbg!(output.stdout_lines()), ["Cpus_allowed_list:\t0-1"]);
+            assert_eq!(output.stdout_lines(), ["Cpus_allowed_list:\t0-1"]);
             Ok(())
         })?;
         Ok(())
