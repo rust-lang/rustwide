@@ -343,15 +343,25 @@ fn test_cargo_workspace() {
 
 #[test]
 fn test_extra_cargo_args() {
-    runner::run("hello-world", |run| {
-        run.build(SandboxBuilder::new().enable_networking(false), |builder| {
-            builder
-                .extra_cargo_args(vec!["--quiet".into()])
-                .run(|build| {
-                    build.cargo().args(&["run"]).run()?;
+    runner::run("extra-cargo-args", |run| {
+        let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+        rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
+            run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+                builder.extra_cargo_args(["--quiet"]).run(|build| {
+                    build.cargo().args(["run"]).run()?;
                     Ok(())
                 })
+            })?;
+            Ok(())
         })?;
+
+        let output = storage.to_string();
+        assert!(
+            output.contains("generate-lockfile")
+                && output.contains("--quiet")
+                && !output.contains("Locking 1 package"),
+            "output: {output:?}"
+        );
         Ok(())
     });
 }
@@ -359,14 +369,25 @@ fn test_extra_cargo_args() {
 #[test]
 fn test_extra_cargo_args_invalid() {
     runner::run("hello-world", |run| {
-        let res = run.build(SandboxBuilder::new().enable_networking(false), |builder| {
-            builder
-                .extra_cargo_args(vec!["--invalid-flag-that-does-not-exist".into()])
-                .run(|_build| Ok(()))
+        let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
+        let res = rustwide::logging::capture(&storage, || {
+            run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+                builder
+                    .extra_cargo_args(["--invalid-flag-that-does-not-exist"])
+                    .run(|_build| Ok(()))
+            })
         });
+
+        match res.err().and_then(|err| err.downcast().ok()) {
+            Some(rustwide::PrepareError::InvalidCargoTomlSyntax) => {}
+            Some(other) => panic!("expected InvalidCargoTomlSyntax, got {other:?}"),
+            None => panic!("expected InvalidCargoTomlSyntax, got Ok"),
+        }
+
+        let output = storage.to_string();
         assert!(
-            res.is_err(),
-            "expected extra cargo args to cause a prepare failure"
+            output.contains("metadata") && output.contains("--invalid-flag-that-does-not-exist"),
+            "output: {output:?}"
         );
         Ok(())
     });

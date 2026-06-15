@@ -1,0 +1,7 @@
+[package]
+name = "extra-cargo-args"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+extra-cargo-args-dep = { path = "extra-cargo-args-dep" }

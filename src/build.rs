@@ -6,9 +6,9 @@ use crate::{
     },
     prepare::Prepare,
 };
-use std::path::PathBuf;
 use std::vec::Vec;
 use std::{cell::RefCell, rc::Rc};
+use std::{ffi::OsString, path::PathBuf};
 
 #[derive(Clone)]
 pub(crate) enum CratePatch {
@@ -46,7 +46,7 @@ pub struct BuildBuilder<'a> {
     krate: &'a Crate,
     sandbox: SandboxBuilder,
     patches: Vec<CratePatch>,
-    extra_cargo_args: Vec<String>,
+    extra_cargo_args: Vec<OsString>,
 }
 
 /// Output of a completed build together with build-level statistics.
@@ -150,15 +150,19 @@ impl BuildBuilder<'_> {
     /// # let sandbox = SandboxBuilder::new();
     /// let mut build_dir = workspace.build_dir("foo");
     /// build_dir.build(&toolchain, &krate, sandbox)
-    ///     .extra_cargo_args(vec!["-Zbindeps".into()])
+    ///     .extra_cargo_args(["-Zbindeps"])
     ///     .run(|build| {
     ///         build.cargo().args(&["test", "--all"]).run()?;
     ///         Ok(())
     ///     })?;
     /// # Ok(())
     /// # }
-    pub fn extra_cargo_args(mut self, args: Vec<String>) -> Self {
-        self.extra_cargo_args = args;
+    pub fn extra_cargo_args<S: Into<OsString>>(
+        mut self,
+        args: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.extra_cargo_args
+            .extend(args.into_iter().map(Into::into));
         self
     }
 
@@ -267,7 +271,7 @@ impl BuildDirectory {
         krate: &Crate,
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
-        extra_cargo_args: Vec<String>,
+        extra_cargo_args: Vec<OsString>,
         f: F,
     ) -> anyhow::Result<BuildResult<R>> {
         let source_dir = self.source_dir();
