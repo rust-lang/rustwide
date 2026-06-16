@@ -6,9 +6,9 @@ use crate::{
     },
     prepare::Prepare,
 };
-use std::path::PathBuf;
 use std::vec::Vec;
 use std::{cell::RefCell, rc::Rc};
+use std::{ffi::OsString, path::PathBuf};
 
 #[derive(Clone)]
 pub(crate) enum CratePatch {
@@ -46,6 +46,7 @@ pub struct BuildBuilder<'a> {
     krate: &'a Crate,
     sandbox: SandboxBuilder,
     patches: Vec<CratePatch>,
+    extra_cargo_args: Vec<OsString>,
 }
 
 /// Output of a completed build together with build-level statistics.
@@ -131,6 +132,40 @@ impl BuildBuilder<'_> {
         self
     }
 
+    /// Add extra arguments passed to cargo commands during the prepare phase
+    /// (manifest validation, lockfile generation, dependency fetching).
+    ///
+    /// This is useful for passing unstable cargo flags (e.g. `-Zbindeps`) that
+    /// are required for cargo to parse the crate's manifest.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use rustwide::{WorkspaceBuilder, Toolchain, Crate, cmd::SandboxBuilder};
+    /// # use std::error::Error;
+    /// # fn main() -> anyhow::Result<(), Box<dyn Error>> {
+    /// # let workspace = WorkspaceBuilder::new("".as_ref(), "").init()?;
+    /// # let toolchain = Toolchain::dist("");
+    /// # let krate = Crate::local("".as_ref());
+    /// # let sandbox = SandboxBuilder::new();
+    /// let mut build_dir = workspace.build_dir("foo");
+    /// build_dir.build(&toolchain, &krate, sandbox)
+    ///     .extra_cargo_args(["-Zbindeps"])
+    ///     .run(|build| {
+    ///         build.cargo().args(&["test", "--all"]).run()?;
+    ///         Ok(())
+    ///     })?;
+    /// # Ok(())
+    /// # }
+    pub fn extra_cargo_args<S: Into<OsString>>(
+        mut self,
+        args: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.extra_cargo_args
+            .extend(args.into_iter().map(Into::into));
+        self
+    }
+
     /// Run a sandboxed build of the provided crate with the provided toolchain. The closure will
     /// be provided an instance of [`Build`](struct.Build.html) that allows spawning new processes
     /// inside the sandbox.
@@ -162,8 +197,14 @@ impl BuildBuilder<'_> {
         self,
         f: F,
     ) -> anyhow::Result<BuildResult<R>> {
-        self.build_dir
-            .run(self.toolchain, self.krate, self.sandbox, self.patches, f)
+        self.build_dir.run(
+            self.toolchain,
+            self.krate,
+            self.sandbox,
+            self.patches,
+            self.extra_cargo_args,
+            f,
+        )
     }
 }
 
@@ -208,6 +249,7 @@ impl BuildDirectory {
             krate,
             sandbox,
             patches: Vec::new(),
+            extra_cargo_args: Vec::new(),
         }
     }
 
@@ -229,6 +271,7 @@ impl BuildDirectory {
         krate: &Crate,
         sandbox: SandboxBuilder,
         patches: Vec<CratePatch>,
+        extra_cargo_args: Vec<OsString>,
         f: F,
     ) -> anyhow::Result<BuildResult<R>> {
         let source_dir = self.source_dir();
@@ -236,7 +279,14 @@ impl BuildDirectory {
             crate::utils::remove_dir_all(&source_dir)?;
         }
 
-        let mut prepare = Prepare::new(&self.workspace, toolchain, krate, &source_dir, patches);
+        let mut prepare = Prepare::new(
+            &self.workspace,
+            toolchain,
+            krate,
+            &source_dir,
+            patches,
+            extra_cargo_args,
+        );
         prepare.prepare().map_err(|err| {
             if err.downcast_ref::<PrepareError>().is_none() {
                 err.context(PrepareError::Uncategorized)
@@ -407,6 +457,7 @@ impl<'ws> Build<'ws> {
             self.toolchain,
             &self.host_source_dir(),
             targets,
+            &[],
         )
     }
 }
