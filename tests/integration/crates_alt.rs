@@ -7,7 +7,7 @@ fn test_fetch() -> anyhow::Result<()> {
     let workspace = crate::utils::init_workspace()?;
 
     let alt = AlternativeRegistry::new(INDEX_URL);
-    let krate = Crate::registry(alt, "foo", "0.4.0");
+    let krate = Crate::registry(alt, "gcc", "0.3.38");
     krate.fetch(&workspace)?;
 
     Ok(())
