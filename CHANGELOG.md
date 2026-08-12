@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added a CI test variant that runs the Linux sandbox tests with gVisor's
   `runsc` Docker runtime.
 
+* upgrade `aiohttpc`, `base64` and `git2` dependencies.
+
 ## [0.25.1] - 2026-05-22
 
 * LogStorage: fix log limits (lines/length/size) with multi-line log msgs
