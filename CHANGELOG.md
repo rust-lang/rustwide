@@ -5,6 +5,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.26.0] - 2026-08-13
+
+* Add `extra_cargo_args` support for prepare phase
+
 * Added `DockerRuntime`, `ParseDockerRuntimeError`, and
   `SandboxBuilder::docker_runtime` for selecting a Docker runtime such as
   gVisor's `runsc` for sandbox containers. Runtime-aware sandbox statistics
