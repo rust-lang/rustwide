@@ -345,7 +345,7 @@ fn test_extra_cargo_args() {
     runner::run("extra-cargo-args", |run| {
         let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
         rustwide::logging::capture(&storage, || -> anyhow::Result<_> {
-            run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+            run.build(crate::utils::sandbox_builder(), |builder| {
                 builder.extra_cargo_args(["--quiet"]).run(|build| {
                     build.cargo().args(["run"]).run()?;
                     Ok(())
@@ -370,7 +370,7 @@ fn test_extra_cargo_args_invalid() {
     runner::run("hello-world", |run| {
         let storage = rustwide::logging::LogStorage::new(LevelFilter::Info);
         let res = rustwide::logging::capture(&storage, || {
-            run.build(SandboxBuilder::new().enable_networking(false), |builder| {
+            run.build(crate::utils::sandbox_builder(), |builder| {
                 builder
                     .extra_cargo_args(["--invalid-flag-that-does-not-exist"])
                     .run(|_build| Ok(()))
