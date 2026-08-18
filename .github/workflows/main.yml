@@ -9,10 +9,12 @@ on:
       - "**"
 
 jobs:
-
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
     steps:
       - name: Checkout the source code
         uses: actions/checkout@main
