@@ -67,17 +67,15 @@ impl CrateTrait for GitRepo {
         feature = "tracing",
         tracing::instrument(
             skip_all,
-            fields(url = %self.url, cache_hit = tracing::field::Empty, path = tracing::field::Empty)
+            level = "debug",
+            fields(cache_hit = tracing::field::Empty)
         )
     )]
     fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
         let path = self.cached_path(workspace);
         let cache_hit = path.join("HEAD").is_file();
         #[cfg(feature = "tracing")]
-        {
-            tracing::Span::current().record("cache_hit", cache_hit);
-            tracing::Span::current().record("path", path.display().to_string());
-        }
+        tracing::Span::current().record("cache_hit", cache_hit);
 
         // The credential helper that suppresses the password prompt shows this message when a
         // repository requires authentication:
@@ -127,10 +125,7 @@ impl CrateTrait for GitRepo {
         Ok(())
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(url = %self.url, dest = %dest.display()))
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         Command::new(workspace, "git")
             .args(["clone"])

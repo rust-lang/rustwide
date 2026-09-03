@@ -322,7 +322,7 @@ impl<'w> CgroupStatsReader<'w> {
         self.oom_kill_count = self.read_oom_kill_count();
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     pub(super) fn read_memory_peak(&mut self) -> Option<u64> {
         if let Some(host_cgroup) = self.detect_host_cgroup()
             && let Some(peak) = host_cgroup.read_memory_peak()

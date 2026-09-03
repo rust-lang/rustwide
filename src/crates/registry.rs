@@ -96,17 +96,7 @@ impl RegistryCrate {
     }
 
     #[allow(unused_variables)]
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                registry = %self.registry.name(),
-                crate_name = %self.name,
-                version = %self.version,
-            )
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn fetch_url(&self, workspace: &Workspace) -> anyhow::Result<String> {
         match &self.registry {
             Registry::CratesIo => Ok(format!(
@@ -175,12 +165,8 @@ impl CrateTrait for RegistryCrate {
         feature = "tracing",
         tracing::instrument(
             skip_all,
-            fields(
-                registry = %self.registry.name(),
-                crate_name = %self.name,
-                version = %self.version,
-                cache_hit = tracing::field::Empty,
-            )
+            level = "debug",
+            fields(cache_hit = tracing::field::Empty)
         )
     )]
     fn fetch(&self, workspace: &Workspace) -> anyhow::Result<()> {
@@ -219,18 +205,7 @@ impl CrateTrait for RegistryCrate {
         Ok(())
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                registry = %self.registry.name(),
-                crate_name = %self.name,
-                version = %self.version,
-                dest = %dest.display(),
-            )
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn copy_source_to(&self, workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         let cached = self.cache_path(workspace);
         let mut file = File::open(cached)?;

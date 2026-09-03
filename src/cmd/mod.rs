@@ -16,7 +16,7 @@ use log::{error, info};
 use process_lines_actions::InnerState;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 use std::{cell::RefCell, env::consts::EXE_SUFFIX, rc::Rc};
@@ -417,10 +417,7 @@ impl<'w> Command<'w, '_> {
         self.run_inner(true)
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(self = ?self, capture))
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn run_inner(self, capture: bool) -> Result<ProcessOutput, CommandError> {
         if let Some(sandbox) = self.sandbox {
             let binary = match self.binary {
@@ -477,6 +474,7 @@ impl<'w> Command<'w, '_> {
                 }
             };
 
+            let cmdstr = format_command(binary.as_os_str(), &self.args);
             let mut cmd = AsyncCommand::new(binary);
             cmd.args(&self.args);
 
@@ -507,14 +505,12 @@ impl<'w> Command<'w, '_> {
                 cmd.env(k, v);
             }
 
-            let cmdstr = format!("{cmd:?}");
-
             if let Some(ref current_directory) = self.current_directory {
                 cmd.current_dir(current_directory);
             }
 
             if self.log_command {
-                info!("running `{cmdstr}`");
+                info!("running `{}`", cmdstr.to_string_lossy());
             }
 
             let out = RUNTIME
@@ -701,8 +697,44 @@ async fn log_command(
     })
 }
 
+fn format_command<S1, S2, I>(binary: S1, args: I) -> OsString
+where
+    S1: AsRef<OsStr>,
+    S2: AsRef<OsStr>,
+    I: IntoIterator<Item = S2>,
+{
+    let binary = binary.as_ref();
+    let binary_name = Path::new(binary).file_name().unwrap_or(binary);
+
+    let mut command = OsString::from("\"");
+    command.push(binary_name);
+    command.push("\"");
+
+    for arg in args {
+        command.push(" \"");
+        command.push(arg.as_ref());
+        command.push("\"");
+    }
+    command
+}
+
 fn exe_suffix(file: &OsStr) -> OsString {
     let mut path = OsString::from(file);
     path.push(EXE_SUFFIX);
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats_only_the_program_and_arguments() {
+        let args = ["argument", "argument with spaces"];
+
+        assert_eq!(
+            format_command(OsStr::new("/path/to/program"), args),
+            r#""program" "argument" "argument with spaces""#
+        );
+    }
 }

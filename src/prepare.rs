@@ -33,18 +33,7 @@ impl<'a> Prepare<'a> {
         }
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                krate = %self.krate,
-                toolchain = %self.toolchain,
-                source_dir = %self.source_dir.display(),
-                patches = self.patches.len(),
-            )
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     pub(crate) fn prepare(&mut self) -> anyhow::Result<()> {
         self.krate.copy_source_to(self.workspace, self.source_dir)?;
         self.remove_override_files()?;
@@ -56,7 +45,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn validate_manifest(&self) -> anyhow::Result<()> {
         info!(
             "validating manifest of {} on toolchain {}",
@@ -80,7 +69,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn remove_override_files(&self) -> anyhow::Result<()> {
         let paths = [
             &Path::new(".cargo").join("config"),
@@ -98,7 +87,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn tweak_toml(&self) -> anyhow::Result<()> {
         let path = self.source_dir.join("Cargo.toml");
         let mut tweaker = TomlTweaker::new(self.krate, &path, &self.patches)?;
@@ -107,7 +96,7 @@ impl<'a> Prepare<'a> {
         Ok(())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn capture_lockfile(&mut self) -> anyhow::Result<()> {
         if self.source_dir.join("Cargo.lock").exists() {
             info!(
@@ -131,23 +120,13 @@ impl<'a> Prepare<'a> {
         run_command(cmd.current_directory(self.source_dir))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn fetch_deps(&mut self) -> anyhow::Result<()> {
         fetch_deps(self.workspace, self.toolchain, self.source_dir, &[])
     }
 }
 
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        skip_all,
-        fields(
-            toolchain = %toolchain,
-            source_dir = %source_dir.display(),
-            build_std_targets = fetch_build_std_targets.len(),
-        )
-    )
-)]
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
 pub(crate) fn fetch_deps(
     workspace: &Workspace,
     toolchain: &Toolchain,

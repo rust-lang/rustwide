@@ -137,7 +137,7 @@ impl WorkspaceBuilder {
 
     /// Initialize the workspace. This will create all the necessary local files and fetch the rest from the network. It's
     /// not unexpected for this method to take minutes to run on slower network connections.
-    #[cfg_attr(feature = "tracing", tracing::instrument())]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn init(self) -> anyhow::Result<Workspace> {
         std::fs::create_dir_all(&self.path).with_context(|| {
             format!(
@@ -319,7 +319,7 @@ impl Workspace {
         &self.inner.rustup_profile
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn init(&self, fast_init: bool) -> anyhow::Result<()> {
         info!("installing tools required by rustwide");
         crate::tools::install(self, fast_init)?;
@@ -330,7 +330,7 @@ impl Workspace {
         Ok(())
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     #[allow(clippy::unnecessary_wraps)] // hopefully we could actually catch the error here at some point
     fn update_cratesio_registry(&self) -> anyhow::Result<()> {
         // This nop cargo command is to update the registry so we don't have to do it for each

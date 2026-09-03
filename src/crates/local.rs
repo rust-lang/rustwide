@@ -25,13 +25,7 @@ impl CrateTrait for Local {
         Ok(())
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(source = %self.path.display(), dest = %dest.display())
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn copy_source_to(&self, _workspace: &Workspace, dest: &Path) -> anyhow::Result<()> {
         info!(
             "copying local crate from {} to {}",

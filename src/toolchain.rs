@@ -307,13 +307,7 @@ impl Toolchain {
         self.list_rustup_things(workspace, RustupThing::Target)
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(toolchain = %self, action = %action, thing = %thing, name)
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn change_rustup_thing(
         &self,
         workspace: &Workspace,
@@ -386,10 +380,7 @@ impl Toolchain {
         Ok(())
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(toolchain = %self, thing = %thing))
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn list_rustup_things(
         &self,
         workspace: &Workspace,

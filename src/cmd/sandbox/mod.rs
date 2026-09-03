@@ -598,21 +598,7 @@ impl SandboxBuilder {
         Ok(container)
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                image = %workspace.sandbox_image().name,
-                mounts = self.mounts.len(),
-                memory_limit = ?self.memory_limit,
-                cpu_limit = ?self.cpu_limit,
-                cpuset_cpus = ?self.cpuset_cpus,
-                enable_networking = self.enable_networking,
-                docker_runtime = ?self.docker_runtime,
-            )
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn create(self, workspace: &Workspace) -> Result<Container<'_>, CommandError> {
         let mut args: Vec<String> = vec!["create".into()];
 
@@ -726,7 +712,7 @@ impl fmt::Display for Container<'_> {
 }
 
 impl Container<'_> {
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn inspect(&self) -> Result<InspectContainer, CommandError> {
         let output = Command::new(self.workspace, "docker")
             .args(["inspect", self.id()])
@@ -741,7 +727,7 @@ impl Container<'_> {
     }
 
     /// Start the container in detached mode (without `-a`).
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn start(&self) -> Result<(), CommandError> {
         Command::new(self.workspace, "docker")
             .args(["start", self.id()])
@@ -770,10 +756,7 @@ impl Container<'_> {
     }
 
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(container_id = %self.id(), capture))
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn run_command(
         &mut self,
         command: SandboxCommand,
@@ -846,7 +829,7 @@ impl Container<'_> {
     /// stored id is taken (so subsequent calls — including the one in
     /// [`Drop`] — are no-ops). On failure the id is restored so [`Drop`]
     /// (or a later call) can retry.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     fn delete(&mut self) -> Result<(), CommandError> {
         let Some(id) = self.id.take() else {
             return Ok(());
@@ -969,24 +952,7 @@ impl<'w> Sandbox<'w> {
     }
 
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            skip_all,
-            fields(
-                image = %self.workspace.sandbox_image().name,
-                mounts = self.builder.mounts.len(),
-                memory_limit = ?self.builder.memory_limit,
-                cpu_limit = ?self.builder.cpu_limit,
-                cpuset_cpus = ?self.builder.cpuset_cpus,
-                enable_networking = self.builder.enable_networking,
-                docker_runtime = ?self.builder.docker_runtime,
-                capture,
-                timeout_secs = ?timeout.map(|timeout| timeout.as_secs()),
-                no_output_timeout_secs = ?no_output_timeout.map(|timeout| timeout.as_secs()),
-            )
-        )
-    )]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "debug"))]
     pub(crate) fn run(
         &mut self,
         command: SandboxCommand,

@@ -215,6 +215,7 @@ impl BuildDirectory {
         feature = "tracing",
         tracing::instrument(
             skip_all,
+            level = "debug",
             fields(
                 build_dir = %self.name,
                 krate = %krate,
@@ -256,13 +257,7 @@ impl BuildDirectory {
 
         let res = {
             #[cfg(feature = "tracing")]
-            let _entered = tracing::info_span!(
-                "build.user_callback",
-                build_dir = %self.name,
-                krate = %krate,
-                toolchain = %toolchain,
-            )
-            .entered();
+            let _entered = tracing::debug_span!("build.user_callback").entered();
 
             f(&Build {
                 dir: self,
