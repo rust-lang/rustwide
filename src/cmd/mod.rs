@@ -706,14 +706,10 @@ where
     let binary = binary.as_ref();
     let binary_name = Path::new(binary).file_name().unwrap_or(binary);
 
-    let mut command = OsString::from("\"");
-    command.push(binary_name);
-    command.push("\"");
+    let mut command = OsString::from(format!("{:?}", binary_name));
 
     for arg in args {
-        command.push(" \"");
-        command.push(arg.as_ref());
-        command.push("\"");
+        command.push(format!(" {:?}", arg.as_ref()));
     }
     command
 }
