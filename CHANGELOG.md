@@ -5,6 +5,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.27.0] - 2026-09-16
+
+* add CI check for MSRV, fix errors
+
+* Add `Add` and `AddAssign` implementations for `SandboxStatistics`, combining
+  statistics by retaining the highest observed peak memory.
+
+* Add `Isolation` and `SandboxBuilder::isolation` to select Docker container
+  isolation. On Windows, process and Hyper-V isolation can now be selected;
+  by default Rustwide leaves the choice to the Docker daemon.
+
+* Add `logging::is_initialized` to check whether Rustwide logging has been
+  initialized before capturing logs.
+
+* Add support for arbitrary sparse registries through `Crate::sparse_registry`
+  and use Cargo's sparse index for crates.io. Git-indexed registries are now
+  exposed as `GitRegistry`; the existing `AlternativeRegistry` and
+  `Crate::registry` names remain compatibility aliases.
+
+* Simplify tracing spans and log executed commands using their program name and
+  arguments rather than the full host path.
+
 ## [0.26.0] - 2026-08-13
 
 * Add `extra_cargo_args` support for prepare phase
