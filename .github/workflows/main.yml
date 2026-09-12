@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Install Rust stable
         run: |
@@ -28,6 +28,19 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --all --all-features -- -Dwarnings
+
+  msrv:
+    name: MSRV (Rust 1.89)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v7
+
+      - name: Install Rust 1.89
+        run: rustup toolchain install --profile minimal 1.89
+
+      - name: Check with MSRV
+        run: cargo +1.89 check --workspace --all-targets --all-features
 
   test:
     name: Test
@@ -53,7 +66,7 @@ jobs:
             docker_runtime: runsc
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Install Rust stable
         run: |
