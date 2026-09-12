@@ -472,10 +472,10 @@ mod tests {
         let candidates = parse(["7:memory:/docker/v1", "0::/docker/v2"]);
 
         let chosen = HostCgroup::choose_usable(candidates, |path| {
-            path == "/sys/fs/cgroup/memory/docker/v1/memory.max_usage_in_bytes"
-                || path == "/sys/fs/cgroup/memory/docker/v1/memory.oom_control"
-                || path == "/sys/fs/cgroup/docker/v2/memory.peak"
-                || path == "/sys/fs/cgroup/docker/v2/memory.events"
+            path == Path::new("/sys/fs/cgroup/memory/docker/v1/memory.max_usage_in_bytes")
+                || path == Path::new("/sys/fs/cgroup/memory/docker/v1/memory.oom_control")
+                || path == Path::new("/sys/fs/cgroup/docker/v2/memory.peak")
+                || path == Path::new("/sys/fs/cgroup/docker/v2/memory.events")
         })
         .unwrap();
 
@@ -494,8 +494,8 @@ mod tests {
         let candidates = parse(["7:memory:/docker/v1", "0::/docker/v2"]);
 
         let chosen = HostCgroup::choose_usable(candidates, |path| {
-            path == "/sys/fs/cgroup/docker/v2/memory.peak"
-                || path == "/sys/fs/cgroup/docker/v2/memory.events"
+            path == Path::new("/sys/fs/cgroup/docker/v2/memory.peak")
+                || path == Path::new("/sys/fs/cgroup/docker/v2/memory.events")
         })
         .unwrap();
 
