@@ -374,11 +374,29 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
-test_prepare_error!(
-    test_invalid_cargotoml_content,
-    "invalid-cargotoml-content",
-    InvalidCargoTomlSyntax
-);
+#[test]
+fn test_invalid_cargotoml_content() {
+    runner::run("invalid-cargotoml-content", |run| {
+        let error = run
+            .run(crate::utils::sandbox_builder(), |_| Ok(()))
+            .err()
+            .expect("invalid package name should fail manifest validation");
+        assert!(matches!(
+            error.downcast_ref::<rustwide::PrepareError>(),
+            Some(rustwide::PrepareError::InvalidCargoTomlSyntax)
+        ));
+
+        let diagnostic = "invalid character `!` in package name";
+        assert!(matches!(
+            error.downcast_ref::<rustwide::cmd::CommandError>(),
+            Some(rustwide::cmd::CommandError::ExecutionFailed { stderr, .. })
+                if stderr.contains(diagnostic)
+        ));
+        let output = format!("{error:#}");
+        assert!(output.contains(diagnostic), "output: {output}");
+        Ok(())
+    });
+}
 
 test_prepare_error_stderr!(
     test_checksum_mismatch,
