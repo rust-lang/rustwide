@@ -57,14 +57,12 @@ impl<'a> Prepare<'a> {
             return Err(PrepareError::MissingCargoToml.into());
         }
 
-        let res = Command::new(self.workspace, self.toolchain.cargo())
+        Command::new(self.workspace, self.toolchain.cargo())
             .args(["metadata", "--manifest-path", "Cargo.toml", "--no-deps"])
             .current_directory(self.source_dir)
             .log_output(false)
-            .run();
-        if res.is_err() {
-            return Err(PrepareError::InvalidCargoTomlSyntax.into());
-        }
+            .run_capture()
+            .context(PrepareError::InvalidCargoTomlSyntax)?;
 
         Ok(())
     }
