@@ -10,6 +10,20 @@ on:
 
 jobs:
 
+  docs-rs:
+    name: docs.rs build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v7
+
+      - uses: rust-lang/docs.rs/github-actions/build@main
+        with:
+          strict: true
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
