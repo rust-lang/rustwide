@@ -14,10 +14,12 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["git-registries"]
+default = ["git-registries", "tls-native"]
 
 git-registries = ["dep:git2"]
 alternate-registries = ["git-registries"]
+tls-native = ["attohttpc/tls-native"]
+tls-rustls = ["attohttpc/tls-rustls"]
 unstable = []
 unstable-toolchain-ci = []
 tracing = ["dep:tracing"]
@@ -31,7 +33,7 @@ tokio-stream = { version = "0.1", features = ["io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tempfile = "3.0.0"
-attohttpc = "0.31.0"
+attohttpc = { version = "0.31.0", default-features = false, features = ["compress"] }
 flate2 = "1"
 tar = "0.4.0"
 percent-encoding = "2.1.0"

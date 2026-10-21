@@ -12,6 +12,18 @@ projects like [Crater] and [docs.rs]. It features:
 Rustwide was originally part of the [Crater] project, and it was extracted to
 let the whole community benefit from it.
 
+Rustwide uses native TLS by default. To use Rustls with WebPKI root certificates
+for HTTP requests, disable default features and enable `tls-rustls`:
+
+```toml
+rustwide = { version = "0.27", default-features = false, features = ["tls-rustls"] }
+```
+
+Enable `git-registries` as well if you need Git registry support. Its `git2`
+dependency uses a separate TLS backend and still requires OpenSSL on Linux.
+Features are additive: if `tls-native` is also enabled, it takes precedence over
+`tls-rustls`.
+
 Rustwide is licensed under both the MIT and Apache 2.0 licenses, allowing you
 to choose which one to adhere to.
 

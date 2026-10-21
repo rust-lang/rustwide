@@ -64,7 +64,8 @@ jobs:
         os: [ubuntu-22.04, windows-latest]
         cargo_flags:
           - ""
-          - "--no-default-features"
+          - "--no-default-features --features tls-native"
+          - "--no-default-features --features tls-rustls"
           - "--features tracing"
           - "--all-features"
         docker_runtime:
