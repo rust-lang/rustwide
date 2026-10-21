@@ -5,6 +5,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.28.0] - 2026-10-21
+
+* Add `tls-native` and `tls-rustls` features to select the TLS backend for HTTP
+  requests. Native TLS remains enabled by default. To use Rustls with WebPKI
+  root certificates, disable default features and enable `tls-rustls`; enable
+  `git-registries` separately if needed. Git registry support still uses its own
+  TLS backend and requires OpenSSL on Linux. If both TLS features are enabled,
+  native TLS takes precedence.
+
+* Preserve the underlying command error and captured output when `cargo metadata`
+  fails during manifest validation, improving diagnostics for invalid manifests.
+
+* Add a CI check for docs.rs documentation builds and test both TLS backends.
+
 ## [0.27.0] - 2026-09-16
 
 * add CI check for MSRV, fix errors
