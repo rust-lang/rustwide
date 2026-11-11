@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read, write or delete host files. Dangling symlinks are removed from the
   copied source. Crates from crates.io never contain symlinks, so this only
   matters for git crates and crates from other registries.
+* Fail the build with `PrepareError::InvalidCargoTomlSyntax` instead of
+  panicking when a crate's `Cargo.toml` has a non-string `path` in an
+  `[[example]]` or `[[test]]` target, or a `patch` / `patch.crates-io` entry
+  that isn't a table while patches are applied.
 
 ## [0.28.0] - 2026-10-21
 

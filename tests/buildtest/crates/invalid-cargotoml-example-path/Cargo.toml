@@ -1,0 +1,8 @@
+[package]
+name = "invalid-cargotoml-example-path"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "example"
+path = 1

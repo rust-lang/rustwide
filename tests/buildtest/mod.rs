@@ -374,6 +374,14 @@ test_prepare_error!(
     InvalidCargoTomlSyntax
 );
 
+// A non-string `path` used to panic while tweaking the manifest, now cargo
+// rejects it.
+test_prepare_error!(
+    test_invalid_cargotoml_example_path,
+    "invalid-cargotoml-example-path",
+    InvalidCargoTomlSyntax
+);
+
 #[test]
 fn test_invalid_cargotoml_content() {
     runner::run("invalid-cargotoml-content", |run| {
