@@ -2,7 +2,7 @@ use crate::cmd::{Command, CommandError, ProcessLinesActions};
 use crate::{Crate, Toolchain, Workspace, build::CratePatch};
 use anyhow::Context as _;
 use log::info;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use toml::{
     Value,
     value::{Array, Table},
@@ -426,6 +426,16 @@ pub enum PrepareError {
     /// cargo rejected (generating) the lockfile
     #[error("the crate has a broken lockfile: \n\n{0}")]
     InvalidCargoLock(String),
+    /// The crate source contains a symlink that points outside of the source
+    /// directory, or can't be resolved. Following it on the host could read,
+    /// write or delete host files.
+    ///
+    /// Contains the path of the symlink, relative to the source directory. It
+    /// is escaped in the error message, but not in this field.
+    #[error(
+        "the crate contains a symlink that escapes its source directory or can't be resolved: {0:?}"
+    )]
+    PathEscapesSource(PathBuf),
     /// Uncategorized error
     #[doc(hidden)]
     #[error("uncategorized prepare error")]

@@ -5,6 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+* `Crate::copy_source_to`, and with it every build, now fails with the new
+  `PrepareError::PathEscapesSource` when the crate source contains a symlink
+  that points outside of the source directory or can't be resolved.
+  Previously the host-side prepare step followed such symlinks, which could
+  read, write or delete host files. Dangling symlinks are removed from the
+  copied source. Crates from crates.io never contain symlinks, so this only
+  matters for git crates and crates from other registries.
+
 ## [0.28.0] - 2026-10-21
 
 * Add `tls-native` and `tls-rustls` features to select the TLS backend for HTTP
