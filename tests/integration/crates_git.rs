@@ -1,6 +1,8 @@
 use anyhow::{anyhow, bail};
 use rustwide::cmd::{Command, CommandError};
 use rustwide::{Crate, PrepareError, Toolchain, Workspace};
+#[cfg(unix)]
+use std::path::{Path, PathBuf};
 
 #[test]
 fn test_fetch() -> anyhow::Result<()> {
@@ -44,6 +46,100 @@ fn test_fetch() -> anyhow::Result<()> {
     krate.fetch(&workspace)?;
     assert_eq!(new_commit, krate.git_commit(&workspace).unwrap());
     assert_eq!(new_commit, cloned_commit()?);
+
+    Ok(())
+}
+
+/// Build the crate from `repo`, expecting `PrepareError::PathEscapesSource`,
+/// and return its path.
+#[cfg(unix)]
+fn escaping_symlink_reported_by_build(
+    workspace: &Workspace,
+    repo: &Repo,
+    build_dir: &str,
+) -> anyhow::Result<PathBuf> {
+    let toolchain = Toolchain::dist("stable");
+    let krate = Crate::git(&repo.serve()?);
+    krate.fetch(workspace)?;
+
+    let mut dir = workspace.build_dir(build_dir);
+    dir.purge()?;
+    let err = dir
+        .build(&toolchain, &krate, crate::utils::sandbox_builder())
+        .run(|_| Ok(()))
+        .err()
+        .expect("a symlink escaping the source dir should fail the build");
+
+    // the rejected source isn't left behind
+    let source_dir = crate::utils::workspace_path("integration")
+        .join("builds")
+        .join(build_dir)
+        .join("source");
+    assert!(!source_dir.exists(), "{source_dir:?} still exists");
+
+    match err.downcast_ref::<PrepareError>() {
+        Some(PrepareError::PathEscapesSource(path)) => Ok(path.clone()),
+        other => panic!("expected PrepareError::PathEscapesSource, got {other:?}: {err:?}"),
+    }
+}
+
+#[test]
+#[cfg(unix)]
+fn test_symlinked_cargo_dir_escaping_source_dir_fails_build() -> anyhow::Result<()> {
+    use std::{fs, os::unix};
+
+    let workspace = crate::utils::init_workspace()?;
+
+    // A host directory outside of the crate source.
+    let host = tempfile::tempdir()?;
+    let host_config = host.path().join("config");
+    fs::write(&host_config, "host config")?;
+
+    // Without the fix, preparing the crate deletes `host/config`.
+    let mut repo = Repo::new(&workspace)?;
+    unix::fs::symlink(host.path(), repo.source.path().join(".cargo"))?;
+    repo.commit(&workspace)?;
+
+    let path = escaping_symlink_reported_by_build(
+        &workspace,
+        &repo,
+        "integration-crates_git-test_symlinked_cargo_dir",
+    )?;
+    assert_eq!(path, Path::new(".cargo"));
+    assert_eq!(fs::read_to_string(&host_config)?, "host config");
+
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn test_symlinked_manifest_escaping_source_dir_fails_build() -> anyhow::Result<()> {
+    use std::{fs, os::unix};
+
+    const HOST_MANIFEST: &str =
+        "[package]\nname = \"victim\"\nversion = \"1.0.0\"\nworkspace = \"/sensitive\"\n";
+
+    let workspace = crate::utils::init_workspace()?;
+
+    // A host file outside of the crate source.
+    let host = tempfile::tempdir()?;
+    let host_manifest = host.path().join("host.toml");
+    fs::write(&host_manifest, HOST_MANIFEST)?;
+
+    // Without the fix, preparing the crate rewrites `host.toml`.
+    let mut repo = Repo::new(&workspace)?;
+    let manifest = repo.source.path().join("Cargo.toml");
+    fs::remove_file(&manifest)?;
+    unix::fs::symlink(&host_manifest, &manifest)?;
+    repo.commit(&workspace)?;
+
+    let path = escaping_symlink_reported_by_build(
+        &workspace,
+        &repo,
+        "integration-crates_git-test_symlinked_manifest",
+    )?;
+    assert_eq!(path, Path::new("Cargo.toml"));
+    assert_eq!(fs::read_to_string(&host_manifest)?, HOST_MANIFEST);
 
     Ok(())
 }

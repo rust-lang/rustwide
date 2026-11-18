@@ -114,6 +114,14 @@ impl Crate {
     /// copy the source of this crate to the specified destination path.
     ///
     /// Will delete the target directory if it already exists.
+    ///
+    /// Fails with [`PrepareError::PathEscapesSource`] when the source contains
+    /// a symlink that points outside of it or can't be resolved; the
+    /// destination is removed again. Dangling symlinks are removed. Crates
+    /// from crates.io never contain symlinks, but git crates and crates from
+    /// other registries can.
+    ///
+    /// [`PrepareError::PathEscapesSource`]: crate::PrepareError::PathEscapesSource
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(skip_all, fields(krate = %self, dest = %dest.display()))
@@ -126,7 +134,15 @@ impl Crate {
             );
             crate::utils::remove_dir_all(dest)?;
         }
-        self.as_trait().copy_source_to(workspace, dest)
+        self.as_trait().copy_source_to(workspace, dest)?;
+
+        // Has to run before anything else touches the copied source.
+        if let Err(err) = crate::utils::sanitize_symlinks(dest) {
+            // Don't leave a source with escaping symlinks behind.
+            let _ = crate::utils::remove_dir_all(dest);
+            return Err(err);
+        }
+        Ok(())
     }
 
     fn as_trait(&self) -> &dyn CrateTrait {
