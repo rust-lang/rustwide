@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.29.0] - 2026-11-19
+
 * `Crate::copy_source_to`, and with it every build, now fails with the new
   `PrepareError::PathEscapesSource` when the crate source contains a symlink
   that points outside of the source directory or can't be resolved.
