@@ -1038,7 +1038,6 @@ fn format_cpuset_cpus(cpus: &RangeInclusive<usize>) -> String {
 mod tests {
     use super::*;
     use crate::{Workspace, WorkspaceBuilder, cmd::SandboxImage};
-    use rand::{RngExt as _, distr::Alphanumeric};
     use std::{env, path::Path};
     use tempfile::tempdir;
     use test_case::test_case;
@@ -1115,14 +1114,8 @@ mod tests {
     }
 
     fn init_test_workspace(name: &str) -> anyhow::Result<Workspace> {
-        // Use a random string at the end to avoid conflicts if multiple tests use the same source crate.
-        let suffix: String = rand::rng()
-            .sample_iter(&Alphanumeric)
-            .take(10)
-            .map(char::from)
-            .collect();
-
-        let workspace_path = Path::new(".workspaces").join(name).join(suffix);
+        // Shared across tests and runs; init is guarded by a file lock, so this is safe.
+        let workspace_path = Path::new(".workspaces").join(name);
         let mut builder = WorkspaceBuilder::new(&workspace_path, USER_AGENT).fast_init(true);
 
         if env::var("RUSTWIDE_TEST_INSIDE_DOCKER").is_ok() {
