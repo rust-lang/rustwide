@@ -10,12 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that points outside of the source directory or can't be resolved.
   Previously the host-side prepare step followed such symlinks, which could
   read, write or delete host files. Dangling symlinks are removed from the
-  copied source. Crates from crates.io never contain symlinks, so this only
-  matters for git crates and crates from other registries.
+  copied source. Registry crates can't contain symlinks, so this only matters
+  for git crates.
 * Fail the build with `PrepareError::InvalidCargoTomlSyntax` instead of
   panicking when a crate's `Cargo.toml` has a non-string `path` in an
   `[[example]]` or `[[test]]` target, or a `patch` / `patch.crates-io` entry
   that isn't a table while patches are applied.
+* Fail the build with the new `PrepareError::InvalidArchiveEntry` when a
+  registry crate tarball contains entries outside of its `{name}-{version}/`
+  directory, entries with `..` components, or entries that are neither regular
+  files nor directories (e.g. symlinks or hard links), matching what cargo
+  accepts when extracting a crate. Previously such entries were unpacked
+  as-is, which could write files outside of the source directory on the host.
 
 ## [0.28.0] - 2026-10-21
 

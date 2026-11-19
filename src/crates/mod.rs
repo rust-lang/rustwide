@@ -115,12 +115,15 @@ impl Crate {
     ///
     /// Will delete the target directory if it already exists.
     ///
+    /// Fails with [`PrepareError::InvalidArchiveEntry`] when a registry crate
+    /// tarball contains an entry cargo wouldn't extract, like a symlink.
+    ///
     /// Fails with [`PrepareError::PathEscapesSource`] when the source contains
     /// a symlink that points outside of it or can't be resolved; the
-    /// destination is removed again. Dangling symlinks are removed. Crates
-    /// from crates.io never contain symlinks, but git crates and crates from
-    /// other registries can.
+    /// destination is removed again. Dangling symlinks are removed. Only git
+    /// crates can contain symlinks.
     ///
+    /// [`PrepareError::InvalidArchiveEntry`]: crate::PrepareError::InvalidArchiveEntry
     /// [`PrepareError::PathEscapesSource`]: crate::PrepareError::PathEscapesSource
     #[cfg_attr(
         feature = "tracing",

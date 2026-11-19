@@ -118,8 +118,8 @@ fn improve_remove_error(error: std::io::Error, path: &Path) -> std::io::Error {
 /// `base` or can't be resolved.
 ///
 /// The source is used on the host, outside the sandbox, so following such a
-/// symlink could read, write or delete host files. Crates from crates.io never
-/// contain symlinks, but git crates and crates from other registries can.
+/// symlink could read, write or delete host files. Registry crates can't
+/// contain symlinks, but git crates can.
 ///
 /// Dangling symlinks are removed instead of reported: they are common (e.g.
 /// links into submodules), but writing through them would create the target.
