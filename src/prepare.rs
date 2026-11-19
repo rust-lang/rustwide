@@ -418,6 +418,17 @@ pub enum PrepareError {
         "the crate contains a symlink that escapes its source directory or can't be resolved: {0:?}"
     )]
     PathEscapesSource(PathBuf),
+    /// The crate tarball contains an entry that can't be unpacked safely: an
+    /// entry outside of the `{name}-{version}/` directory, a path with `..`,
+    /// or an entry that is neither a regular file nor a directory (e.g. a
+    /// symlink or hard link).
+    #[error("the crate archive contains an invalid entry {path:?}: {reason}")]
+    InvalidArchiveEntry {
+        /// Path of the entry inside the archive.
+        path: PathBuf,
+        /// Why the entry was rejected.
+        reason: String,
+    },
     /// Uncategorized error
     #[doc(hidden)]
     #[error("uncategorized prepare error")]
